@@ -1,0 +1,50 @@
+{% load static %}
+<!doctype html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Sistema{% endblock %} · Sistema</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.8/cdn.min.js" defer></script>
+</head>
+<body class="h-full bg-slate-950 text-slate-200 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <div class="flex min-h-full" x-data="{ abierto: false }">
+
+    <aside
+      class="fixed inset-y-0 left-0 z-20 w-64 shrink-0 border-r border-slate-800 bg-slate-900 p-5 transition-transform md:static md:translate-x-0"
+      :class="abierto ? 'translate-x-0' : '-translate-x-full'"
+    >
+      <a href="{% url 'core:index' %}" class="block text-lg font-semibold text-slate-100">Sistema</a>
+      <p class="mt-1 text-xs uppercase tracking-wide text-slate-500">Operador · Nivel 45</p>
+
+      <nav class="mt-8 space-y-1 text-sm">
+        {% url 'core:index' as url_panel %}
+        {% url 'missions:index' as url_misiones %}
+        {% url 'progression:index' as url_progresion %}
+        {% url 'business:index' as url_negocio %}
+        {% url 'review:index' as url_revision %}
+        {% url 'wisdom:index' as url_consejo %}
+        <a href="{{ url_panel }}" class="block rounded-md px-3 py-2 {% if request.path == url_panel %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Panel</a>
+        <a href="{{ url_misiones }}" class="block rounded-md px-3 py-2 {% if request.path == url_misiones %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Misiones</a>
+        <a href="{{ url_progresion }}" class="block rounded-md px-3 py-2 {% if request.path == url_progresion %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Progresión</a>
+        <a href="{{ url_negocio }}" class="block rounded-md px-3 py-2 {% if request.path == url_negocio %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Negocio</a>
+        <a href="{{ url_revision }}" class="block rounded-md px-3 py-2 {% if request.path == url_revision %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Revisión</a>
+        <a href="{{ url_consejo }}" class="block rounded-md px-3 py-2 {% if request.path == url_consejo %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Consejo</a>
+      </nav>
+    </aside>
+
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header class="flex items-center gap-3 border-b border-slate-800 px-5 py-3 md:hidden">
+        <button type="button" class="rounded-md border border-slate-700 px-3 py-1 text-slate-300" @click="abierto = !abierto">Menú</button>
+        <span class="text-sm text-slate-400">Sistema</span>
+      </header>
+
+      <main class="flex-1 p-6 md:p-10">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+/* Rastrea las plantillas del proyecto para generar solo las clases usadas. */
+@source "../../templates";
+@source "../../core";
+@source "../../missions";
+@source "../../progression";
+@source "../../business";
+@source "../../review";
+@source "../../wisdom";

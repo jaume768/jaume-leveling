@@ -1,0 +1,55 @@
+from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_POST
+
+from core import services as core_services
+
+from . import services
+from .models import Mission
+
+
+def index(request):
+    """Listado completo de misiones por tipo."""
+    misiones = Mission.objects.filter(activa=True).order_by("tipo", "orden", "titulo")
+    return render(request, "missions/index.html", {"misiones": misiones})
+
+
+def _fragmento(request, error: str = "", mision=None):
+    """Devuelve el bloque de misiones ya actualizado (respuesta HTMX)."""
+    minimo = request.POST.get("minimo") == "1" or request.GET.get("minimo") == "1"
+    contexto = core_services.contexto_panel(minimo=minimo)
+    contexto.update({"error": error, "mision_con_error": mision})
+    return render(request, "missions/_bloque.html", contexto)
+
+
+def bloque(request):
+    """Refresca el bloque de misiones: lo usa el boton de dia minimo."""
+    return _fragmento(request)
+
+
+@require_POST
+def completar(request, pk):
+    """Marca una mision como hecha y devuelve el bloque actualizado."""
+    mision = get_object_or_404(Mission, pk=pk, activa=True)
+    try:
+        services.completar_mision(mision, evidencia=request.POST.get("evidencia", ""))
+    except services.EvidenciaRequerida:
+        return _fragmento(
+            request,
+            error="Esa mision no se da por hecha sin evidencia.",
+            mision=mision,
+        )
+    return _fragmento(request)
+
+
+def evidencia(request, pk):
+    """Modal para aportar la evidencia de una mision."""
+    mision = get_object_or_404(Mission, pk=pk, activa=True)
+    minimo = request.GET.get("minimo") == "1"
+    return render(
+        request, "missions/_modal_evidencia.html", {"mision": mision, "modo_minimo": minimo}
+    )
+
+
+def cerrar_modal(request):
+    """Vacia el hueco del modal."""
+    return render(request, "missions/_modal_vacio.html")

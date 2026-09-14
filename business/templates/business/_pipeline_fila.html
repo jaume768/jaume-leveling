@@ -1,0 +1,63 @@
+<tr id="deal-{{ fila.deal.pk }}"
+    class="border-t border-slate-800 align-top
+      {% if fila.alerta == 'rojo' %}bg-red-950/30{% elif fila.alerta == 'ambar' %}bg-amber-950/25{% endif %}">
+
+  <td class="px-3 py-2">
+    <p class="text-slate-100">{{ fila.deal.negocio }}</p>
+    {% if fila.deal.contacto %}<p class="text-xs text-slate-500">{{ fila.deal.contacto }}</p>{% endif %}
+    {% if fila.deal.canal %}<p class="text-xs text-slate-600">{{ fila.deal.canal }}</p>{% endif %}
+  </td>
+
+  {% if editando %}
+    <td class="px-3 py-2" colspan="3">
+      <form hx-post="{% url 'business:deal_guardar' fila.deal.pk %}"
+            hx-target="#deal-{{ fila.deal.pk }}"
+            hx-swap="outerHTML"
+            class="space-y-2">
+        {% csrf_token %}
+        <div class="grid gap-2 sm:grid-cols-3">
+          <div>{{ form.estado }}{% for e in form.estado.errors %}<p class="mt-1 text-xs text-red-400">{{ e }}</p>{% endfor %}</div>
+          <div>{{ form.proximo_paso }}</div>
+          <div>{{ form.fecha_proximo_paso }}</div>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
+                  hx-get="{% url 'business:deal_fila' fila.deal.pk %}" hx-target="#deal-{{ fila.deal.pk }}" hx-swap="outerHTML">Cancelar</button>
+          <button type="submit" class="rounded-md bg-slate-200 px-2 py-1 text-xs font-medium text-slate-900 hover:bg-white">Guardar</button>
+        </div>
+      </form>
+    </td>
+  {% else %}
+    <td class="px-3 py-2">
+      <span class="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-300">{{ fila.deal.get_estado_display }}</span>
+      <p class="mt-1 text-xs text-slate-500">{{ fila.deal.valor_potencial|floatformat:0 }} €</p>
+    </td>
+
+    <td class="px-3 py-2">
+      <p class="text-sm text-slate-300">{{ fila.deal.proximo_paso|default:"—" }}</p>
+      <p class="text-xs text-slate-500">{{ fila.deal.fecha_proximo_paso|date:"d/m/Y"|default:"sin fecha" }}</p>
+    </td>
+
+    <td class="px-3 py-2 whitespace-nowrap">
+      {% if fila.dias is None %}
+        <span class="text-xs text-slate-600">cerrada</span>
+      {% else %}
+        <span class="text-sm {% if fila.alerta == 'rojo' %}text-red-300{% elif fila.alerta == 'ambar' %}text-amber-300{% else %}text-slate-400{% endif %}">
+          {{ fila.dias }} d{% if fila.alerta == 'rojo' %} ⚠{% endif %}
+        </span>
+      {% endif %}
+    </td>
+  {% endif %}
+
+  <td class="px-3 py-2 text-right whitespace-nowrap">
+    {% if not editando %}
+      <button type="button" class="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+              hx-post="{% url 'business:deal_toque' fila.deal.pk %}"
+              hx-target="#deal-{{ fila.deal.pk }}" hx-swap="outerHTML"
+              title="Marca el toque de hoy y registra la acción comercial">Toque</button>
+      <button type="button" class="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800"
+              hx-get="{% url 'business:deal_editar' fila.deal.pk %}"
+              hx-target="#deal-{{ fila.deal.pk }}" hx-swap="outerHTML">Editar</button>
+    {% endif %}
+  </td>
+</tr>

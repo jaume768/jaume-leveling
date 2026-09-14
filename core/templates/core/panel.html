@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Panel{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-6">
+
+  {# --- Cabecera: rango, nivel y progreso --- #}
+  <section class="rounded-lg border border-slate-800 bg-slate-900 p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">
+          {% if rango %}Rango {{ rango.nombre }}{% else %}Sin rango asignado{% endif %}
+        </p>
+        <h1 class="text-2xl font-semibold text-slate-100">Nivel {{ perfil.nivel }}</h1>
+      </div>
+      <p class="text-sm text-slate-400">
+        {{ perfil.xp_en_nivel }} / {{ perfil.xp_en_nivel|add:perfil.xp_para_siguiente_nivel }} XP
+        · faltan <span class="text-slate-200">{{ perfil.xp_para_siguiente_nivel }}</span>
+      </p>
+    </div>
+
+    <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+      <div class="h-full bg-slate-300" style="width: {{ perfil.progreso_nivel_pct }}%"></div>
+    </div>
+
+    {% if rango and rango.jefe %}
+      <p class="mt-4 border-l-2 border-amber-600 pl-3 text-sm text-slate-300">
+        <span class="text-xs uppercase tracking-wide text-amber-600">Jefe activo</span><br>
+        {{ rango.jefe }}
+      </p>
+    {% endif %}
+  </section>
+
+  {# --- Métrica maestra --- #}
+  <section class="rounded-lg border border-slate-700 bg-slate-900 p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Tarifa efectiva del mes · métrica maestra</p>
+        <p class="mt-1 text-3xl font-semibold text-slate-100">
+          {% if hay_horas %}{{ tarifa_efectiva|floatformat:2 }} <span class="text-lg font-normal text-slate-500">€/h</span>
+          {% else %}<span class="text-lg font-normal text-slate-600">sin horas registradas este mes</span>{% endif %}
+        </p>
+      </div>
+      <p class="text-sm text-slate-400">Objetivo: 40 €/h o más</p>
+    </div>
+    <p class="mt-2 text-xs text-slate-500">
+      € cobrados del mes ÷ horas reales. Es la única que no se puede engañar.
+    </p>
+  </section>
+
+  {# --- Tres cifras: racha, XP de la semana, recurrente --- #}
+  <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Racha comercial</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ racha }} <span class="text-base font-normal text-slate-500">días</span></p>
+      <p class="mt-1 text-xs text-slate-500">
+        {% if multiplicador > 1 %}Multiplicador ×{{ multiplicador }}{% else %}×1,00 · a los 5 días sube a ×1,10{% endif %}
+      </p>
+    </div>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">XP de la semana</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ xp_semana }} <span class="text-base font-normal text-slate-500">/ {{ objetivo_xp_semanal }}</span></p>
+      <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+        <div class="h-full bg-slate-300" style="width: {{ xp_semana_pct }}%"></div>
+      </div>
+    </div>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Recurrente activo</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ recurrente|floatformat:0 }} <span class="text-base font-normal text-slate-500">€/mes</span></p>
+      <p class="mt-1 text-xs text-slate-500">Objetivo 90 días: 450 €/mes</p>
+    </div>
+  </section>
+
+  {# --- Alertas: lo que cuesta dinero hoy --- #}
+  {% if alertas or penalizaciones or aviso_revision %}
+    <section class="space-y-3">
+      {% if aviso_revision %}
+        <div class="rounded-lg border border-amber-800 bg-amber-950/40 p-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="font-semibold text-amber-200">{{ aviso_revision.texto }}</p>
+            <a href="{% url 'review:index' %}" class="text-xs text-amber-400 underline">
+              {% if aviso_revision.borrador %}Abrir borrador{% else %}Empezar{% endif %}
+            </a>
+          </div>
+        </div>
+      {% endif %}
+      {% for alerta in alertas %}
+        <div class="rounded-lg border border-red-900 bg-red-950/40 p-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="font-semibold text-red-300">{{ alerta.titulo }}</p>
+            <a href="{{ alerta.url }}" class="text-xs text-red-400 underline">Abrir</a>
+          </div>
+          <p class="mt-1 text-sm text-red-200/80">{{ alerta.detalle }}</p>
+          <ul class="mt-2 space-y-0.5 text-xs text-red-200/60">
+            {% for item in alerta.items %}<li>{{ item }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+
+      {% for penalizacion in penalizaciones %}
+        <div class="rounded-lg border border-red-900 bg-red-950/40 p-4">
+          <p class="font-semibold text-red-300">{{ penalizacion.descripcion }} ({{ penalizacion.xp }} XP)</p>
+          <p class="mt-1 text-sm text-red-200/80">{{ penalizacion.correccion_exigida }}</p>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {# --- Misiones (fragmento HTMX) --- #}
+  {% include "missions/_bloque.html" %}
+
+  {# --- Hueco del modal de evidencia --- #}
+  <div id="modal"></div>
+
+  {# --- Máxima: contextual si algo falla, del día si no --- #}
+  {% if consejo.maxima %}
+    <section class="rounded-lg border p-5 {% if consejo.contextual %}border-amber-800 bg-amber-950/30{% else %}border-slate-800 bg-slate-900{% endif %}">
+      <p class="text-xs uppercase tracking-wide {% if consejo.contextual %}text-amber-500{% else %}text-slate-500{% endif %}">
+        {% if consejo.contextual %}Máxima para lo que está pasando{% else %}Máxima del día{% endif %}
+        {% if consejo.maxima.libro %} · {{ consejo.maxima.libro }}{% endif %}
+      </p>
+      {% if consejo.motivo %}<p class="mt-1 text-sm text-amber-200/90">{{ consejo.motivo }}</p>{% endif %}
+      <p class="mt-2 text-lg {% if consejo.contextual %}text-amber-100{% else %}text-slate-100{% endif %}">{{ consejo.maxima.texto }}</p>
+      {% if consejo.maxima.aplicacion %}
+        <p class="mt-2 text-sm {% if consejo.contextual %}text-amber-200/70{% else %}text-slate-400{% endif %}">{{ consejo.maxima.aplicacion }}</p>
+      {% endif %}
+      <a href="{% url 'wisdom:index' %}" class="mt-3 inline-block text-xs text-slate-500 underline">Ver todas</a>
+    </section>
+  {% endif %}
+
+</div>
+{% endblock %}

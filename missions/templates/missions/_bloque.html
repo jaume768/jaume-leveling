@@ -1,0 +1,99 @@
+{# Bloque de misiones del panel. Se devuelve entero en cada respuesta HTMX. #}
+<section id="bloque-misiones" class="rounded-lg border border-slate-800 bg-slate-900 p-5">
+
+  <div class="flex flex-wrap items-baseline justify-between gap-3">
+    <h2 class="text-lg font-semibold text-slate-100">
+      {% if misiones.dia_protegido %}Día protegido
+      {% elif misiones.modo_minimo %}Día mínimo
+      {% else %}Misiones de hoy{% endif %}
+    </h2>
+
+    {% if not misiones.dia_protegido %}
+      <div class="flex items-center gap-3 text-sm">
+        <span class="text-slate-500">{{ misiones.hechas }}/{{ misiones.total }}</span>
+        {% if misiones.modo_minimo %}
+          <button type="button"
+                  class="rounded-md border border-slate-700 px-3 py-1 text-slate-300 hover:bg-slate-800"
+                  hx-get="{% url 'missions:bloque' %}"
+                  hx-target="#bloque-misiones"
+                  hx-swap="outerHTML">Volver al día completo</button>
+        {% else %}
+          <button type="button"
+                  class="rounded-md border border-slate-700 px-3 py-1 text-slate-400 hover:bg-slate-800"
+                  hx-get="{% url 'missions:bloque' %}?minimo=1"
+                  hx-target="#bloque-misiones"
+                  hx-swap="outerHTML">Día mínimo</button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if misiones.dia_protegido %}
+    <p class="mt-4 text-slate-300">
+      Hoy es miércoles. No hay misiones, ni siquiera la mínima.
+    </p>
+    <p class="mt-2 text-sm text-slate-500">
+      El día no genera XP, no rompe la racha y no puede penalizar.
+      Si el sistema no respeta tus límites, lo abandonarás en seis semanas.
+    </p>
+
+  {% else %}
+
+    {% if error %}
+      <p class="mt-4 rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-sm text-red-300">{{ error }}</p>
+    {% endif %}
+
+    {% if misiones.modo_minimo %}
+      <p class="mt-2 text-sm text-slate-500">Lo imprescindible. Mantiene la racha y nada más.</p>
+    {% endif %}
+
+    <ul class="mt-4 divide-y divide-slate-800">
+      {% for fila in misiones.filas %}
+        <li class="flex items-start gap-3 py-3">
+
+          {% if fila.completada %}
+            <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-600 bg-slate-700 text-xs text-slate-200">✓</span>
+          {% elif fila.mision.evidencia_requerida %}
+            <button type="button"
+                    class="mt-0.5 h-5 w-5 shrink-0 rounded border border-slate-600 hover:border-slate-400"
+                    aria-label="Completar con evidencia"
+                    hx-get="{% url 'missions:evidencia' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
+                    hx-target="#modal"
+                    hx-swap="innerHTML"></button>
+          {% else %}
+            <button type="button"
+                    class="mt-0.5 h-5 w-5 shrink-0 rounded border border-slate-600 hover:border-slate-400"
+                    aria-label="Completar misión"
+                    hx-post="{% url 'missions:completar' fila.mision.pk %}"
+                    hx-vals='{"minimo": "{% if misiones.modo_minimo %}1{% else %}0{% endif %}"}'
+                    hx-target="#bloque-misiones"
+                    hx-swap="outerHTML"></button>
+          {% endif %}
+
+          <div class="min-w-0 flex-1">
+            <p class="{% if fila.completada %}text-slate-500 line-through{% else %}text-slate-100{% endif %}">
+              {{ fila.mision.titulo }}
+            </p>
+            <p class="mt-0.5 text-xs text-slate-500">
+              {{ fila.mision.definicion_terminada }}
+            </p>
+            <p class="mt-1 text-xs text-slate-600">
+              {{ fila.mision.xp }} XP
+              {% if fila.mision.tiempo_estimado_min %} · {{ fila.mision.tiempo_estimado_min }} min{% endif %}
+              · {{ fila.mision.get_tipo_display|lower }}
+              {% if fila.mision.evidencia_requerida %} · exige evidencia{% endif %}
+            </p>
+          </div>
+        </li>
+      {% empty %}
+        <li class="py-3 text-sm text-slate-500">
+          {% if misiones.modo_minimo %}
+            No hay misiones mínimas definidas.
+          {% else %}
+            Nada pendiente hoy.
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>

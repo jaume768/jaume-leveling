@@ -1,0 +1,10 @@
+{% if messages %}
+  <div class="mb-4 space-y-2">
+    {% for mensaje in messages %}
+      <p class="rounded-md border px-3 py-2 text-sm
+        {% if mensaje.level_tag == 'warning' %}border-amber-800 bg-amber-950/40 text-amber-200
+        {% elif mensaje.level_tag == 'error' %}border-red-900 bg-red-950/40 text-red-200
+        {% else %}border-slate-700 bg-slate-900 text-slate-300{% endif %}">{{ mensaje }}</p>
+    {% endfor %}
+  </div>
+{% endif %}

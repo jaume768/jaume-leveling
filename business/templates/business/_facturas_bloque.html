@@ -1,0 +1,75 @@
+<div id="facturas">
+  {% if vencidas %}
+    <div class="rounded-lg border border-red-900 bg-red-950/40 p-4">
+      <p class="font-semibold text-red-300">
+        {{ vencidas|length }} factura(s) vencida(s) · {{ importe_vencido|floatformat:0 }} €
+      </p>
+      <p class="mt-1 text-sm text-red-200/80">
+        {% if a_reclamar %}
+          {{ a_reclamar|length }} pasan de 15 días. Reclamación enviada antes de cualquier otra tarea.
+        {% else %}
+          Todavía dentro de los 15 días. Reclama al día quince, no al noventa.
+        {% endif %}
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Cobrado este mes</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ cobrado_mes|floatformat:0 }} <span class="text-base font-normal text-slate-500">€</span></p>
+    </div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Pendiente de cobro</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ pendiente_total|floatformat:0 }} <span class="text-base font-normal text-slate-500">€</span></p>
+    </div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Vencido</p>
+      <p class="mt-1 text-2xl font-semibold {% if importe_vencido %}text-red-300{% else %}text-slate-100{% endif %}">{{ importe_vencido|floatformat:0 }} <span class="text-base font-normal text-slate-500">€</span></p>
+    </div>
+  </div>
+
+  <div class="mt-4 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
+    <table class="w-full min-w-[42rem] text-left text-sm">
+      <thead class="text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-3 py-2 font-medium">Cliente</th>
+          <th class="px-3 py-2 font-medium">Concepto</th>
+          <th class="px-3 py-2 font-medium">Importe</th>
+          <th class="px-3 py-2 font-medium">Vencimiento</th>
+          <th class="px-3 py-2 font-medium">Estado</th>
+          <th class="px-3 py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for factura in facturas %}
+          <tr class="border-t border-slate-800 {% if factura.dias_vencida %}bg-red-950/30{% endif %}">
+            <td class="px-3 py-2 text-slate-100">{{ factura.client.nombre }}</td>
+            <td class="px-3 py-2 text-slate-400">{{ factura.concepto }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-slate-200">{{ factura.importe|floatformat:0 }} €</td>
+            <td class="px-3 py-2 whitespace-nowrap text-slate-400">{{ factura.vencimiento|date:"d/m/Y" }}</td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              {% if factura.cobrada %}
+                <span class="text-xs text-slate-500">cobrada {{ factura.fecha_cobro|date:"d/m" }}</span>
+              {% elif factura.dias_vencida %}
+                <span class="text-xs text-red-300">{{ factura.dias_vencida }} d vencida{% if factura.hay_que_reclamar %} · reclamar{% endif %}</span>
+              {% else %}
+                <span class="text-xs text-slate-400">pendiente</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-right">
+              {% if not factura.cobrada %}
+                <button type="button" class="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                        hx-post="{% url 'business:factura_cobrar' factura.pk %}"
+                        hx-target="#facturas" hx-swap="outerHTML"
+                        title="Registra el cobro y concede 1 XP por cada 10 €">Cobrada</button>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr class="border-t border-slate-800"><td colspan="6" class="px-3 py-6 text-center text-slate-500">Sin facturas todavía.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

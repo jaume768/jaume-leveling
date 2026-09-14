@@ -1,0 +1,11 @@
+{# Pestañas de la sección Negocio. #}
+<nav class="mb-6 flex flex-wrap gap-1 border-b border-slate-800 text-sm">
+  {% url 'business:pipeline' as u_pipeline %}
+  {% url 'business:facturas' as u_facturas %}
+  {% url 'business:clientes' as u_clientes %}
+  {% url 'business:proyectos' as u_proyectos %}
+  <a href="{{ u_pipeline }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'pipeline' %}border-slate-300 text-slate-100{% else %}border-transparent text-slate-500 hover:text-slate-300{% endif %}">Pipeline</a>
+  <a href="{{ u_facturas }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'facturas' %}border-slate-300 text-slate-100{% else %}border-transparent text-slate-500 hover:text-slate-300{% endif %}">Facturas</a>
+  <a href="{{ u_clientes }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'clientes' %}border-slate-300 text-slate-100{% else %}border-transparent text-slate-500 hover:text-slate-300{% endif %}">Clientes</a>
+  <a href="{{ u_proyectos }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'proyectos' %}border-slate-300 text-slate-100{% else %}border-transparent text-slate-500 hover:text-slate-300{% endif %}">Proyectos</a>
+</nav>

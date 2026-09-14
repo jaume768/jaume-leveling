@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Proyectos{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-6xl">
+  {% include "business/_nav.html" %}
+  {% include "business/_mensajes.html" %}
+  <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+    <h1 class="text-2xl font-semibold text-slate-100">Proyectos</h1>
+    <a href="{% url 'business:proyecto_nuevo' %}" class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">Nuevo proyecto</a>
+  </div>
+
+  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
+      <p class="text-xs uppercase tracking-wide text-slate-500">Tarifa efectiva del mes</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-100">
+        {% if hay_horas %}{{ tarifa_efectiva|floatformat:2 }} <span class="text-base font-normal text-slate-500">€/h</span>{% else %}<span class="text-slate-600">sin horas registradas</span>{% endif %}
+      </p>
+      <p class="mt-1 text-xs text-slate-500">Métrica maestra. Objetivo: 40 €/h o más.</p>
+    </div>
+    <div class="rounded-lg border p-4 {% if wip_excedido %}border-red-900 bg-red-950/40{% else %}border-slate-800 bg-slate-900{% endif %}">
+      <p class="text-xs uppercase tracking-wide {% if wip_excedido %}text-red-400{% else %}text-slate-500{% endif %}">Trabajo en curso</p>
+      <p class="mt-1 text-2xl font-semibold {% if wip_excedido %}text-red-300{% else %}text-slate-100{% endif %}">{{ activos }} <span class="text-base font-normal text-slate-500">/ {{ wip_maximo }}</span></p>
+      {% if wip_excedido %}<p class="mt-1 text-xs text-red-200/80">Cerrar o congelar uno. −100 XP mientras siga así.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="mt-4 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
+    <table class="w-full min-w-[44rem] text-left text-sm">
+      <thead class="text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-3 py-2 font-medium">Proyecto</th>
+          <th class="px-3 py-2 font-medium">Estado</th>
+          <th class="px-3 py-2 font-medium">Precio</th>
+          <th class="px-3 py-2 font-medium">Horas est. / reales</th>
+          <th class="px-3 py-2 font-medium">Tarifa efectiva</th>
+          <th class="px-3 py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for proyecto in proyectos %}
+          <tr class="border-t border-slate-800">
+            <td class="px-3 py-2">
+              <p class="text-slate-100">{{ proyecto.nombre }}</p>
+              <p class="text-xs text-slate-500">{{ proyecto.client.nombre }}</p>
+            </td>
+            <td class="px-3 py-2 text-slate-400">{{ proyecto.get_estado_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-slate-200">{{ proyecto.precio|floatformat:0 }} €</td>
+            <td class="px-3 py-2 whitespace-nowrap text-slate-400">
+              {{ proyecto.horas_estimadas|floatformat:"-1" }} / {{ proyecto.horas_reales|floatformat:"-1" }} h
+              {% if proyecto.horas_reales > proyecto.horas_estimadas and proyecto.horas_estimadas %}
+                <span class="block text-xs text-amber-400">fuera de estimación</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap">
+              {% if proyecto.tarifa_efectiva %}
+                <span class="{% if proyecto.tarifa_efectiva < 40 %}text-amber-300{% else %}text-slate-100{% endif %}">{{ proyecto.tarifa_efectiva|floatformat:2 }} €/h</span>
+              {% else %}
+                <span class="text-slate-600">—</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-right">
+              <a href="{% url 'business:proyecto_editar' proyecto.pk %}" class="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-400 hover:bg-slate-800">Editar</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr class="border-t border-slate-800"><td colspan="6" class="px-3 py-6 text-center text-slate-500">Sin proyectos todavía.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

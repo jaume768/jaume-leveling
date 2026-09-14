@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Clientes{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-6xl">
+  {% include "business/_nav.html" %}
+  {% include "business/_mensajes.html" %}
+  <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+    <h1 class="text-2xl font-semibold text-slate-100">Clientes</h1>
+    <a href="{% url 'business:cliente_nuevo' %}" class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">Nuevo cliente</a>
+  </div>
+
+  <section class="rounded-lg border border-slate-800 bg-slate-900 p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">Recurrente total</p>
+        <p class="mt-1 text-3xl font-semibold text-slate-100">{{ total_mrr|floatformat:0 }} <span class="text-lg font-normal text-slate-500">€/mes</span></p>
+      </div>
+      <p class="text-sm text-slate-400">
+        Objetivo 90 días: {{ objetivo|floatformat:0 }} €/mes
+        {% if falta %}· faltan <span class="text-slate-200">{{ falta|floatformat:0 }} €</span>{% else %}· <span class="text-slate-200">cumplido</span>{% endif %}
+      </p>
+    </div>
+    <div class="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+      <div class="h-full {% if falta %}bg-slate-300{% else %}bg-emerald-400{% endif %}" style="width: {{ pct_objetivo }}%"></div>
+    </div>
+  </section>
+
+  <div class="mt-4 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
+    <table class="w-full min-w-[38rem] text-left text-sm">
+      <thead class="text-xs uppercase tracking-wide text-slate-500">
+        <tr>
+          <th class="px-3 py-2 font-medium">Cliente</th>
+          <th class="px-3 py-2 font-medium">Sector</th>
+          <th class="px-3 py-2 font-medium">Estado</th>
+          <th class="px-3 py-2 font-medium">Recurrente</th>
+          <th class="px-3 py-2 font-medium">Facturado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cliente in clientes %}
+          <tr class="border-t border-slate-800">
+            <td class="px-3 py-2 text-slate-100">
+              {{ cliente.nombre }}
+              {% if cliente.url %}<a href="{{ cliente.url }}" class="ml-1 text-xs text-slate-500 underline">web</a>{% endif %}
+            </td>
+            <td class="px-3 py-2 text-slate-400">{{ cliente.sector|default:"—" }}</td>
+            <td class="px-3 py-2 text-slate-400">{{ cliente.get_estado_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap {% if cliente.mrr %}text-slate-100{% else %}text-slate-600{% endif %}">
+              {{ cliente.mrr|floatformat:0 }} €/mes
+              {% if not cliente.mrr %}<span class="block text-xs text-amber-500">sin mantenimiento</span>{% endif %}
+            </td>
+            <td class="px-3 py-2 whitespace-nowrap text-slate-400">{{ cliente.facturado|default:0|floatformat:0 }} €</td>
+          </tr>
+        {% empty %}
+          <tr class="border-t border-slate-800"><td colspan="5" class="px-3 py-6 text-center text-slate-500">Sin clientes todavía.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

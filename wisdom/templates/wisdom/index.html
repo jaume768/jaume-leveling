@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Máximas{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-4xl">
+  <h1 class="text-2xl font-semibold text-slate-100">Máximas</h1>
+  <p class="mt-2 text-slate-400">Los diez libros y el decálogo operativo.</p>
+
+  {% if contexto_actual.contextual %}
+    <div class="mt-6 rounded-lg border border-amber-800 bg-amber-950/40 p-4">
+      <p class="text-xs uppercase tracking-wide text-amber-500">Ahora mismo</p>
+      <p class="mt-1 text-sm text-amber-200/90">{{ contexto_actual.motivo }}</p>
+      <p class="mt-2 text-base text-amber-100">{{ contexto_actual.maxima.texto }}</p>
+    </div>
+  {% endif %}
+
+  <div class="mt-6">
+    {% include "wisdom/_lista.html" %}
+  </div>
+</div>
+{% endblock %}

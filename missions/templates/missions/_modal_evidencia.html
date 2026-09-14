@@ -1,0 +1,30 @@
+{# Modal pequeño: la misión no se da por hecha sin evidencia. #}
+<div class="fixed inset-0 z-30 flex items-end justify-center bg-slate-950/70 p-4 sm:items-center"
+     hx-on:click="if (event.target === this) htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+  <div class="w-full max-w-md rounded-lg border border-slate-700 bg-slate-900 p-5">
+    <h3 class="text-base font-semibold text-slate-100">{{ mision.titulo }}</h3>
+    <p class="mt-1 text-xs text-slate-500">{{ mision.definicion_terminada }}</p>
+
+    <form hx-post="{% url 'missions:completar' mision.pk %}"
+          hx-target="#bloque-misiones"
+          hx-swap="outerHTML"
+          hx-on::after-request="htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+      {% csrf_token %}
+      <input type="hidden" name="minimo" value="{% if modo_minimo %}1{% else %}0{% endif %}">
+      <label for="evidencia" class="mt-4 block text-sm text-slate-300">Evidencia</label>
+      <textarea id="evidencia" name="evidencia" rows="3" required autofocus
+                placeholder="A quién, qué le has dicho, dónde queda anotado"
+                class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none"></textarea>
+
+      <div class="mt-4 flex justify-end gap-2">
+        <button type="button"
+                class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800"
+                hx-get="{% url 'missions:cerrar_modal' %}"
+                hx-target="#modal"
+                hx-swap="innerHTML">Cancelar</button>
+        <button type="submit"
+                class="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-white">Completar</button>
+      </div>
+    </form>
+  </div>
+</div>
