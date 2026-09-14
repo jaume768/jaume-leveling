@@ -1,0 +1,33 @@
+# Caddy pide y renueva el certificado de Let's Encrypt solo.
+# Requisito: que los DNS A/AAAA de {$DOMINIO} apunten ya a la IP del VPS.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMINIO} {
+	encode zstd gzip
+
+	# Django (WhiteNoise) sirve también los estáticos, así que basta el proxy.
+	reverse_proxy web:8000 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Cabeceras que no dependen de Django.
+	header {
+		-Server
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Content-Type-Options nosniff
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
+
+www.{$DOMINIO} {
+	redir https://{$DOMINIO}{uri} permanent
+}

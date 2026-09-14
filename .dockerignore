@@ -1,0 +1,27 @@
+# NUNCA metas secretos en la imagen: el Dockerfile hace COPY . /app y todo lo
+# que no esté aquí acaba en una capa que se puede leer con `docker history`.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+.git
+.gitignore
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Artefactos que se generan dentro del contenedor.
+staticfiles/
+bin/tailwindcss
+backups/
+
+.idea/
+.vscode/
+.DS_Store

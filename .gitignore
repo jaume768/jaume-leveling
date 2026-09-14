@@ -5,9 +5,12 @@ __pycache__/
 venv/
 
 .env
+.env.prod
+.env.local
 *.sqlite3
 
 /staticfiles/
+/backups/
 /static/css/app.css
 /bin/tailwindcss
 

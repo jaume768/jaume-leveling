@@ -237,3 +237,87 @@ class TestVistas:
 
     def test_la_vista_de_gasto_carga(self, client):
         assert client.get(reverse("wisdom:gasto")).status_code == 200
+
+
+@pytest.mark.django_db
+class TestLaClaveNoSeFiltra:
+    """La clave de la API no puede salir por pantalla, por el error ni por el log."""
+
+    CLAVE = "sk-ant-clave-de-prueba-que-no-debe-aparecer"
+
+    def test_no_llega_a_la_pagina(self, client, settings):
+        settings.ANTHROPIC_API_KEY = self.CLAVE
+        contenido = client.get(reverse("wisdom:index")).content.decode()
+        assert self.CLAVE not in contenido
+        assert "sk-ant" not in contenido
+
+    def test_la_vista_solo_recibe_un_booleano(self, client, settings):
+        settings.ANTHROPIC_API_KEY = self.CLAVE
+        contexto = client.get(reverse("wisdom:index")).context
+        assert contexto["ia_configurada"] is True
+        assert self.CLAVE not in str(contexto)
+
+    def test_no_aparece_en_el_mensaje_de_error(self, monkeypatch, settings):
+        settings.ANTHROPIC_API_KEY = self.CLAVE
+
+        def revienta(self, system, mensaje):
+            raise ai.IAError("La API ha respondido con un error 401.")
+
+        monkeypatch.setattr(ai.ClienteIA, "preguntar", revienta)
+        _, error = services.consultar("hola")
+        assert self.CLAVE not in error
+
+    def test_no_entra_en_el_contexto_que_se_manda_al_modelo(self, settings):
+        settings.ANTHROPIC_API_KEY = self.CLAVE
+        assert self.CLAVE not in json.dumps(ai.construir_contexto(HOY))
+
+    def test_no_se_guarda_en_la_sesion(self, ia_simulada, settings):
+        settings.ANTHROPIC_API_KEY = self.CLAVE
+        sesion, _ = services.consultar("hola")
+        assert self.CLAVE not in json.dumps(sesion.contexto_json)
+        assert self.CLAVE not in sesion.pregunta + sesion.respuesta
+
+    def test_django_la_oculta_en_los_informes_de_error(self, settings):
+        from django.views.debug import SafeExceptionReporterFilter
+
+        settings.ANTHROPIC_API_KEY = self.CLAVE
+        ajustes = SafeExceptionReporterFilter().get_safe_settings()
+        assert ajustes["ANTHROPIC_API_KEY"] != self.CLAVE
+        assert ajustes["SECRET_KEY"] != settings.SECRET_KEY
+
+
+class TestHigieneDelRepositorio:
+    """Comprobaciones que no dependen de la base de datos."""
+
+    @staticmethod
+    def _raiz():
+        from pathlib import Path
+
+        return Path(__file__).resolve().parent.parent
+
+    def test_el_env_esta_ignorado_por_git(self):
+        contenido = (self._raiz() / ".gitignore").read_text()
+        assert "\n.env\n" in f"\n{contenido}"
+
+    def test_el_env_esta_excluido_de_la_imagen(self):
+        contenido = (self._raiz() / ".dockerignore").read_text()
+        assert ".env" in contenido
+
+    def test_no_hay_ninguna_clave_en_el_codigo(self):
+        import re
+
+        patron = re.compile(r"sk-ant-[A-Za-z0-9_-]{10,}")
+        sospechosos = []
+        for ruta in self._raiz().rglob("*"):
+            if not ruta.is_file() or ruta.suffix not in {".py", ".html", ".yml", ".sh", ".md", ".txt"}:
+                continue
+            if ".git" in ruta.parts or ruta.name == "test_ai.py":
+                continue
+            if patron.search(ruta.read_text(errors="ignore")):
+                sospechosos.append(str(ruta))
+        assert not sospechosos, f"Posibles claves en: {sospechosos}"
+
+    def test_el_dockerfile_no_hornea_la_clave(self):
+        contenido = (self._raiz() / "Dockerfile").read_text()
+        assert "ANTHROPIC_API_KEY" not in contenido
+        assert "ARG SECRET" not in contenido
