@@ -8,6 +8,10 @@ y ninguna se aplica dos veces por el mismo hecho: cada una lleva una clave de
 idempotencia "<regla>--<objeto>".
 
 Los días protegidos (miércoles y domingo) no generan penalizaciones nuevas.
+
+La revisión semanal NO se penaliza: el documento la puntúa con 60 XP pero dice
+expresamente que no penaliza si no se hace (docs/sistema-v2.md). El recordatorio
+del domingo lo da `recordatorio_revision`, sin descontar XP.
 """
 from __future__ import annotations
 
@@ -18,10 +22,6 @@ from django.utils import timezone
 
 from business.models import Deal, Invoice, Project
 from progression import services as progression
-from review import services as review
-
-# El documento no puntúa la revisión no hecha; -80 XP es una regla propia.
-XP_REVISION_NO_HECHA = -80
 
 
 class Command(BaseCommand):
@@ -47,7 +47,6 @@ class Command(BaseCommand):
             self._propuestas_sin_seguimiento,
             self._semana_sin_comercial,
             self._exceso_de_wip,
-            self._revision_no_hecha,
         ):
             aplicadas.extend(comprobacion(fecha))
 
@@ -156,25 +155,5 @@ class Command(BaseCommand):
             progression.clave_penalizacion("exceso-wip", progression.clave_semana(fecha)),
             descripcion=f"{activos.count()} proyectos abiertos a la vez (máximo 2)",
             correccion="Cerrar o congelar uno antes de tocar nada más.",
-            fecha=fecha,
-        )
-
-    def _revision_no_hecha(self, fecha: dt.date):
-        """Revisión semanal sin cerrar, comprobada el lunes: -80 XP."""
-        if fecha.weekday() != 0:  # solo los lunes
-            return []
-        domingo = fecha - dt.timedelta(days=1)
-        revision = review.revision_de_la_semana(domingo)
-        if revision is not None and revision.m8_revision_hecha:
-            return []
-
-        anio, semana = progression.semana_iso(domingo)
-        return self._penalizar(
-            progression.clave_penalizacion(
-                "revision-no-hecha", progression.clave_semana(domingo)
-            ),
-            descripcion=f"Revisión de la semana {semana}/{anio} sin cerrar",
-            correccion="Hacerla hoy mismo. 40 minutos. Sin revisión no hay calibración.",
-            xp=XP_REVISION_NO_HECHA,
             fecha=fecha,
         )

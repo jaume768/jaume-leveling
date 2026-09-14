@@ -112,6 +112,45 @@ SUELO_PRECIO = Decimal("1500")
 XP_POR_EURO_COBRADO = Decimal("10")  # 1 XP por cada 10 EUR.
 OBJETIVO_RECURRENTE = Decimal("450")  # EUR/mes a 90 dias.
 
+# Umbrales que suben al cambiar de rango (docs/sistema-v2.md, SS3). Solo estan
+# aqui los dos que el documento nombra con cifra: al llegar a Especialista el
+# suelo pasa a 1.800 EUR y el recurrente objetivo a 800 EUR/mes. Los 6
+# contactos/semana y los 40 EUR/h NO suben: el documento los mantiene fijos.
+SUELO_POR_RANGO = {3: Decimal("1800")}
+RECURRENTE_POR_RANGO = {3: Decimal("800")}
+
+
+def _rango_actual():
+    """Rango del perfil, deducido del nivel si no esta asignado a mano."""
+    from core import services as core_services
+    from core.models import Profile
+
+    perfil = Profile.get()
+    return perfil.rango or core_services.rango_para_nivel(perfil.nivel)
+
+
+def _por_rango(tabla: dict, base: Decimal, rango=None) -> Decimal:
+    """El umbral mas alto de los rangos que ya has alcanzado.
+
+    Nunca baja: un umbral que subiste no vuelve atras aunque cambie el rango.
+    """
+    if rango is None:
+        rango = _rango_actual()
+    if rango is None:
+        return base
+    alcanzados = [v for orden, v in tabla.items() if rango.orden >= orden]
+    return max(alcanzados) if alcanzados else base
+
+
+def suelo_precio(rango=None) -> Decimal:
+    """Suelo de precio vigente. 1.500 EUR, 1.800 EUR desde Especialista."""
+    return _por_rango(SUELO_POR_RANGO, SUELO_PRECIO, rango)
+
+
+def objetivo_recurrente(rango=None) -> Decimal:
+    """Recurrente objetivo. 450 EUR/mes, 800 EUR/mes desde Especialista."""
+    return _por_rango(RECURRENTE_POR_RANGO, OBJETIVO_RECURRENTE, rango)
+
 # Resaltado del pipeline: ambar a partir de 5 dias, rojo a partir de 7.
 DIAS_AMBAR = 5
 DIAS_ROJO = DIAS_SIN_SEGUIMIENTO  # 7
@@ -191,6 +230,122 @@ def marcar_cobrada(invoice: Invoice, fecha: dt.date | None = None) -> Invoice:
     return invoice
 
 
+# --- XP por hechos comerciales ----------------------------------------------
+#
+# La tabla de resultados de docs/sistema-v2.md se concede aqui, cuando el hecho
+# ocurre de verdad: al mover una oportunidad, al entregar un proyecto o al
+# firmar un recurrente. Cada hecho puntua UNA sola vez: la idempotencia se
+# comprueba contra el objeto relacionado del evento de XP.
+
+# Un cierre puntua como "proyecto cerrado" a partir del suelo de precio.
+# La tabla de XP fija el cierre en 1.500 EUR y no lo sube por rango, a
+# diferencia del suelo de precio. Son dos cosas distintas.
+VALOR_PROYECTO_CERRADO = Decimal("1500")
+
+
+def _ya_puntuado(accion_slug: str, objeto: str) -> bool:
+    """True si ese hecho concreto ya concedio XP alguna vez."""
+    from progression.models import XPEvent
+
+    return XPEvent.objects.filter(
+        accion_slug=accion_slug, objeto_relacionado=objeto
+    ).exists()
+
+
+def _puntuar_una_vez(
+    accion_slug: str, objeto: str, descripcion: str, fecha: dt.date | None = None
+):
+    """Concede la XP de la regla si ese objeto no la habia recibido ya."""
+    if _ya_puntuado(accion_slug, objeto):
+        return None
+    return progression.registrar_xp(
+        accion_slug,
+        descripcion=descripcion,
+        fecha=fecha or timezone.localdate(),
+        fuente="AUTO",
+        objeto_relacionado=objeto,
+    )
+
+
+@transaction.atomic
+def puntuar_deal(deal: Deal, estado_anterior: str, fecha: dt.date | None = None) -> list:
+    """XP de los hechos que produce mover una oportunidad de estado.
+
+    - A "propuesta enviada": 80 XP (tope 240/semana).
+    - A "ganado" por encima del suelo: 250 XP de proyecto cerrado.
+    - A "perdido" marcado como rechazo por precio bajo: 150 XP (tope 150/semana).
+
+    Volver a un estado ya puntuado no vuelve a dar XP.
+    """
+    if deal.estado == estado_anterior:
+        return []
+
+    eventos = []
+    objeto = f"deal:{deal.pk}"
+
+    if deal.estado == Deal.Estado.PROPUESTA:
+        eventos.append(
+            _puntuar_una_vez(
+                "propuesta-enviada", objeto, f"Propuesta enviada a {deal.negocio}", fecha
+            )
+        )
+
+    elif deal.estado == Deal.Estado.GANADO:
+        if deal.valor_potencial >= VALOR_PROYECTO_CERRADO:
+            eventos.append(
+                _puntuar_una_vez(
+                    "proyecto-cerrado",
+                    objeto,
+                    f"{deal.negocio} cerrado a {deal.valor_potencial:.0f} EUR",
+                    fecha,
+                )
+            )
+
+    elif deal.estado == Deal.Estado.PERDIDO and deal.rechazado_por_precio:
+        eventos.append(
+            _puntuar_una_vez(
+                "proyecto-rechazado-precio-bajo",
+                objeto,
+                f"{deal.negocio} rechazado por precio bajo",
+                fecha,
+            )
+        )
+
+    return [e for e in eventos if e is not None]
+
+
+@transaction.atomic
+def puntuar_proyecto(
+    project: Project, estado_anterior: str, fecha: dt.date | None = None
+) -> list:
+    """200 XP la primera vez que un proyecto pasa a entregado."""
+    if project.estado == estado_anterior or project.estado != Project.Estado.ENTREGADO:
+        return []
+    evento = _puntuar_una_vez(
+        "entrega-aceptada",
+        f"project:{project.pk}",
+        f"{project.nombre} entregado y aceptado",
+        fecha,
+    )
+    return [evento] if evento else []
+
+
+@transaction.atomic
+def puntuar_recurrente(
+    client: Client, mrr_anterior, fecha: dt.date | None = None
+) -> list:
+    """350 XP la primera vez que un cliente pasa a aportar recurrente."""
+    if client.mrr <= 0 or Decimal(mrr_anterior or 0) > 0:
+        return []
+    evento = _puntuar_una_vez(
+        "contrato-recurrente-firmado",
+        f"client:{client.pk}",
+        f"{client.nombre}: {client.mrr:.0f} EUR/mes recurrentes",
+        fecha,
+    )
+    return [evento] if evento else []
+
+
 @transaction.atomic
 def registrar_excepcion_de_suelo(project: Project, motivo: str) -> Penalty:
     """Documenta por escrito un proyecto aceptado por debajo del suelo.
@@ -201,7 +356,7 @@ def registrar_excepcion_de_suelo(project: Project, motivo: str) -> Penalty:
     penalizacion = Penalty.objects.create(
         fecha=timezone.localdate(),
         regla_slug="proyecto-por-debajo-del-suelo",
-        descripcion=f"{project.nombre}: {project.precio:.0f} EUR (suelo {SUELO_PRECIO:.0f} EUR)",
+        descripcion=f"{project.nombre}: {project.precio:.0f} EUR (suelo {suelo_precio():.0f} EUR)",
         xp=-250,
         correccion_exigida=motivo,
         resuelta=True,  # El motivo escrito ES la correccion exigida.
@@ -282,12 +437,13 @@ def resumen_clientes() -> dict:
         facturado=Sum("facturas__importe", filter=Q(facturas__cobrada=True))
     ).order_by("-mrr", "nombre")
     total = recurrente_activo()
+    objetivo = objetivo_recurrente()
     return {
         "clientes": clientes,
         "total_mrr": total,
-        "objetivo": OBJETIVO_RECURRENTE,
-        "pct_objetivo": min(100, int(total / OBJETIVO_RECURRENTE * 100)) if OBJETIVO_RECURRENTE else 0,
-        "falta": max(Decimal("0"), OBJETIVO_RECURRENTE - total),
+        "objetivo": objetivo,
+        "pct_objetivo": min(100, int(total / objetivo * 100)) if objetivo else 0,
+        "falta": max(Decimal("0"), objetivo - total),
     }
 
 

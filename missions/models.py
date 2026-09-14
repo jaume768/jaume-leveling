@@ -29,6 +29,28 @@ class Mission(models.Model):
         blank=True,
         related_name="misiones",
     )
+    # Escalado por rango. Ambos opcionales: una mision sin rangos esta siempre
+    # disponible, que es el caso de las diarias, semanales y mensuales. Las
+    # principales si se atan a su rango, porque cada una cierra el suyo
+    # (docs/sistema-v2.md, SS4 y SS5).
+    rango_min = models.ForeignKey(
+        "core.Rank",
+        verbose_name="disponible desde el rango",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="misiones_desde",
+        help_text="Vacio = disponible desde el principio.",
+    )
+    rango_max = models.ForeignKey(
+        "core.Rank",
+        verbose_name="disponible hasta el rango",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="misiones_hasta",
+        help_text="Vacio = no se retira nunca.",
+    )
     motivo = models.TextField("por que", blank=True)
     evidencia_requerida = models.BooleanField("requiere evidencia", default=False)
     activa = models.BooleanField("activa", default=True)

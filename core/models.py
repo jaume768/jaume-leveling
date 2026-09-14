@@ -107,6 +107,16 @@ class Attribute(models.Model):
     categoria = models.CharField(
         "categoria", max_length=20, choices=Categoria.choices, default=Categoria.NEGOCIO
     )
+    evidencia = models.TextField(
+        "evidencia",
+        blank=True,
+        help_text="Por que el atributo vale lo que vale, con hechos.",
+    )
+    siguiente_hito = models.TextField(
+        "que mueve el siguiente +10",
+        blank=True,
+        help_text="Lo concreto que hay que hacer para subirlo diez puntos.",
+    )
 
     class Meta:
         verbose_name = "atributo"

@@ -1,24 +1,24 @@
 <div id="pipeline">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <div class="flex flex-wrap gap-1 text-xs">
-      <a class="rounded-md border px-2 py-1 {% if not estado_activo %}border-slate-500 text-slate-100{% else %}border-slate-800 text-slate-500 hover:text-slate-300{% endif %}"
+    <div class="flex flex-wrap gap-1 text-caption">
+      <a class="rounded-md border px-2 py-1 {% if not estado_activo %}border-ink-3 text-ink{% else %}border-line text-ink-3 hover:text-ink-2{% endif %}"
          hx-get="{% url 'business:pipeline' %}" hx-target="#pipeline" hx-swap="outerHTML" href="{% url 'business:pipeline' %}">Todas</a>
       {% for valor, etiqueta in estados %}
-        <a class="rounded-md border px-2 py-1 {% if estado_activo == valor %}border-slate-500 text-slate-100{% else %}border-slate-800 text-slate-500 hover:text-slate-300{% endif %}"
+        <a class="rounded-md border px-2 py-1 {% if estado_activo == valor %}border-ink-3 text-ink{% else %}border-line text-ink-3 hover:text-ink-2{% endif %}"
            hx-get="{% url 'business:pipeline' %}?estado={{ valor }}" hx-target="#pipeline" hx-swap="outerHTML"
            href="{% url 'business:pipeline' %}?estado={{ valor }}">{{ etiqueta }}</a>
       {% endfor %}
     </div>
-    <p class="text-xs text-slate-500">
+    <p class="text-caption text-ink-3">
       {{ abiertas }} abiertas · {{ valor_abierto|floatformat:0 }} € potenciales
-      {% if en_rojo %}· <span class="text-red-400">{{ en_rojo }} en rojo</span>{% endif %}
-      {% if en_ambar %}· <span class="text-amber-400">{{ en_ambar }} en ámbar</span>{% endif %}
+      {% if en_rojo %}· <span class="text-bad">{{ en_rojo }} en rojo</span>{% endif %}
+      {% if en_ambar %}· <span class="text-warn">{{ en_ambar }} en ámbar</span>{% endif %}
     </p>
   </div>
 
-  <div class="mt-4 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
-    <table class="w-full min-w-[46rem] text-left text-sm">
-      <thead class="text-xs uppercase tracking-wide text-slate-500">
+  <div class="mt-4 overflow-x-auto card">
+    <table class="w-full min-w-[46rem] text-left text-body-sm">
+      <thead class="label">
         <tr>
           <th class="px-3 py-2 font-medium">Negocio</th>
           <th class="px-3 py-2 font-medium">Estado</th>
@@ -31,8 +31,8 @@
         {% for fila in filas %}
           {% include "business/_pipeline_fila.html" %}
         {% empty %}
-          <tr class="border-t border-slate-800">
-            <td colspan="5" class="px-3 py-6 text-center text-slate-500">
+          <tr class="border-t border-line">
+            <td colspan="5" class="px-3 py-6 text-center text-ink-3">
               Pipeline vacío. Seis contactos por semana, entregues o no.
             </td>
           </tr>

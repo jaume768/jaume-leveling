@@ -7,11 +7,13 @@ from __future__ import annotations
 import datetime as dt
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from progression import services as progression
 from progression.models import Categoria, XPEvent
 
+from .guides import GUIAS
 from .models import Mission, MissionLog
 
 
@@ -24,6 +26,35 @@ def slug_de_mision(mission: Mission) -> str:
     return f"mision-{mission.pk}"
 
 
+# Tipos que forman el ritmo del dia: son los que cuentan en el marcador del
+# panel. Mensuales y principales se pintan aparte, con su propio recuento.
+TIPOS_DEL_DIA = (Mission.Tipo.DIARIA, Mission.Tipo.SEMANAL)
+
+
+def disponibles_para_rango(queryset, rango):
+    """Recorta un queryset de misiones a las que el rango actual permite ver.
+
+    Una mision sin `rango_min` ni `rango_max` esta siempre disponible. Las que
+    llevan rango aparecen al alcanzarlo y se retiran al superarlo, para que el
+    panel no arrastre objetivos de un rango que ya cerraste.
+    """
+    if rango is None:
+        return queryset.filter(rango_min__isnull=True, rango_max__isnull=True)
+    return queryset.filter(
+        Q(rango_min__isnull=True) | Q(rango_min__orden__lte=rango.orden),
+        Q(rango_max__isnull=True) | Q(rango_max__orden__gte=rango.orden),
+    )
+
+
+def _rango_actual():
+    """Rango del perfil, deducido del nivel si no esta asignado a mano."""
+    from core import services as core_services
+    from core.models import Profile
+
+    perfil = Profile.get()
+    return perfil.rango or core_services.rango_para_nivel(perfil.nivel)
+
+
 def _semanales_pendientes(fecha: dt.date):
     lunes, domingo = progression.rango_de_la_semana(fecha)
     hechas = MissionLog.objects.filter(
@@ -34,27 +65,67 @@ def _semanales_pendientes(fecha: dt.date):
     ).exclude(pk__in=hechas)
 
 
+def _mensuales_pendientes(fecha: dt.date):
+    """Mensuales que siguen sin cerrarse dentro del mes de la fecha."""
+    primero = fecha.replace(day=1)
+    if primero.month == 12:
+        siguiente = primero.replace(year=primero.year + 1, month=1)
+    else:
+        siguiente = primero.replace(month=primero.month + 1)
+    ultimo = siguiente - dt.timedelta(days=1)
+
+    hechas = MissionLog.objects.filter(
+        fecha__range=(primero, ultimo), completada=True
+    ).values_list("mission_id", flat=True)
+    return Mission.objects.filter(
+        tipo=Mission.Tipo.MENSUAL, activa=True
+    ).exclude(pk__in=hechas)
+
+
+def _principales_pendientes(rango):
+    """Principales del rango actual que no se han cerrado nunca.
+
+    No son periodicas: cada una se completa una vez en la vida del sistema.
+    """
+    hechas = MissionLog.objects.filter(completada=True).values_list(
+        "mission_id", flat=True
+    )
+    pendientes = Mission.objects.filter(
+        tipo=Mission.Tipo.PRINCIPAL, activa=True
+    ).exclude(pk__in=hechas)
+    return disponibles_para_rango(pendientes, rango)
+
+
 def misiones_de_hoy(fecha: dt.date | None = None):
-    """Misiones que tocan hoy.
+    """Misiones que tocan hoy, escaladas al rango actual.
 
     - Miercoles: ninguna. El dia esta protegido y no genera ni XP ni penalizacion.
     - Domingo: solo las semanales pendientes (la revision de las 20:15 entre ellas);
       las diarias no se piden porque el domingo esta fuera del sistema.
-    - Resto de dias: las diarias activas mas las semanales aun no cerradas.
+    - Resto de dias: diarias, semanales sin cerrar esta semana, mensuales sin
+      cerrar este mes y las principales del rango que sigan abiertas.
     """
     fecha = fecha or timezone.localdate()
 
     if fecha.weekday() == progression.MIERCOLES:
         return Mission.objects.none()
 
+    rango = _rango_actual()
     semanales = _semanales_pendientes(fecha)
     if fecha.weekday() == progression.DOMINGO:
-        return semanales.order_by("orden", "titulo")
+        return disponibles_para_rango(semanales, rango).order_by("orden", "titulo")
 
     diarias = Mission.objects.filter(
         tipo=Mission.Tipo.DIARIA, activa=True, es_minima=False
     )
-    return (diarias | semanales).order_by("tipo", "orden", "titulo")
+    del_ritmo = disponibles_para_rango(diarias | semanales, rango)
+    mensuales = disponibles_para_rango(_mensuales_pendientes(fecha), rango)
+    principales = _principales_pendientes(rango)
+
+    pks = list(del_ritmo.values_list("pk", flat=True))
+    pks += list(mensuales.values_list("pk", flat=True))
+    pks += list(principales.values_list("pk", flat=True))
+    return Mission.objects.filter(pk__in=pks).order_by("tipo", "orden", "titulo")
 
 
 def modo_dia_minimo():
@@ -114,6 +185,95 @@ def completar_mision(
     return registro
 
 
+# --- Presentacion del panel de misiones --------------------------------------
+#
+# El titulo de cada mision viene sembrado como "D1 - Accion comercial": el
+# codigo va delante, separado por el punto medio. El panel los pinta separados,
+# asi que aqui se parten una sola vez y de forma pura.
+
+SEPARADOR_CODIGO = "·"
+
+# Cada grupo del panel: el orden en que se pintan, su subtitulo y el color del
+# filo lateral. Los tokens (warn/ok/xp) son los del sistema de diseno.
+GRUPOS = (
+    (Mission.Tipo.DIARIA, "Diarias", "Haz lo esencial. Avanza cada dia.", "warn"),
+    (Mission.Tipo.SEMANAL, "Semanales", "Construye resultados a medio plazo.", "ok"),
+    (Mission.Tipo.MENSUAL, "Mensuales", "El mes se gana con cifras, no con horas.", "xp"),
+    (Mission.Tipo.PRINCIPAL, "Principales", "Cierran tu rango. Se completan una vez.", "ink"),
+    (Mission.Tipo.ANUAL, "Anuales", "La direccion, no la semana.", "xp"),
+)
+
+
+def partir_titulo(titulo: str) -> tuple[str, str]:
+    """Separa el codigo del titulo: "D1 - Accion comercial" -> ("D1", "...").
+
+    Si la mision no lleva codigo, devuelve ("", titulo).
+    """
+    codigo, separador, resto = titulo.partition(SEPARADOR_CODIGO)
+    if not separador or not resto.strip():
+        return "", titulo.strip()
+    return codigo.strip(), resto.strip()
+
+
+def agrupar_filas(filas: list[dict]) -> list[dict]:
+    """Agrupa las filas del panel por tipo de mision, en el orden de GRUPOS.
+
+    Cada grupo lleva su recuento hecho/total para poder pintar "(0/2)" sin
+    recalcular nada en la plantilla. Los grupos vacios no se devuelven.
+    """
+    grupos = []
+    for tipo, titulo, subtitulo, acento in GRUPOS:
+        del_tipo = [fila for fila in filas if fila["mision"].tipo == tipo]
+        if not del_tipo:
+            continue
+        grupos.append(
+            {
+                "tipo": tipo,
+                "titulo": titulo,
+                "subtitulo": subtitulo,
+                "acento": acento,
+                "filas": del_tipo,
+                "hechas": sum(1 for fila in del_tipo if fila["completada"]),
+                "total": len(del_tipo),
+            }
+        )
+    return grupos
+
+
+def guia_de(mission: Mission) -> dict:
+    """Guia operativa de una mision: como se hace, el atajo y lo que no cuenta.
+
+    Busca en GUIAS por el codigo ("D1", "S4") y, si la mision no lleva codigo,
+    por su titulo. Cuando no hay guia escrita devuelve una generica construida
+    con los propios campos de la mision, para que el detalle nunca salga vacio.
+    """
+    codigo, titulo = partir_titulo(mission.titulo)
+    guia = GUIAS.get(codigo) or GUIAS.get(titulo)
+    if guia is not None:
+        return {"generica": False, **guia}
+
+    pasos = []
+    if mission.descripcion:
+        pasos.append(mission.descripcion)
+    pasos.append(f"Terminada cuando: {mission.definicion_terminada.lower()}.")
+    if mission.evidencia_requerida:
+        pasos.append("Anota la evidencia al darla por hecha: sin evidencia no cuenta.")
+    return {"generica": True, "pasos": pasos, "nota": mission.motivo}
+
+
+def detalle_de_mision(mission: Mission, fecha: dt.date | None = None) -> dict:
+    """Contexto del detalle de una mision: la mision, su guia y si esta hecha."""
+    fecha = fecha or timezone.localdate()
+    codigo, titulo = partir_titulo(mission.titulo)
+    return {
+        "mision": mission,
+        "codigo": codigo,
+        "titulo": titulo,
+        "guia": guia_de(mission),
+        "completada": esta_completada(mission, fecha),
+    }
+
+
 def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dict:
     """Contexto del bloque de misiones del panel."""
     fecha = fecha or timezone.localdate()
@@ -131,14 +291,29 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
             "mission_id", flat=True
         )
     )
-    filas = [
-        {"mision": mision, "completada": mision.pk in hechas} for mision in misiones
-    ]
+    filas = []
+    for mision in misiones:
+        codigo, titulo = partir_titulo(mision.titulo)
+        filas.append(
+            {
+                "mision": mision,
+                "completada": mision.pk in hechas,
+                "codigo": codigo,
+                "titulo": titulo,
+            }
+        )
+    # El marcador de arriba cuenta solo el ritmo del dia (diarias y semanales).
+    # Mensuales y principales son de otro plazo: llevan su propio recuento por
+    # grupo y meterlas aqui haria que el panel pareciera peor de lo que va.
+    del_dia = [f for f in filas if f["mision"].tipo in TIPOS_DEL_DIA]
+    hechas_dia = sum(1 for fila in del_dia if fila["completada"])
     return {
         "fecha": fecha,
         "dia_protegido": protegido,
         "modo_minimo": minimo,
         "filas": filas,
-        "hechas": sum(1 for fila in filas if fila["completada"]),
-        "total": len(filas),
+        "grupos": agrupar_filas(filas),
+        "pct": round(hechas_dia / len(del_dia) * 100) if del_dia else 0,
+        "hechas": hechas_dia,
+        "total": len(del_dia),
     }

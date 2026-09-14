@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from business.models import Client, Deal, Invoice, Project
 from core.models import Profile
+from progression.models import Penalty
 from review import services
 from review.forms import WeeklyReviewForm
 from review.models import HealthLog, WeeklyReview
@@ -200,3 +201,57 @@ class TestRecordatorio:
         call_command("recordatorio_revision", fecha="2026-09-13", stdout=StringIO())
         call_command("recordatorio_revision", fecha="2026-09-13", stdout=StringIO())
         assert WeeklyReview.objects.count() == 1
+
+
+# --- Bloques con Alexandra ---------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestBloquesAlexandra:
+    """Cancelar un bloque por trabajo son -150 XP y hay que recuperarlo."""
+
+    def _datos(self, intactos: bool):
+        datos = {
+            "anio": 2026, "semana_iso": 37, "fecha": "2026-09-13",
+            "m1_eur_cobrados": "1200", "m2_eur_recurrentes": "450", "m3_eur_vencidos": "0",
+            "m4_contactos_nuevos": 6, "m5_conversaciones": 2, "m5_propuestas": 1,
+            "m6_precio_medio": "1800", "m7_tarifa_efectiva": "55", "m8_wip_abierto": 2,
+            "m9_entrenos": 4, "xp_semana": 620, "m8_revision_hecha": "on",
+            "funciono": "El recurrente", "no_funciono": "El pipeline",
+            "decision": "Recuperar el bloque",
+            "objetivo_1": "a", "objetivo_2": "b", "objetivo_3": "c",
+        }
+        if intactos:
+            datos["m10_bloques_intactos"] = "on"
+        return datos
+
+    def _cerrar(self, intactos: bool):
+        form = WeeklyReviewForm(self._datos(intactos))
+        assert form.is_valid(), form.errors
+        return services.guardar_revision(form)
+
+    def test_un_bloque_cancelado_penaliza_150(self):
+        self._cerrar(intactos=False)
+
+        penalizacion = Penalty.objects.get(
+            regla_slug__startswith="bloque-alexandra-cancelado"
+        )
+        assert penalizacion.xp == -150
+        assert "Recuperarlo" in penalizacion.correccion_exigida
+
+    def test_con_los_bloques_intactos_no_penaliza(self):
+        self._cerrar(intactos=True)
+
+        assert not Penalty.objects.filter(
+            regla_slug__startswith="bloque-alexandra-cancelado"
+        ).exists()
+
+    def test_no_penaliza_dos_veces_la_misma_semana(self):
+        revision = self._cerrar(intactos=False)
+        form = WeeklyReviewForm(self._datos(intactos=False), instance=revision)
+        assert form.is_valid(), form.errors
+        services.guardar_revision(form)
+
+        assert Penalty.objects.filter(
+            regla_slug__startswith="bloque-alexandra-cancelado"
+        ).count() == 1

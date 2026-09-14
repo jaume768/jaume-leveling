@@ -1,0 +1,51 @@
+{# Resultado de registrar una accion. Dice la verdad tambien cuando el tope la deja en 0. #}
+<div class="fixed inset-0 z-40 flex items-end justify-center bg-base/80 p-4 backdrop-blur-sm sm:items-center">
+  <div class="card w-full max-w-md p-5">
+
+    {% if evento.xp_neto > 0 %}
+      <div class="flex items-start gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ok/15 text-ok">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m5 12.5 5 5L19 7"/>
+          </svg>
+        </span>
+        <div class="min-w-0">
+          <p class="label text-ok">Registrado</p>
+          <p class="mt-1 text-h3 font-bold tabular text-ink">+{{ evento.xp_neto }} XP</p>
+        </div>
+      </div>
+    {% else %}
+      <div class="flex items-start gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warn/15 text-warn">
+          {% include "_icono.html" with icono="aviso" clase="h-5 w-5" %}
+        </span>
+        <div class="min-w-0">
+          <p class="label text-warn">Registrado, sin XP</p>
+          <p class="mt-1 text-body-sm text-ink-2">
+            Ya has agotado el tope semanal de esta acción. Queda anotada igual.
+          </p>
+        </div>
+      </div>
+    {% endif %}
+
+    <p class="mt-4 rounded-sm border border-line bg-surface-1 p-3 text-body-sm text-ink-2">
+      {{ evento.descripcion }}
+    </p>
+
+    {% if evento.multiplicador_racha > 1 %}
+      <p class="mt-2 text-caption text-ink-3">
+        Multiplicador de racha aplicado: ×{{ evento.multiplicador_racha }}
+        (bruta {{ evento.xp_bruto }} XP).
+      </p>
+    {% endif %}
+
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" class="btn"
+              hx-get="{% url 'progression:registrar_accion' %}"
+              hx-target="#modal" hx-swap="innerHTML">Registrar otra</button>
+      <button type="button" class="btn-xp" hx-on:click="location.reload()">Hecho</button>
+    </div>
+
+  </div>
+</div>

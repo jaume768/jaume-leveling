@@ -4,50 +4,112 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0f14">
   <style>[x-cloak]{display:none!important}</style>
   <title>{% block title %}Sistema{% endblock %} · Sistema</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.8/cdn.min.js" defer></script>
 </head>
-<body class="h-full bg-slate-950 text-slate-200 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-  <div class="flex min-h-full" x-data="{ abierto: false }">
+<body class="h-full bg-base text-ink-2 text-body antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<div class="flex min-h-full" x-data="{ abierto: false }">
 
-    <aside
-      class="fixed inset-y-0 left-0 z-20 w-64 shrink-0 border-r border-slate-800 bg-slate-900 p-5 transition-transform md:static md:translate-x-0"
-      :class="abierto ? 'translate-x-0' : '-translate-x-full'"
-    >
-      <a href="{% url 'core:index' %}" class="block text-lg font-semibold text-slate-100">Sistema</a>
-      <p class="mt-1 text-xs uppercase tracking-wide text-slate-500">Operador · Nivel 45</p>
+  {# ------------------------------------------------------------------ #}
+  {# Barra lateral. Fija en escritorio, cajon deslizante en movil.       #}
+  {# ------------------------------------------------------------------ #}
+  <div x-cloak x-show="abierto" @click="abierto = false"
+       class="fixed inset-0 z-20 bg-base/80 backdrop-blur-sm md:hidden"></div>
 
-      <nav class="mt-8 space-y-1 text-sm">
-        {% url 'core:index' as url_panel %}
-        {% url 'missions:index' as url_misiones %}
-        {% url 'progression:index' as url_progresion %}
-        {% url 'business:index' as url_negocio %}
-        {% url 'review:index' as url_revision %}
-        {% url 'wisdom:index' as url_consejo %}
-        {% url 'wisdom:maximas' as url_maximas %}
-        <a href="{{ url_panel }}" class="block rounded-md px-3 py-2 {% if request.path == url_panel %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Panel</a>
-        <a href="{{ url_misiones }}" class="block rounded-md px-3 py-2 {% if request.path == url_misiones %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Misiones</a>
-        <a href="{{ url_progresion }}" class="block rounded-md px-3 py-2 {% if request.path == url_progresion %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Progresión</a>
-        <a href="{{ url_negocio }}" class="block rounded-md px-3 py-2 {% if request.path == url_negocio %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Negocio</a>
-        <a href="{{ url_revision }}" class="block rounded-md px-3 py-2 {% if request.path == url_revision %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Revisión</a>
-        <a href="{{ url_consejo }}" class="block rounded-md px-3 py-2 {% if request.path == url_consejo %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Consejo</a>
-        <a href="{{ url_maximas }}" class="block rounded-md px-3 py-2 {% if request.path == url_maximas %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Máximas</a>
-      </nav>
-    </aside>
+  {# Sin Alpine queda -translate-x-full: bien en movil, anulado por md:translate-x-0. #}
+  <aside class="fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 -translate-x-full flex-col
+                border-r border-line bg-surface-1 px-4 py-6 transition-transform duration-200
+                md:static md:z-auto md:translate-x-0"
+         :class="abierto ? 'translate-x-0' : '-translate-x-full'">
 
-    <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex items-center gap-3 border-b border-slate-800 px-5 py-3 md:hidden">
-        <button type="button" class="rounded-md border border-slate-700 px-3 py-1 text-slate-300" @click="abierto = !abierto">Menú</button>
-        <span class="text-sm text-slate-400">Sistema</span>
-      </header>
+    <a href="{% url 'core:index' %}" class="flex items-center gap-3 px-2">
+      <span class="text-xp">{% include "_icono.html" with icono="marca" clase="h-7 w-7" %}</span>
+      <span>
+        <span class="block text-h4 font-semibold tracking-tight text-ink">Sistema</span>
+        <span class="block text-caption text-ink-3">Progreso con propósito.</span>
+      </span>
+    </a>
 
-      <main class="flex-1 p-6 md:p-10">
-        {% block content %}{% endblock %}
-      </main>
-    </div>
+    <nav class="mt-8 flex-1 space-y-1">
+      {% for entrada in navegacion %}
+        <a href="{{ entrada.url }}"
+           class="{% if entrada.activa %}nav-item-on{% else %}nav-item{% endif %}"
+           {% if entrada.activa %}aria-current="page"{% endif %}
+           @click="abierto = false">
+          {% include "_icono.html" with icono=entrada.icono %}
+          {{ entrada.etiqueta }}
+        </a>
+      {% endfor %}
+    </nav>
+
+    <p class="mt-6 border-t border-line/60 px-2 pt-5 font-serif text-body-sm italic text-ink-3">
+      «Disciplina hoy.<br>Libertad mañana.»
+    </p>
+  </aside>
+
+  {# ------------------------------------------------------------------ #}
+  {# Columna principal                                                   #}
+  {# ------------------------------------------------------------------ #}
+  <div class="flex min-w-0 flex-1 flex-col">
+
+    <header class="sticky top-0 z-10 flex items-center gap-4 border-b border-line
+                   bg-base/90 px-4 py-4 backdrop-blur md:px-10 md:py-6">
+      <button type="button" class="btn px-2 py-2 md:hidden" @click="abierto = true"
+              aria-label="Abrir el menú">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+      </button>
+
+      <div class="min-w-0 flex-1">
+        {# Cada pagina pone aqui su titulo; el panel sobreescribe "cabecera" entera. #}
+        {% block cabecera %}
+          <h1 class="truncate text-h2 font-semibold tracking-tight text-ink">{% block encabezado %}Sistema{% endblock %}</h1>
+          <p class="mt-1 truncate text-body-sm text-ink-3 empty:hidden">{% block subtitulo %}{% endblock %}</p>
+        {% endblock %}
+      </div>
+
+      <p class="hidden items-center gap-2 rounded-sm border border-line bg-surface-2 px-4 py-2.5
+                text-body-sm text-ink-3 lg:flex">
+        {% include "_icono.html" with icono="buscar" clase="h-4 w-4" %}
+        Enfoque. Ejecuta. Repite.
+      </p>
+    </header>
+
+    <main class="flex-1 px-4 pb-28 pt-6 md:px-10 md:pb-10">
+      {% block content %}{% endblock %}
+    </main>
   </div>
+
+  {# ------------------------------------------------------------------ #}
+  {# Barra inferior de movil                                             #}
+  {# ------------------------------------------------------------------ #}
+  <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line
+              bg-surface-1/95 backdrop-blur md:hidden">
+    {% for entrada in navegacion %}
+      {% if entrada.movil %}
+        <a href="{{ entrada.url }}"
+           class="flex flex-col items-center gap-1 py-2.5 text-caption
+                  {% if entrada.activa %}text-xp{% else %}text-ink-3{% endif %}"
+           {% if entrada.activa %}aria-current="page"{% endif %}>
+          {% include "_icono.html" with icono=entrada.icono %}
+          {{ entrada.etiqueta }}
+        </a>
+      {% endif %}
+    {% endfor %}
+    <button type="button" @click="abierto = true"
+            class="flex flex-col items-center gap-1 py-2.5 text-caption text-ink-3">
+      {% include "_icono.html" with icono="mas" %}
+      Más
+    </button>
+  </nav>
+
+</div>
 </body>
 </html>

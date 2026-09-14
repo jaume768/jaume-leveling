@@ -41,6 +41,16 @@ def completar(request, pk):
     return _fragmento(request)
 
 
+def detalle(request, pk):
+    """Modal con la guia de la mision: como se hace, el atajo y lo que no cuenta."""
+    mision = get_object_or_404(Mission, pk=pk, activa=True)
+    contexto = services.detalle_de_mision(mision)
+    contexto["modo_minimo"] = request.GET.get("minimo") == "1"
+    # Solo el panel tiene #bloque-misiones para recibir la respuesta.
+    contexto["puede_completar"] = request.GET.get("accion") == "1"
+    return render(request, "missions/_modal_detalle.html", contexto)
+
+
 def evidencia(request, pk):
     """Modal para aportar la evidencia de una mision."""
     mision = get_object_or_404(Mission, pk=pk, activa=True)

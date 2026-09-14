@@ -8,3 +8,178 @@
 @source "../../business";
 @source "../../review";
 @source "../../wisdom";
+
+/* ---------------------------------------------------------------------------
+   Tokens de diseño. Son la fuente de verdad visual: ningún color, tamaño ni
+   radio se escribe a mano en las plantillas, siempre a través de estas clases.
+   --------------------------------------------------------------------------- */
+@theme {
+  /* Colores */
+  --color-base: #0a0f14;        /* fondo de la aplicación */
+  --color-surface-1: #111827;   /* superficies elevadas (barra lateral) */
+  --color-surface-2: #1a2230;   /* tarjetas */
+  --color-surface-3: #263244;   /* hover y píldoras */
+  --color-line: #334155;        /* bordes */
+
+  --color-xp: #3b82f6;          /* acento azul: XP y estado activo */
+  --color-ok: #22c55e;          /* completado */
+  --color-warn: #f59e0b;        /* jefe de rango y avisos */
+  --color-bad: #ef4444;         /* vencido y penalizaciones */
+
+  --color-ink: #f8fafc;         /* texto principal */
+  --color-ink-2: #cbd5e1;       /* texto secundario */
+  --color-ink-3: #94a3b8;       /* texto terciario */
+
+  /* Tipografía */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+
+  --text-display: 2rem;              /* 32 / 40 */
+  --text-display--line-height: 2.5rem;
+  --text-h2: 1.5rem;                 /* 24 / 32 */
+  --text-h2--line-height: 2rem;
+  --text-h3: 1.25rem;                /* 20 / 28 */
+  --text-h3--line-height: 1.75rem;
+  --text-h4: 1.125rem;               /* 18 / 28 */
+  --text-h4--line-height: 1.75rem;
+  --text-body: 1rem;                 /* 16 / 24 */
+  --text-body--line-height: 1.5rem;
+  --text-body-sm: 0.875rem;          /* 14 / 20 */
+  --text-body-sm--line-height: 1.25rem;
+  --text-caption: 0.75rem;           /* 12 / 16 */
+  --text-caption--line-height: 1rem;
+
+  /* Radios */
+  --radius-sm: 6px;
+  --radius-DEFAULT: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-base);
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Piezas repetidas. Solo entra aqui lo que aparece en tres sitios o mas.
+   Se declaran como @utility para poder componerlas con @apply entre ellas.
+   --------------------------------------------------------------------------- */
+
+/* --- Superficies --- */
+@utility card {
+  @apply rounded-md border border-line bg-surface-2;
+}
+
+@utility card-quiet {
+  @apply rounded-md border border-line/70 bg-surface-1;
+}
+
+/* --- Texto --- */
+@utility label {
+  @apply text-caption font-medium uppercase tracking-widest text-ink-3;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility metric {
+  @apply text-display font-bold tracking-tight text-ink;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Pildoras --- */
+@utility pill {
+  @apply inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-caption font-medium;
+  font-variant-numeric: tabular-nums;
+}
+
+@utility pill-xp {
+  @apply pill bg-xp/15 text-xp;
+}
+
+@utility pill-mut {
+  @apply pill bg-surface-3 text-ink-3;
+}
+
+@utility pill-ok {
+  @apply pill bg-ok/15 text-ok;
+}
+
+@utility pill-warn {
+  @apply pill bg-warn/15 text-warn;
+}
+
+@utility pill-bad {
+  @apply pill bg-bad/15 text-bad;
+}
+
+/* --- Barras de progreso --- */
+@utility bar {
+  @apply h-1.5 w-full overflow-hidden rounded-full bg-base;
+}
+
+@utility bar-fill {
+  @apply h-full rounded-full bg-xp transition-[width] duration-500;
+}
+
+/* --- Botones --- */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-sm border border-line
+         bg-surface-3 px-3 py-2 text-body-sm font-medium text-ink-2
+         transition-colors hover:bg-line hover:text-ink
+         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-xp;
+}
+
+@utility btn-warn {
+  @apply btn border-warn/40 bg-warn/10 text-warn hover:bg-warn/20 hover:text-warn;
+}
+
+/* Version compacta. Las medidas van en CSS plano, no con @apply, para que
+   ganen a las de .btn por orden de aparicion y no por el orden de las clases
+   en el atributo, que en Tailwind no decide nada. */
+@utility btn-sm {
+  @apply btn;
+  padding: 0.25rem 0.5rem;
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+}
+
+@utility btn-xp {
+  @apply btn border-transparent bg-xp text-white hover:bg-xp/85 hover:text-white;
+}
+
+/* --- Navegacion --- */
+@utility nav-item {
+  @apply flex items-center gap-3 rounded-sm px-3 py-2.5 text-body-sm font-medium
+         text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-2;
+}
+
+@utility nav-item-on {
+  @apply nav-item bg-xp/10 text-xp hover:bg-xp/15 hover:text-xp;
+}
+
+/* --- Casilla de mision --- */
+@utility check {
+  @apply mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full
+         border-2 border-line text-caption transition-colors;
+}
+
+@utility check-todo {
+  @apply check hover:border-xp hover:bg-xp/10;
+}
+
+@utility check-done {
+  @apply check border-ok bg-ok;
+  /* El tick va en color de fondo. No se usa text-base: en Tailwind esa clase
+     es un tamano de fuente, no el color --color-base. */
+  color: var(--color-base);
+}

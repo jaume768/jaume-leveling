@@ -51,9 +51,13 @@ def deal_editar(request, pk):
 def deal_guardar(request, pk):
     """Guarda la edicion en linea y devuelve la fila."""
     deal = get_object_or_404(Deal, pk=pk)
+    estado_anterior = deal.estado
     form = DealFilaForm(request.POST, instance=deal)
     if form.is_valid():
         form.save()
+        # El hecho comercial concede su XP aqui, no en una mision inventada.
+        for evento in services.puntuar_deal(deal, estado_anterior):
+            messages.success(request, f"{evento.descripcion}: +{evento.xp_neto} XP.")
         return _fila(request, deal)
     return _fila(request, deal, form=form)
 
@@ -125,8 +129,10 @@ def clientes(request):
 def cliente_nuevo(request):
     form = ClientForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        cliente = form.save()
         messages.success(request, "Cliente creado.")
+        for evento in services.puntuar_recurrente(cliente, 0):
+            messages.success(request, f"{evento.descripcion}: +{evento.xp_neto} XP.")
         return redirect("business:clientes")
     return render(
         request,
@@ -155,6 +161,7 @@ def proyecto_form(request, pk=None):
     campos que el usuario todavia no ha rellenado.
     """
     proyecto = get_object_or_404(Project, pk=pk) if pk else None
+    estado_anterior = proyecto.estado if proyecto else ""
     guardando = request.method == "POST" and "guardar" in request.POST
 
     if request.method == "POST" and not guardando:
@@ -174,13 +181,15 @@ def proyecto_form(request, pk=None):
             )
         else:
             messages.success(request, "Proyecto guardado.")
+        for evento in services.puntuar_proyecto(guardado, estado_anterior):
+            messages.success(request, f"{evento.descripcion}: +{evento.xp_neto} XP.")
         return redirect("business:proyectos")
 
     contexto = {
         "form": form,
         "titulo": "Editar proyecto" if proyecto else "Nuevo proyecto",
         "volver": reverse("business:proyectos"),
-        "suelo": services.SUELO_PRECIO,
+        "suelo": services.suelo_precio(),
     }
     plantilla = (
         "business/_proyecto_form.html" if request.htmx else "business/proyecto_form.html"

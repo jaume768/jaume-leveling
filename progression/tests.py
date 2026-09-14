@@ -198,30 +198,19 @@ class TestExcesoDeWip:
 
 @pytest.mark.django_db
 class TestRevisionNoHecha:
-    def test_el_lunes_sin_revision_penaliza_80(self):
-        _contacto_en(LUNES_S37)
-        chequeo(LUNES_S38)
-        assert Penalty.objects.get(regla_slug__startswith="revision-no-hecha").xp == -80
+    """La revisión no penaliza. El documento la puntúa, pero no castiga su falta."""
 
-    def test_con_la_revision_cerrada_no_penaliza(self):
-        WeeklyReview.objects.create(
-            anio=2026, semana_iso=37, fecha=DOMINGO_S37, m8_revision_hecha=True
-        )
+    def test_el_lunes_sin_revision_no_penaliza(self):
         _contacto_en(LUNES_S37)
         chequeo(LUNES_S38)
         assert not Penalty.objects.filter(regla_slug__startswith="revision-no-hecha").exists()
 
-    def test_un_borrador_sin_cerrar_si_penaliza(self):
+    def test_un_borrador_sin_cerrar_tampoco_penaliza(self):
         WeeklyReview.objects.create(
             anio=2026, semana_iso=37, fecha=DOMINGO_S37, m8_revision_hecha=False
         )
         _contacto_en(LUNES_S37)
         chequeo(LUNES_S38)
-        assert Penalty.objects.filter(regla_slug__startswith="revision-no-hecha").exists()
-
-    def test_solo_se_comprueba_los_lunes(self):
-        _contacto_en(LUNES_S37)
-        chequeo(MARTES_S38)
         assert not Penalty.objects.filter(regla_slug__startswith="revision-no-hecha").exists()
 
 
@@ -272,3 +261,53 @@ class TestResolverDesdeElPanel:
         antes = Profile.get().xp_total
         client.post(reverse("progression:resolver", args=[penalizacion.pk]))
         assert Profile.get().xp_total == antes
+
+
+
+# --- Acciones sueltas de la tabla de XP --------------------------------------
+
+
+@pytest.mark.django_db
+class TestRegistrarAccion:
+    def test_registra_la_xp_de_la_regla(self):
+        evento = services.registrar_accion("peticion-referido", "Referido pedido a Ana")
+
+        assert evento.xp_bruto == 50
+        assert evento.xp_neto == 50
+        assert evento.descripcion == "Referido pedido a Ana"
+
+    def test_respeta_el_tope_semanal(self):
+        for i in range(3):
+            services.registrar_accion("peticion-referido", f"referido {i}")
+        # El tope de peticion-referido son 150/semana: la cuarta no suma.
+        cuarta = services.registrar_accion("peticion-referido", "una mas")
+
+        assert cuarta.xp_neto == 0
+        assert cuarta.tope_aplicado is True
+
+    def test_exige_evidencia(self):
+        with pytest.raises(ValueError):
+            services.registrar_accion("peticion-referido", "   ")
+
+    def test_no_deja_registrar_lo_que_ya_llega_solo(self):
+        """Dinero cobrado viene de las facturas: a mano seria puntuar dos veces."""
+        with pytest.raises(ValueError):
+            services.registrar_accion("dinero-cobrado", "2.000 EUR")
+
+    def test_el_modal_lista_las_acciones_registrables(self, client):
+        respuesta = client.get(reverse("progression:registrar_accion"))
+
+        assert respuesta.status_code == 200
+        assert b"peticion-referido" in respuesta.content
+        # Las automaticas no salen en la lista.
+        assert b"contrato-recurrente-firmado" not in respuesta.content
+
+    def test_el_post_registra_y_devuelve_el_resultado(self, client):
+        respuesta = client.post(
+            reverse("progression:registrar_accion"),
+            {"accion": "publicacion-contenido-real", "evidencia": "Caso de Felycampo"},
+        )
+
+        assert respuesta.status_code == 200
+        assert "+40 XP".encode() in respuesta.content
+        assert XPEvent.objects.filter(accion_slug="publicacion-contenido-real").exists()

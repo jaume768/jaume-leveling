@@ -1,0 +1,53 @@
+{% comment %}
+  Iconos de linea del sistema. Se incluye con {% include "_icono.html" with icono="panel" %}
+  y opcionalmente clase="h-5 w-5". Trazo de 1.5 para que respiren en oscuro.
+{% endcomment %}
+<svg class="{{ clase|default:'h-5 w-5' }} shrink-0" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true">
+  {% if icono == "panel" %}
+    <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/>
+  {% elif icono == "misiones" %}
+    <path d="M12 2.5 20 7v10l-8 4.5L4 17V7z"/><circle cx="12" cy="12" r="3"/>
+  {% elif icono == "progresion" %}
+    <path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>
+  {% elif icono == "negocio" %}
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+  {% elif icono == "revision" %}
+    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>
+  {% elif icono == "consejo" %}
+    <path d="M12 21s7-5.4 7-11a7 7 0 1 0-14 0c0 5.6 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/>
+  {% elif icono == "maximas" %}
+    <path d="M9 21h6"/><path d="M10 17.5h4"/>
+    <path d="M12 2.5a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V17h5v-1.8c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 2.5Z"/>
+  {% elif icono == "rangos" %}
+    <path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5.5H4.5V8a3 3 0 0 0 3 3"/>
+    <path d="M17 5.5h2.5V8a3 3 0 0 1-3 3"/><path d="M12 14v3.5"/><path d="M8.5 20h7"/>
+    <path d="M10 17.5h4L15 20H9z"/>
+  {% elif icono == "mas" %}
+    <circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>
+  {% elif icono == "marca" %}
+    <path d="M4 4h16v6.5a9.5 9.5 0 0 1-8 9.4 9.5 9.5 0 0 1-8-9.4Z"/><path d="m8.5 10 3.5 3.5L15.5 10"/>
+  {% elif icono == "rayo" %}
+    <path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12z"/>
+  {% elif icono == "diana" %}
+    <circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/>
+  {% elif icono == "reloj" %}
+    <circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>
+  {% elif icono == "fuego" %}
+    <path d="M12 2.5c3 3.4 5.5 6 5.5 9.9a5.5 5.5 0 1 1-11 0c0-1.7.6-3 1.6-4.3.3 1.3 1 2.1 2 2.4C10.5 8 11 5.3 12 2.5Z"/>
+  {% elif icono == "euro" %}
+    <path d="M17.5 6.5A6.5 6.5 0 0 0 7 12a6.5 6.5 0 0 0 10.5 5.5"/><path d="M4.5 10.5h7"/><path d="M4.5 13.5h7"/>
+  {% elif icono == "usuario" %}
+    <circle cx="12" cy="8.5" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+  {% elif icono == "chevron" %}
+    <path d="m9 5 7 7-7 7"/>
+  {% elif icono == "buscar" %}
+    <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+  {% elif icono == "comillas" %}
+    <path d="M9.5 6.5C6.5 8 5 10.3 5 13.2c0 2.3 1.4 3.8 3.3 3.8 1.7 0 3-1.2 3-2.9 0-1.6-1.1-2.8-2.7-2.8-.3 0-.6 0-.8.1.3-1.5 1.3-2.7 2.9-3.6z"/>
+    <path d="M18 6.5c-3 1.5-4.5 3.8-4.5 6.7 0 2.3 1.4 3.8 3.3 3.8 1.7 0 3-1.2 3-2.9 0-1.6-1.1-2.8-2.7-2.8-.3 0-.6 0-.8.1.3-1.5 1.3-2.7 2.9-3.6z"/>
+  {% elif icono == "aviso" %}
+    <path d="M12 3.5 21 19.5H3z"/><path d="M12 9.5v4"/><path d="M12 16.8h.01"/>
+  {% endif %}
+</svg>

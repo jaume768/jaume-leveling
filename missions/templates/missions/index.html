@@ -1,23 +1,42 @@
 {% extends "base.html" %}
 
 {% block title %}Misiones{% endblock %}
+{% block encabezado %}Misiones{% endblock %}
+{% block subtitulo %}Todas las misiones activas. Pulsa una para ver cómo se hace.{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-5xl">
-  <h1 class="text-2xl font-semibold text-slate-100">Misiones</h1>
-  <p class="mt-2 text-slate-400">Todas las misiones activas del sistema.</p>
-
-  <ul class="mt-6 divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-900">
+  <ul class="divide-y divide-line card">
     {% for mision in misiones %}
-      <li class="p-4">
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <p class="text-slate-100">{{ mision.titulo }}</p>
-          <p class="text-xs text-slate-500">{{ mision.xp }} XP · {{ mision.get_tipo_display|lower }}</p>
-        </div>
-        <p class="mt-1 text-xs text-slate-500">{{ mision.definicion_terminada }}</p>
-        {% if mision.motivo %}<p class="mt-1 text-xs text-slate-600">{{ mision.motivo }}</p>{% endif %}
+      <li>
+        <button type="button"
+                class="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-surface-3"
+                hx-get="{% url 'missions:detalle' mision.pk %}"
+                hx-target="#modal"
+                hx-swap="innerHTML">
+          <span class="min-w-0 flex-1">
+            <span class="flex flex-wrap items-baseline justify-between gap-2">
+              <span class="text-body-sm font-semibold text-ink">{{ mision.titulo }}</span>
+              <span class="flex items-center gap-2">
+                <span class="pill-xp">{{ mision.xp }} XP</span>
+                <span class="pill-mut">{{ mision.get_tipo_display|lower }}</span>
+              </span>
+            </span>
+            <span class="mt-1 block text-caption text-ink-3">{{ mision.definicion_terminada }}</span>
+            {% if mision.motivo %}
+              <span class="mt-1 block text-caption text-ink-3">{{ mision.motivo }}</span>
+            {% endif %}
+          </span>
+
+          <span class="mt-0.5 shrink-0 text-ink-3">
+            {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
+          </span>
+        </button>
       </li>
     {% endfor %}
   </ul>
+
+  {# Hueco del modal de detalle #}
+  <div id="modal"></div>
 </div>
 {% endblock %}

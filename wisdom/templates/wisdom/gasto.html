@@ -1,36 +1,37 @@
 {% extends "base.html" %}
 
 {% block title %}Gasto del consejo{% endblock %}
+{% block encabezado %}Gasto del consejo{% endblock %}
+{% block subtitulo %}Lo que cuesta preguntar. Si no cambia una decisión, no vale lo que cuesta.{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-4xl">
-  <div class="flex flex-wrap items-baseline justify-between gap-2">
-    <h1 class="text-2xl font-semibold text-slate-100">Gasto del consejo</h1>
-    <a href="{% url 'wisdom:index' %}" class="text-sm text-slate-500 underline">Volver al consejo</a>
+  <div class="flex justify-end">
+    <a href="{% url 'wisdom:index' %}" class="text-body-sm text-ink-3 underline underline-offset-4 hover:text-ink-2">Volver al consejo</a>
   </div>
 
-  <section class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-4">
-    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <p class="text-xs uppercase tracking-wide text-slate-500">Gasto del mes</p>
-      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ gasto.total|floatformat:2 }} <span class="text-base font-normal text-slate-500">€</span></p>
+  <section class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
+    <div class="card p-4">
+      <p class="label">Gasto del mes</p>
+      <p class="mt-1 text-h2 font-semibold text-ink">{{ gasto.total|floatformat:2 }} <span class="text-body font-normal text-ink-3">€</span></p>
     </div>
-    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <p class="text-xs uppercase tracking-wide text-slate-500">Consultas</p>
-      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ gasto.consultas }}</p>
+    <div class="card p-4">
+      <p class="label">Consultas</p>
+      <p class="mt-1 text-h2 font-semibold text-ink">{{ gasto.consultas }}</p>
     </div>
-    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <p class="text-xs uppercase tracking-wide text-slate-500">Tokens entrada</p>
-      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ gasto.tokens_in }}</p>
+    <div class="card p-4">
+      <p class="label">Tokens entrada</p>
+      <p class="mt-1 text-h2 font-semibold text-ink">{{ gasto.tokens_in }}</p>
     </div>
-    <div class="rounded-lg border border-slate-800 bg-slate-900 p-4">
-      <p class="text-xs uppercase tracking-wide text-slate-500">Tokens salida</p>
-      <p class="mt-1 text-2xl font-semibold text-slate-100">{{ gasto.tokens_out }}</p>
+    <div class="card p-4">
+      <p class="label">Tokens salida</p>
+      <p class="mt-1 text-h2 font-semibold text-ink">{{ gasto.tokens_out }}</p>
     </div>
   </section>
 
-  <div class="mt-4 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
-    <table class="w-full min-w-[40rem] text-left text-sm">
-      <thead class="text-xs uppercase tracking-wide text-slate-500">
+  <div class="mt-4 overflow-x-auto card">
+    <table class="w-full min-w-[40rem] text-left text-body-sm">
+      <thead class="label">
         <tr>
           <th class="px-3 py-2 font-medium">Fecha</th>
           <th class="px-3 py-2 font-medium">Pregunta</th>
@@ -41,15 +42,15 @@
       </thead>
       <tbody>
         {% for sesion in sesiones %}
-          <tr class="border-t border-slate-800">
-            <td class="px-3 py-2 whitespace-nowrap text-slate-400">{{ sesion.fecha|date:"d/m/Y H:i" }}</td>
-            <td class="px-3 py-2 text-slate-200">{{ sesion.pregunta|truncatechars:70 }}</td>
-            <td class="px-3 py-2 whitespace-nowrap text-slate-500">{{ sesion.modelo }}</td>
-            <td class="px-3 py-2 whitespace-nowrap text-slate-400">{{ sesion.tokens_in }} / {{ sesion.tokens_out }}</td>
-            <td class="px-3 py-2 whitespace-nowrap text-slate-200">{{ sesion.coste_estimado|floatformat:4 }} €</td>
+          <tr class="border-t border-line">
+            <td class="px-3 py-2 whitespace-nowrap text-ink-3">{{ sesion.fecha|date:"d/m/Y H:i" }}</td>
+            <td class="px-3 py-2 text-ink-2">{{ sesion.pregunta|truncatechars:70 }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-ink-3">{{ sesion.modelo }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-ink-3">{{ sesion.tokens_in }} / {{ sesion.tokens_out }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-ink-2">{{ sesion.coste_estimado|floatformat:4 }} €</td>
           </tr>
         {% empty %}
-          <tr class="border-t border-slate-800"><td colspan="5" class="px-3 py-6 text-center text-slate-500">Ninguna consulta todavía.</td></tr>
+          <tr class="border-t border-line"><td colspan="5" class="px-3 py-6 text-center text-ink-3">Ninguna consulta todavía.</td></tr>
         {% endfor %}
       </tbody>
     </table>

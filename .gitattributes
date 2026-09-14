@@ -1,0 +1,5 @@
+# Los .sh se ejecutan dentro de contenedores Linux: con CRLF fallan con
+# "env: bash\r: No such file or directory". Siempre LF, se clone donde se clone.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf

@@ -22,7 +22,7 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     env_file:
       - .env
-    environment:
+    environment: 
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-sistema.settings.dev}
     volumes:
       - .:/app

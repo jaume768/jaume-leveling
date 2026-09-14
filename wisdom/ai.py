@@ -234,7 +234,7 @@ def construir_contexto(fecha: dt.date | None = None) -> dict:
         },
         "recurrente": {
             "actual": float(business.recurrente_activo()),
-            "objetivo": float(business.OBJETIVO_RECURRENTE),
+            "objetivo": float(business.objetivo_recurrente()),
         },
         "tarifa_efectiva_mes": float(tarifa) if tarifa is not None else None,
         "ultimas_revisiones": revisiones,

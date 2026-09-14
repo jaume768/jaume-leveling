@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Calibración{% endblock %}
+{% block encabezado %}Calibración mensual{% endblock %}
+{% block subtitulo %}Una vez al mes, 60 minutos. Un sistema que no se calibra se convierte en decorado.{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-8">
+
+  {% if error %}
+    <p class="rounded-md border border-bad/45 bg-bad/10 p-4 text-body-sm text-bad">{{ error }}</p>
+  {% endif %}
+  {% if hecho %}
+    <p class="rounded-md border border-ok/45 bg-ok/10 p-4 text-body-sm text-ok">{{ hecho }}</p>
+  {% endif %}
+
+  {# ============ 1 · ¿Sube la XP sin subir el dinero? ============ #}
+  <section class="rounded-md border p-5
+                  {% if comparativa.alerta %}border-warn/45 bg-warn/8{% else %}card{% endif %}">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <p class="label">Pregunta 1</p>
+      {% if comparativa.alerta %}<span class="pill-warn">Hay que recortar</span>{% endif %}
+    </div>
+    <h2 class="mt-1 text-h3 font-semibold text-ink">¿Subió la XP sin subir los ingresos?</h2>
+
+    {% if not comparativa.comparable %}
+      <p class="mt-3 text-body-sm text-ink-3">
+        Todavía no hay mes anterior con datos para comparar. Esta pregunta
+        empieza a servir a partir del segundo mes.
+      </p>
+    {% else %}
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full min-w-[30rem] text-left text-body-sm">
+          <thead class="label">
+            <tr>
+              <th class="pb-2 font-medium">Métrica</th>
+              <th class="pb-2 text-right font-medium">Mes anterior</th>
+              <th class="pb-2 text-right font-medium">Este mes</th>
+            </tr>
+          </thead>
+          <tbody class="tabular">
+            <tr class="border-t border-line">
+              <td class="py-2 text-ink-2">XP neta</td>
+              <td class="py-2 text-right text-ink-3">{{ comparativa.anterior.xp }}</td>
+              <td class="py-2 text-right {% if comparativa.subio_xp %}text-warn{% else %}text-ink{% endif %}">{{ comparativa.este.xp }}</td>
+            </tr>
+            <tr class="border-t border-line">
+              <td class="py-2 text-ink-2">de eso, XP de soporte</td>
+              <td class="py-2 text-right text-ink-3">{{ comparativa.anterior.xp_soporte }}</td>
+              <td class="py-2 text-right text-ink-3">{{ comparativa.este.xp_soporte }}</td>
+            </tr>
+            <tr class="border-t border-line">
+              <td class="py-2 text-ink-2">€ cobrados</td>
+              <td class="py-2 text-right text-ink-3">{{ comparativa.anterior.cobrado|floatformat:0 }}</td>
+              <td class="py-2 text-right {% if comparativa.subio_dinero %}text-ok{% else %}text-ink{% endif %}">{{ comparativa.este.cobrado|floatformat:0 }}</td>
+            </tr>
+            <tr class="border-t border-line">
+              <td class="py-2 text-ink-2">€ recurrentes</td>
+              <td class="py-2 text-right text-ink-3">
+                {% if comparativa.anterior.recurrente is None %}—{% else %}{{ comparativa.anterior.recurrente|floatformat:0 }}{% endif %}
+              </td>
+              <td class="py-2 text-right {% if comparativa.subio_recurrente %}text-ok{% else %}text-ink{% endif %}">
+                {% if comparativa.este.recurrente is None %}—{% else %}{{ comparativa.este.recurrente|floatformat:0 }}{% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {% if comparativa.alerta %}
+        <p class="mt-4 rounded-sm border-l-2 border-warn bg-warn/10 p-3 text-body-sm text-ink-2">
+          La XP subió y el dinero no. <strong class="text-warn">Reduce a la mitad la XP de soporte</strong>
+          en el admin: estás puntuando esfuerzo en lugar de resultado.
+        </p>
+      {% else %}
+        <p class="mt-4 text-body-sm text-ink-3">
+          Sin señal de inflación de XP este mes. No toques nada.
+        </p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  {# ============ 2 · Acciones que nunca haces ============ #}
+  <section class="card p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <p class="label">Pregunta 2</p>
+      {% if sin_usar.hay_historial %}
+        <span class="{% if sin_usar.acciones %}pill-warn{% else %}pill-ok{% endif %}">
+          {{ sin_usar.acciones|length }} sin usar
+        </span>
+      {% endif %}
+    </div>
+    <h2 class="mt-1 text-h3 font-semibold text-ink">¿Qué acciones no has hecho ni una vez?</h2>
+    <p class="mt-1 text-body-sm text-ink-3">
+      O es irrelevante y se borra, o es justo la que más te cuesta y se le sube la XP un 50%.
+      No hay tercera opción: dejarla ahí sin decidir es lo que convierte el sistema en decorado.
+    </p>
+
+    {% if not sin_usar.hay_historial %}
+      <p class="mt-4 text-body-sm text-ink-3">
+        Todavía no hay historial de XP. Esta pregunta empieza a servir después
+        del primer mes de uso, cuando ya se vea qué acciones esquivas.
+      </p>
+    {% elif sin_usar.acciones %}
+      <ul class="mt-4 space-y-2">
+        {% for item in sin_usar.acciones %}
+          <li class="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-line bg-surface-1 p-3">
+            <span class="min-w-0 flex-1 text-body-sm text-ink">
+              {{ item.regla.descripcion|default:item.regla.accion_slug }}
+            </span>
+            <span class="flex items-center gap-2">
+              <span class="pill-mut">{{ item.regla.xp }} XP</span>
+              <span class="pill-xp">subir a {{ item.xp_si_sube }}</span>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="mt-3 text-caption text-ink-3">
+        Se ajustan en el admin, en «Reglas de XP». El sistema no las cambia solo a propósito.
+      </p>
+    {% else %}
+      <p class="mt-4 text-body-sm text-ok">Todas las acciones de la tabla se han usado alguna vez.</p>
+    {% endif %}
+  </section>
+
+  {# ============ 3 · Tasa de aceptación (trimestral) ============ #}
+  <section class="rounded-md border p-5
+                  {% if aceptacion.alerta %}border-warn/45 bg-warn/8{% else %}card{% endif %}">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <p class="label">Pregunta 3 · trimestral</p>
+      {% if aceptacion.alerta %}<span class="pill-warn">Sube el precio un 20%</span>{% endif %}
+    </div>
+    <h2 class="mt-1 text-h3 font-semibold text-ink">¿Te aceptan demasiado?</h2>
+
+    <div class="mt-4 flex flex-wrap items-end gap-6">
+      <div>
+        <p class="metric">{{ aceptacion.tasa }}<span class="text-h3 font-normal text-ink-3">%</span></p>
+        <p class="mt-1 text-caption tabular text-ink-3">
+          {{ aceptacion.ganados }} ganadas de {{ aceptacion.cerrados }} cerradas
+        </p>
+      </div>
+      <p class="label">Umbral: {{ aceptacion.umbral }}%</p>
+    </div>
+
+    {% if not aceptacion.fiable %}
+      <p class="mt-4 text-body-sm text-ink-3">
+        Con {{ aceptacion.cerrados }} oportunidad{{ aceptacion.cerrados|pluralize:"es" }} cerrada{{ aceptacion.cerrados|pluralize }}
+        la muestra no dice nada. Hacen falta cinco para que este número signifique algo.
+      </p>
+    {% elif aceptacion.alerta %}
+      <p class="mt-4 rounded-sm border-l-2 border-warn bg-warn/10 p-3 text-body-sm text-ink-2">
+        Te aceptan más de 8 de cada 10. <strong class="text-warn">Tu precio es bajo: súbelo un 20%.</strong>
+        Si te lo aceptan todo, estás dejando dinero en la mesa.
+      </p>
+    {% else %}
+      <p class="mt-4 text-body-sm text-ink-3">Tasa dentro de lo razonable. El precio aguanta.</p>
+    {% endif %}
+  </section>
+
+  {# ============ Ajuste de atributos ============ #}
+  <section class="card p-5">
+    <p class="label">Hoja de personaje</p>
+    <h2 class="mt-1 text-h3 font-semibold text-ink">Revisar los atributos</h2>
+    <p class="mt-1 text-body-sm text-ink-3">
+      Suben de diez en diez, y solo cuando el hito se ha cumplido de verdad.
+      El motivo es obligatorio: dentro de seis meses querrás saber por qué subió.
+    </p>
+
+    <div class="mt-5 space-y-3">
+      {% for grupo in hoja.grupos %}
+        {% for a in grupo.atributos %}
+          <form method="post" class="rounded-sm border border-line bg-surface-1 p-4">
+            {% csrf_token %}
+            <input type="hidden" name="slug" value="{{ a.slug }}">
+
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 class="text-body font-semibold text-ink">{{ a.nombre }}</h3>
+              <span class="text-h4 font-bold tabular
+                           {% if a.valor >= 60 %}text-ok{% elif a.valor >= 40 %}text-warn{% else %}text-bad{% endif %}">
+                {{ a.valor }}
+              </span>
+            </div>
+
+            <div class="bar mt-2">
+              <div class="bar-fill {% if a.valor >= 60 %}bg-ok{% elif a.valor >= 40 %}bg-warn{% else %}bg-bad{% endif %}"
+                   style="width: {{ a.valor }}%"></div>
+            </div>
+
+            {% if a.siguiente_hito %}
+              <p class="mt-3 text-body-sm text-ink-2">
+                <span class="label text-xp">Sube +10 cuando</span><br>
+                {{ a.siguiente_hito }}
+              </p>
+            {% endif %}
+
+            <div class="mt-3 flex flex-wrap items-end gap-2">
+              <label class="w-24">
+                <span class="label">Nuevo valor</span>
+                <input type="number" name="valor" min="0" max="100" value="{{ a.valor|add:10 }}"
+                       class="mt-1 w-full rounded-sm border border-line bg-base p-2 text-body-sm tabular text-ink
+                              focus:border-xp focus:outline-none">
+              </label>
+              <label class="min-w-0 flex-1">
+                <span class="label">Por qué</span>
+                <input type="text" name="nota" required
+                       placeholder="Qué hito has cumplido, con el dato"
+                       class="mt-1 w-full rounded-sm border border-line bg-base p-2 text-body-sm text-ink
+                              placeholder:text-ink-3 focus:border-xp focus:outline-none">
+              </label>
+              <button type="submit" class="btn">Guardar</button>
+            </div>
+          </form>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ============ Historial ============ #}
+  {% if historial %}
+    <section class="card p-5">
+      <p class="label">Últimos cambios</p>
+      <ul class="mt-3 divide-y divide-line">
+        {% for log in historial %}
+          <li class="flex flex-wrap items-baseline justify-between gap-2 py-2.5">
+            <span class="min-w-0 flex-1">
+              <span class="text-body-sm text-ink">{{ log.attribute.nombre }}</span>
+              <span class="ml-2 text-caption text-ink-3">{{ log.nota }}</span>
+            </span>
+            <span class="flex items-center gap-3 text-caption tabular text-ink-3">
+              <span class="pill-xp">{{ log.valor }}</span>
+              {{ log.fecha|date:"d/m/Y" }}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+</div>
+{% endblock %}

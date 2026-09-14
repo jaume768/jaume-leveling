@@ -1,37 +1,31 @@
 {% extends "base.html" %}
 {% block title %}Progresión{% endblock %}
+{% block encabezado %}Progresión{% endblock %}
+{% block subtitulo %}Nivel {{ resumen.perfil.nivel }} · {{ resumen.xp_semana }}/{{ resumen.objetivo_xp_semanal }} XP esta semana · racha {{ resumen.racha }} días (×{{ resumen.multiplicador }}){% endblock %}
 {% block content %}
 <div class="mx-auto max-w-4xl space-y-6">
-  <div>
-    <h1 class="text-2xl font-semibold text-slate-100">Progresión</h1>
-    <p class="mt-1 text-sm text-slate-500">
-      Nivel {{ resumen.perfil.nivel }} · {{ resumen.xp_semana }}/{{ resumen.objetivo_xp_semanal }} XP esta semana ·
-      racha {{ resumen.racha }} días (×{{ resumen.multiplicador }})
-    </p>
-  </div>
-
   <section>
-    <h2 class="text-lg font-semibold text-slate-100">Penalizaciones</h2>
-    <ul class="mt-3 divide-y divide-slate-800 rounded-lg border border-slate-800 bg-slate-900">
+    <h2 class="text-h4 font-semibold text-ink">Penalizaciones</h2>
+    <ul class="mt-3 divide-y divide-line card">
       {% for p in penalizaciones %}
-        <li class="p-4 {% if not p.resuelta %}bg-red-950/20{% endif %}">
+        <li class="p-4 {% if not p.resuelta %}bg-bad/10{% endif %}">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <p class="{% if p.resuelta %}text-slate-400{% else %}text-red-300{% endif %}">{{ p.descripcion }}</p>
-            <p class="text-xs text-slate-500">{{ p.fecha|date:"d/m/Y" }} · {{ p.xp }} XP · {% if p.resuelta %}resuelta{% else %}pendiente{% endif %}</p>
+            <p class="{% if p.resuelta %}text-ink-3{% else %}text-bad{% endif %}">{{ p.descripcion }}</p>
+            <p class="text-caption text-ink-3">{{ p.fecha|date:"d/m/Y" }} · {{ p.xp }} XP · {% if p.resuelta %}resuelta{% else %}pendiente{% endif %}</p>
           </div>
-          <p class="mt-1 text-sm text-slate-500">{{ p.correccion_exigida }}</p>
+          <p class="mt-1 text-body-sm text-ink-3">{{ p.correccion_exigida }}</p>
         </li>
       {% empty %}
-        <li class="p-4 text-slate-500">Ninguna penalización. Bien.</li>
+        <li class="p-4 text-ink-3">Ninguna penalización. Bien.</li>
       {% endfor %}
     </ul>
   </section>
 
   <section>
-    <h2 class="text-lg font-semibold text-slate-100">Eventos de XP</h2>
-    <div class="mt-3 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
-      <table class="w-full min-w-[36rem] text-left text-sm">
-        <thead class="text-xs uppercase tracking-wide text-slate-500">
+    <h2 class="text-h4 font-semibold text-ink">Eventos de XP</h2>
+    <div class="mt-3 overflow-x-auto card">
+      <table class="w-full min-w-[36rem] text-left text-body-sm">
+        <thead class="label">
           <tr>
             <th class="px-3 py-2 font-medium">Fecha</th>
             <th class="px-3 py-2 font-medium">Acción</th>
@@ -42,17 +36,17 @@
         </thead>
         <tbody>
           {% for e in eventos %}
-            <tr class="border-t border-slate-800">
-              <td class="px-3 py-2 whitespace-nowrap text-slate-400">{{ e.fecha|date:"d/m" }}</td>
-              <td class="px-3 py-2 text-slate-200">{{ e.descripcion|default:e.accion_slug }}</td>
-              <td class="px-3 py-2 text-slate-500">{{ e.xp_bruto }}</td>
-              <td class="px-3 py-2 text-slate-500">×{{ e.multiplicador_racha }}</td>
-              <td class="px-3 py-2 {% if e.xp_neto < 0 %}text-red-300{% else %}text-slate-100{% endif %}">
-                {{ e.xp_neto }}{% if e.tope_aplicado %} <span class="text-xs text-amber-500">tope</span>{% endif %}
+            <tr class="border-t border-line">
+              <td class="px-3 py-2 whitespace-nowrap text-ink-3">{{ e.fecha|date:"d/m" }}</td>
+              <td class="px-3 py-2 text-ink-2">{{ e.descripcion|default:e.accion_slug }}</td>
+              <td class="px-3 py-2 text-ink-3">{{ e.xp_bruto }}</td>
+              <td class="px-3 py-2 text-ink-3">×{{ e.multiplicador_racha }}</td>
+              <td class="px-3 py-2 {% if e.xp_neto < 0 %}text-bad{% else %}text-ink{% endif %}">
+                {{ e.xp_neto }}{% if e.tope_aplicado %} <span class="text-caption text-warn">tope</span>{% endif %}
               </td>
             </tr>
           {% empty %}
-            <tr class="border-t border-slate-800"><td colspan="5" class="px-3 py-6 text-center text-slate-500">Sin eventos todavía.</td></tr>
+            <tr class="border-t border-line"><td colspan="5" class="px-3 py-6 text-center text-ink-3">Sin eventos todavía.</td></tr>
           {% endfor %}
         </tbody>
       </table>

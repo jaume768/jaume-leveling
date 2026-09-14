@@ -2,23 +2,20 @@
 {% load review_extras %}
 
 {% block title %}Revisión{% endblock %}
+{% block encabezado %}Revisión semanal{% endblock %}
+{% block subtitulo %}Domingo 20:15 · 40 minutos · {{ objetivos.m4_contactos_nuevos }} contactos por semana{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-5xl space-y-6">
   {% include "business/_mensajes.html" %}
 
-  <div class="flex flex-wrap items-baseline justify-between gap-2">
-    <h1 class="text-2xl font-semibold text-slate-100">Revisión semanal</h1>
-    <p class="text-sm text-slate-500">Domingo 20:15 · 40 minutos · {{ objetivos.m4_contactos_nuevos }} contactos por semana</p>
-  </div>
-
   <form method="post" class="space-y-6">
     {% csrf_token %}
     {{ form.anio }}{{ form.semana_iso }}
 
-    <section class="rounded-lg border border-slate-800 bg-slate-900 p-5">
-      <h2 class="text-sm uppercase tracking-wide text-slate-500">Calculado por el sistema</h2>
-      <p class="mt-1 text-xs text-slate-600">Estas ocho no se tocan a mano: salen del pipeline, las facturas y la XP.</p>
+    <section class="card p-5">
+      <h2 class="label">Calculado por el sistema</h2>
+      <p class="mt-1 text-caption text-ink-3">Estas ocho no se tocan a mano: salen del pipeline, las facturas y la XP.</p>
       <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {% for campo in campos_calculados %}
           {% include "review/_campo.html" with campo=campo semaforo=semaforos|dictkey:campo.name %}
@@ -26,20 +23,20 @@
       </div>
     </section>
 
-    <section class="rounded-lg border border-slate-800 bg-slate-900 p-5">
-      <h2 class="text-sm uppercase tracking-wide text-slate-500">Solo tú lo sabes</h2>
+    <section class="card p-5">
+      <h2 class="label">Solo tú lo sabes</h2>
       <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label for="{{ form.fecha.id_for_label }}" class="text-sm text-slate-300">{{ form.fecha.label }}</label>
+          <label for="{{ form.fecha.id_for_label }}" class="text-body-sm text-ink-2">{{ form.fecha.label }}</label>
           <div class="mt-1">{{ form.fecha }}</div>
         </div>
         {% for campo in campos_manuales %}
           {% if campo.field.widget.input_type == "checkbox" %}
             <div class="flex items-center gap-2 pt-6">
               {{ campo }}
-              <label for="{{ campo.id_for_label }}" class="text-sm text-slate-300">{{ campo.label }}</label>
+              <label for="{{ campo.id_for_label }}" class="text-body-sm text-ink-2">{{ campo.label }}</label>
             </div>
-            {% for error in campo.errors %}<p class="text-xs text-red-400">{{ error }}</p>{% endfor %}
+            {% for error in campo.errors %}<p class="text-caption text-bad">{{ error }}</p>{% endfor %}
           {% else %}
             {% include "review/_campo.html" with campo=campo semaforo="" %}
           {% endif %}
@@ -47,8 +44,8 @@
       </div>
     </section>
 
-    <section class="rounded-lg border border-slate-800 bg-slate-900 p-5">
-      <h2 class="text-sm uppercase tracking-wide text-slate-500">Balance</h2>
+    <section class="card p-5">
+      <h2 class="label">Balance</h2>
       <div class="mt-4 space-y-4">
         {% include "review/_campo.html" with campo=form.funciono semaforo="" %}
         {% include "review/_campo.html" with campo=form.no_funciono semaforo="" %}
@@ -62,17 +59,17 @@
     </section>
 
     <div class="flex justify-end">
-      <button type="submit" class="rounded-md bg-slate-200 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-white">
+      <button type="submit" class="rounded-md bg-xp px-4 py-2 text-body-sm font-medium text-white hover:bg-xp/85">
         Guardar revisión
       </button>
     </div>
   </form>
 
   <section>
-    <h2 class="text-lg font-semibold text-slate-100">Histórico</h2>
-    <div class="mt-3 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900">
-      <table class="w-full min-w-[52rem] text-left text-sm">
-        <thead class="text-xs uppercase tracking-wide text-slate-500">
+    <h2 class="text-h4 font-semibold text-ink">Histórico</h2>
+    <div class="mt-3 overflow-x-auto card">
+      <table class="w-full min-w-[52rem] text-left text-body-sm">
+        <thead class="label">
           <tr>
             <th class="px-3 py-2 font-medium">Semana</th>
             {% for clave, etiqueta, sentido in historico.columnas %}
@@ -82,25 +79,25 @@
         </thead>
         <tbody>
           {% for fila in historico.filas %}
-            <tr class="border-t border-slate-800">
-              <td class="px-3 py-2 whitespace-nowrap text-slate-100">
+            <tr class="border-t border-line">
+              <td class="px-3 py-2 whitespace-nowrap text-ink">
                 {{ fila.revision.semana_iso }}/{{ fila.revision.anio }}
-                {% if not fila.revision.m8_revision_hecha %}<span class="ml-1 text-xs text-amber-500">borrador</span>{% endif %}
+                {% if not fila.revision.m8_revision_hecha %}<span class="ml-1 text-caption text-warn">borrador</span>{% endif %}
               </td>
               {% for celda in fila.celdas %}
                 <td class="px-3 py-2 whitespace-nowrap">
-                  <span class="{% if celda.semaforo == 'verde' %}text-emerald-300{% elif celda.semaforo == 'ambar' %}text-amber-300{% elif celda.semaforo == 'rojo' %}text-red-300{% else %}text-slate-300{% endif %}">
+                  <span class="{% if celda.semaforo == 'verde' %}text-ok{% elif celda.semaforo == 'ambar' %}text-warn{% elif celda.semaforo == 'rojo' %}text-bad{% else %}text-ink-2{% endif %}">
                     {{ celda.valor|floatformat:"-2" }}
                   </span>
-                  {% if celda.tendencia == "mejor" %}<span class="text-xs text-emerald-400" title="Mejor que la semana anterior">↑</span>
-                  {% elif celda.tendencia == "peor" %}<span class="text-xs text-red-400" title="Peor que la semana anterior">↓</span>
-                  {% elif celda.tendencia == "igual" %}<span class="text-xs text-slate-600" title="Igual que la semana anterior">→</span>{% endif %}
+                  {% if celda.tendencia == "mejor" %}<span class="text-caption text-ok" title="Mejor que la semana anterior">↑</span>
+                  {% elif celda.tendencia == "peor" %}<span class="text-caption text-bad" title="Peor que la semana anterior">↓</span>
+                  {% elif celda.tendencia == "igual" %}<span class="text-caption text-ink-3" title="Igual que la semana anterior">→</span>{% endif %}
                 </td>
               {% endfor %}
             </tr>
           {% empty %}
-            <tr class="border-t border-slate-800">
-              <td colspan="10" class="px-3 py-6 text-center text-slate-500">Todavía no hay revisiones guardadas.</td>
+            <tr class="border-t border-line">
+              <td colspan="10" class="px-3 py-6 text-center text-ink-3">Todavía no hay revisiones guardadas.</td>
             </tr>
           {% endfor %}
         </tbody>

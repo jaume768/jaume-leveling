@@ -1,12 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Facturas{% endblock %}
+{% block encabezado %}Negocio{% endblock %}
+{% block subtitulo %}Facturas · 50% por adelantado y reclamación al día 15.{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-6xl">
   {% include "business/_nav.html" %}
   {% include "business/_mensajes.html" %}
   <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-    <h1 class="text-2xl font-semibold text-slate-100">Facturas</h1>
-    <a href="{% url 'business:factura_nueva' %}" class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800">Nueva factura</a>
+    <h2 class="text-h3 font-semibold text-ink">Facturas</h2>
+    <a href="{% url 'business:factura_nueva' %}" class="btn">Nueva factura</a>
   </div>
   {% include "business/_facturas_bloque.html" %}
 </div>

@@ -71,6 +71,11 @@ class Deal(models.Model):
     ultimo_toque = models.DateField("ultimo toque", null=True, blank=True)
     proximo_paso = models.CharField("proximo paso", max_length=255, blank=True)
     fecha_proximo_paso = models.DateField("fecha del proximo paso", null=True, blank=True)
+    rechazado_por_precio = models.BooleanField(
+        "rechazado por precio bajo",
+        default=False,
+        help_text="Lo rechazaste tu por estar por debajo del suelo. Son +150 XP.",
+    )
     motivo_perdida = models.TextField(
         "motivo de perdida",
         blank=True,

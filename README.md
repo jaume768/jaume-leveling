@@ -57,9 +57,119 @@ docker compose exec web python manage.py recordatorio_revision
 ```
 
 `chequeo_diario` detecta y penaliza facturas sin reclamar, propuestas sin
-seguimiento, semanas sin acción comercial, exceso de proyectos abiertos y
-revisiones sin cerrar. `--simular` enseña lo que haría sin escribir nada.
-`--fecha AAAA-MM-DD` permite probar con fechas simuladas.
+seguimiento, semanas sin acción comercial y exceso de proyectos abiertos.
+`--simular` enseña lo que haría sin escribir nada. `--fecha AAAA-MM-DD` permite
+probar con fechas simuladas.
+
+**Sin cron, las penalizaciones no se aplican solas.** En local hay que lanzar el
+comando a mano; en el VPS lo hace el cron de las 07:00.
+
+---
+
+## Qué comprueba el sistema
+
+### Penalizaciones
+
+| Situación | XP | Cuándo se aplica |
+|---|---|---|
+| Semana con 0 acciones comerciales | −150 | `chequeo_diario` (cron) |
+| Factura vencida > 15 días sin reclamar | −200 | `chequeo_diario` (cron) |
+| Propuesta sin seguimiento > 7 días | −100 | `chequeo_diario` (cron), una vez por semana |
+| WIP > 2 proyectos abiertos | −100 | `chequeo_diario` (cron), una vez por semana |
+| Proyecto por debajo de 1.500 € | −250 | al guardar el proyecto, exige motivo escrito |
+| Bloque con Alexandra cancelado | −150 | al cerrar la revisión con la casilla sin marcar |
+
+La revisión semanal **no penaliza** si no se hace: el documento la puntúa con
+60 XP pero no castiga su falta.
+
+### XP por hechos comerciales
+
+Se concede cuando el hecho ocurre, una sola vez por objeto:
+
+| Hecho | XP | Disparador |
+|---|---|---|
+| Propuesta formal enviada | 80 | oportunidad a «Propuesta enviada» |
+| Proyecto cerrado ≥ 1.500 € | 250 | oportunidad a «Ganado» |
+| Proyecto rechazado por precio bajo | 150 | oportunidad a «Perdido» con la casilla marcada |
+| Contrato recurrente firmado | 350 | cliente activo que pasa a tener MRR |
+| Entrega aceptada | 200 | proyecto a «Entregado» |
+| Dinero cobrado | 1/10 € | factura marcada como cobrada |
+| Conversación comercial | 30 | toque rápido en el pipeline (vía misión D1) |
+
+Lo que no cabe en un ritmo fijo —un referido de más, una publicación, un curso
+con artefacto, una automatización medida— se registra a mano con el botón
+**Registrar acción** del panel. Exige evidencia escrita y aplica el tope
+semanal; las acciones que ya llegan solas (dinero cobrado, cierres, entregas)
+no están en esa lista para no puntuar dos veces el mismo hecho.
+
+### Escalado por rango
+
+Las misiones no son las mismas en todos los rangos. `Mission.rango_min` y
+`rango_max` deciden cuándo aparece y cuándo se retira cada una:
+
+| Rango | Desbloquea |
+|---|---|
+| II Operador | principales «Cobro y Cierre» y «Renta» |
+| III Especialista | S7 referido semanal · M6 propuesta con 3 opciones · M7 upsell de automatización · M8 plantilla de entrega · M9 testimonio · principales «El Suelo» y «Vertical» |
+| IV Constructor | M10 delegar a un colaborador · M11 automatización medida · S8 horas por proyecto · principal «Multiplicador» |
+| V Independiente | M12 concentración de clientes · M13 el 35% apartado · principal «El Salto» |
+| VI Fundador | M14 problema productizable · principal «El Primer Contrato sin Ti» |
+
+Las diarias, semanales y mensuales de base no llevan rango: son el ritmo fijo.
+Las semanales y mensuales que se desbloquean **no se retiran nunca** (son
+hábitos que se conservan); las principales sí desaparecen al superar su rango,
+porque cierran ese rango y ya no son tu problema.
+
+Dos umbrales suben solos al llegar a Especialista (`business/services.py`):
+el **suelo de precio** de 1.500 € a 1.800 € y el **recurrente objetivo** de
+450 €/mes a 800 €/mes. Los 6 contactos/semana y los 40 €/h no suben: el
+documento los mantiene fijos en todos los rangos.
+
+El marcador «X de Y completadas» del panel cuenta solo diarias y semanales.
+Mensuales y principales son de otro plazo y llevan su recuento por grupo.
+
+### Hoja de personaje
+
+Los quince atributos de `docs/sistema-v2.md` §2, con su evidencia y lo que mueve
+el siguiente +10, en `/personaje/`. Cada misión apunta a un atributo, y ese
+atributo decide además si su XP cuenta como soporte o como resultado.
+
+**Los atributos no se mueven solos.** Suben a mano en `/calibracion/`, con un
+motivo obligatorio, y cada cambio queda en `AttributeLog`. Ese es el único
+camino: `services.ajustar_atributo()` escribe el valor y el registro en la misma
+transacción. En el admin ambos son de solo lectura, porque editarlos allí
+dejaría el valor y el historial diciendo cosas distintas.
+
+### Calibración mensual
+
+Misión M5, una vez al mes, 60 minutos. `/calibracion/` calcula las tres
+preguntas de `docs/sistema-v2.md` §6 con los datos reales:
+
+1. **¿Subió la XP sin subir los ingresos?** Compara XP neta, XP de soporte,
+   € cobrados y € recurrentes de este mes con el anterior. Si la XP sube y el
+   dinero no, avisa de que toca reducir a la mitad la XP de soporte.
+2. **¿Qué acciones no has hecho ni una vez?** Lista las reglas de XP sin usar y
+   propone el +50%. Con el historial vacío no responde: lo dice en vez de
+   listarlas todas.
+3. **¿Te aceptan demasiado?** Tasa de oportunidades ganadas frente a cerradas.
+   Por encima del 80% avisa de que el precio es bajo. Es trimestral, y con menos
+   de cinco cerradas dice que la muestra no vale.
+
+La pantalla **propone, no cambia nada sola**: los topes y la XP de las reglas se
+ajustan a mano en el admin. Un sistema que se recalibra solo deja de ser un
+espejo.
+
+### Ascenso de rango
+
+**El nivel se detiene en el techo del rango hasta cumplir su criterio.** La XP
+sigue acumulándose y no se pierde: en cuanto el criterio se cumple, el nivel
+salta de golpe a donde le corresponda.
+
+Los criterios están en `core/ranks.py`, partidos en requisitos medibles contra
+los datos reales (euros cobrados, recurrente activo, casos publicados, semanas
+con pipeline...). La pantalla `/niveles/` los muestra con lo que llevas de cada
+uno. Los requisitos que el sistema no puede medir —un colchón en el banco, una
+SL constituida— salen marcados como «A mano» y cuentan como no cumplidos.
 
 ---
 
@@ -223,3 +333,58 @@ wisdom/       Máximas, prompt versionado y consejo con IA
 Convenciones y restricciones del proyecto: `CLAUDE.md`. En resumen: español en
 lo visible e inglés en el código, la lógica de negocio en el `services.py` de
 cada app, vistas finas, y ni DRF, ni React, ni Celery, ni multiusuario.
+
+## Sistema de diseño
+
+Los tokens viven en `static/src/input.css`, dentro del bloque `@theme`. Son la
+fuente de verdad visual: **ningún color, tamaño ni radio se escribe a mano en
+las plantillas**, siempre a través de las clases que generan.
+
+| Token | Valor | Para qué |
+|---|---|---|
+| `base` | `#0A0F14` | fondo de la aplicación |
+| `surface-1` | `#111827` | barra lateral y superficies elevadas |
+| `surface-2` | `#1A2230` | tarjetas |
+| `surface-3` | `#263244` | hover y píldoras |
+| `line` | `#334155` | bordes |
+| `xp` | `#3B82F6` | acento azul: XP y estado activo |
+| `ok` | `#22C55E` | completado |
+| `warn` | `#F59E0B` | jefe de rango y avisos |
+| `bad` | `#EF4444` | vencido y penalizaciones |
+| `ink` / `ink-2` / `ink-3` | `#F8FAFC` / `#CBD5E1` / `#94A3B8` | texto principal, secundario y terciario |
+
+Escala tipográfica: `text-display` (32/40) · `text-h2` (24/32) · `text-h3`
+(20/28) · `text-h4` (18/28) · `text-body` (16/24) · `text-body-sm` (14/20) ·
+`text-caption` (12/16). Todas las cifras llevan `tabular` para que no bailen.
+
+Radios: `rounded-sm` 6px · `rounded-md` 12px · `rounded-lg` 16px.
+
+Piezas reutilizables, declaradas como `@utility` en el mismo fichero: `card`,
+`card-quiet`, `label`, `metric`, `pill-xp`/`pill-mut`/`pill-ok`/`pill-warn`/
+`pill-bad`, `bar` + `bar-fill`, `btn`/`btn-sm`/`btn-xp`/`btn-warn`,
+`nav-item`/`nav-item-on` y `check-todo`/`check-done`.
+
+Los iconos son SVG en línea en `templates/_icono.html`. Se usan así:
+
+```django
+{% include "_icono.html" with icono="panel" clase="h-5 w-5" %}
+```
+
+La navegación (lateral y barra inferior de móvil) se declara una sola vez en
+`core/services.py::NAVEGACION` y llega a las plantillas por el context
+processor `core.context_processors.navegacion`.
+
+Cada página pone su título en la cabecera pegajosa con los bloques `encabezado`
+y `subtitulo`; el panel sobreescribe `cabecera` entera porque saluda en lugar de
+titular.
+
+### Compilar el CSS
+
+`bin/tailwind.sh` usa el binario standalone de Tailwind (sin Node) y solo trae
+builds de Linux y macOS. En Windows, compílalo dentro del contenedor:
+
+```bash
+docker compose exec -u root web bash -lc 'bin/tailwind.sh --minify'
+```
+
+En Linux o macOS vale `make css` (y `make css WATCH=1` para modo vigilancia).

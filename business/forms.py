@@ -5,7 +5,7 @@ El formulario de proyecto no bloquea un precio por debajo del suelo: lo encarece
 from django import forms
 
 from .models import Client, Deal, Invoice, Project
-from .services import SUELO_PRECIO
+from .services import suelo_precio
 
 CLASES_INPUT = (
     "w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm "
@@ -18,7 +18,7 @@ class DealFilaForm(forms.ModelForm):
 
     class Meta:
         model = Deal
-        fields = ["estado", "proximo_paso", "fecha_proximo_paso"]
+        fields = ["estado", "proximo_paso", "fecha_proximo_paso", "rechazado_por_precio"]
         widgets = {
             "estado": forms.Select(attrs={"class": CLASES_INPUT}),
             "proximo_paso": forms.TextInput(
@@ -131,20 +131,21 @@ class ProjectForm(forms.ModelForm):
         if precio in (None, ""):
             precio = self.initial.get("precio") or getattr(self.instance, "precio", None)
         try:
-            return precio is not None and float(precio) < float(SUELO_PRECIO)
+            return precio is not None and float(precio) < float(suelo_precio())
         except (TypeError, ValueError):
             return False
 
     def clean(self):
         datos = super().clean()
         precio = datos.get("precio")
-        if precio is None or precio >= SUELO_PRECIO:
+        suelo = suelo_precio()
+        if precio is None or precio >= suelo:
             return datos
 
         if not datos.get("excepcion_justificada"):
             self.add_error(
                 "excepcion_justificada",
-                f"{precio:.0f} € está por debajo del suelo de {SUELO_PRECIO:.0f} €. "
+                f"{precio:.0f} € está por debajo del suelo de {suelo:.0f} €. "
                 "Si aun así lo aceptas, márcalo como excepción: cuesta 250 XP.",
             )
         motivo = (datos.get("motivo_excepcion") or "").strip()
@@ -159,7 +160,7 @@ class ProjectForm(forms.ModelForm):
     def hay_excepcion(self) -> bool:
         return bool(self.cleaned_data.get("excepcion_justificada")) and (
             self.cleaned_data.get("precio") is not None
-            and self.cleaned_data["precio"] < SUELO_PRECIO
+            and self.cleaned_data["precio"] < suelo_precio()
         )
 
 

@@ -84,7 +84,7 @@ def maxima_contextual(fecha: dt.date | None = None) -> dict:
     de un cliente y pipeline vacío. Si no falla nada, la máxima del día.
     """
     from business.models import Project
-    from business.services import SUELO_PRECIO, facturas_vencidas
+    from business.services import facturas_vencidas, suelo_precio
 
     fecha = fecha or timezone.localdate()
 
@@ -98,7 +98,7 @@ def maxima_contextual(fecha: dt.date | None = None) -> dict:
         }
 
     baratos = Project.objects.filter(
-        precio__lt=SUELO_PRECIO, estado=Project.Estado.ACTIVO
+        precio__lt=suelo_precio(), estado=Project.Estado.ACTIVO
     )
     if baratos.exists():
         proyecto = baratos.order_by("precio").first()

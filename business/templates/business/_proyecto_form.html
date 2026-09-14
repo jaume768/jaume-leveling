@@ -4,7 +4,7 @@
       hx-target="#proyecto-form"
       hx-swap="outerHTML"
       hx-trigger="change from:#id_precio, submit"
-      class="mt-6 space-y-4 rounded-lg border border-slate-800 bg-slate-900 p-5">
+      class="mt-6 space-y-4 card p-5">
   {% csrf_token %}
 
   {% for campo in form %}
@@ -16,30 +16,30 @@
   {% endfor %}
 
   {% if form.precio_bajo %}
-    <div class="rounded-lg border border-amber-700 bg-amber-950/40 p-4">
-      <p class="font-semibold text-amber-200">Este precio está por debajo del suelo de {{ suelo|floatformat:0 }} €.</p>
-      <p class="mt-1 text-sm text-amber-200/80">
+    <div class="rounded-md border border-warn/35 bg-warn/10 p-4">
+      <p class="font-semibold text-ink-2">Este precio está por debajo del suelo de {{ suelo|floatformat:0 }} €.</p>
+      <p class="mt-1 text-body-sm text-ink-2">
         Un proyecto de 800 € ocupa tres o cuatro semanas de tus 10 h/semana. Ese hueco vale 2.000 €.
         Cobrar barato no es humildad, es una decisión financiera mala.
       </p>
-      <p class="mt-1 text-sm text-amber-200/80">Si aun así lo aceptas, cuesta <strong>250 XP</strong> y motivo escrito.</p>
+      <p class="mt-1 text-body-sm text-ink-2">Si aun así lo aceptas, cuesta <strong>250 XP</strong> y motivo escrito.</p>
 
       <div class="mt-3 flex items-start gap-2">
         {{ form.excepcion_justificada }}
-        <label for="{{ form.excepcion_justificada.id_for_label }}" class="text-sm text-amber-100">{{ form.excepcion_justificada.label }}</label>
+        <label for="{{ form.excepcion_justificada.id_for_label }}" class="text-body-sm text-ink">{{ form.excepcion_justificada.label }}</label>
       </div>
-      {% for error in form.excepcion_justificada.errors %}<p class="mt-1 text-xs text-red-400">{{ error }}</p>{% endfor %}
+      {% for error in form.excepcion_justificada.errors %}<p class="mt-1 text-caption text-bad">{{ error }}</p>{% endfor %}
 
       <div class="mt-3">
-        <label for="{{ form.motivo_excepcion.id_for_label }}" class="block text-sm text-amber-100">{{ form.motivo_excepcion.label }}</label>
+        <label for="{{ form.motivo_excepcion.id_for_label }}" class="block text-body-sm text-ink">{{ form.motivo_excepcion.label }}</label>
         <div class="mt-1">{{ form.motivo_excepcion }}</div>
-        {% for error in form.motivo_excepcion.errors %}<p class="mt-1 text-xs text-red-400">{{ error }}</p>{% endfor %}
+        {% for error in form.motivo_excepcion.errors %}<p class="mt-1 text-caption text-bad">{{ error }}</p>{% endfor %}
       </div>
     </div>
   {% endif %}
 
   <div class="flex justify-end gap-2 pt-2">
-    <a href="{{ volver }}" class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:bg-slate-800">Cancelar</a>
-    <button type="submit" name="guardar" value="1" class="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-white">Guardar</button>
+    <a href="{{ volver }}" class="btn">Cancelar</a>
+    <button type="submit" name="guardar" value="1" class="btn-xp">Guardar</button>
   </div>
 </form>

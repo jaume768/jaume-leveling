@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Personaje{% endblock %}
+{% block encabezado %}Hoja de personaje{% endblock %}
+{% block subtitulo %}Quince atributos. Cada uno sube con hechos, no con intenciones.{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-8">
+
+  {# ================= Resumen ================= #}
+  <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="card p-4">
+      <p class="label">Media general</p>
+      <p class="mt-2 metric">{{ media }}<span class="text-h3 font-normal text-ink-3"> / 100</span></p>
+      <div class="bar mt-3"><div class="bar-fill" style="width: {{ media }}%"></div></div>
+    </div>
+
+    <div class="card p-4">
+      <p class="flex items-center gap-2">
+        <span class="text-ok">{% include "_icono.html" with icono="progresion" clase="h-4 w-4" %}</span>
+        <span class="label">Tus puntos fuertes</span>
+      </p>
+      <ul class="mt-3 space-y-1.5">
+        {% for a in fuertes %}
+          <li class="flex items-baseline justify-between gap-2 text-body-sm">
+            <span class="truncate text-ink-2">{{ a.nombre }}</span>
+            <span class="tabular font-semibold text-ok">{{ a.valor }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="card p-4">
+      <p class="flex items-center gap-2">
+        <span class="text-bad">{% include "_icono.html" with icono="aviso" clase="h-4 w-4" %}</span>
+        <span class="label">Tus agujeros</span>
+      </p>
+      <ul class="mt-3 space-y-1.5">
+        {% for a in agujeros %}
+          <li class="flex items-baseline justify-between gap-2 text-body-sm">
+            <span class="truncate text-ink-2">{{ a.nombre }}</span>
+            <span class="tabular font-semibold text-bad">{{ a.valor }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="mt-3 text-caption text-ink-3">
+        Son los que te hacen facturar a saltos. Empieza por el más bajo.
+      </p>
+    </div>
+  </section>
+
+  {# ================= Atributos por categoría ================= #}
+  {% for grupo in grupos %}
+    <section>
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-h3 font-semibold text-ink">{{ grupo.nombre }}</h2>
+        <p class="label">Media {{ grupo.media }}</p>
+      </div>
+
+      <ul class="mt-4 space-y-3">
+        {% for a in grupo.atributos %}
+          <li class="card p-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 class="text-body font-semibold text-ink">{{ a.nombre }}</h3>
+              <p class="text-h4 font-bold tabular
+                        {% if a.valor >= 60 %}text-ok
+                        {% elif a.valor >= 40 %}text-warn
+                        {% else %}text-bad{% endif %}">{{ a.valor }}</p>
+            </div>
+
+            <div class="bar mt-3">
+              <div class="bar-fill {% if a.valor >= 60 %}bg-ok{% elif a.valor >= 40 %}bg-warn{% else %}bg-bad{% endif %}"
+                   style="width: {{ a.valor }}%"></div>
+            </div>
+
+            {% if a.evidencia %}
+              <p class="mt-3 text-caption text-ink-3">{{ a.evidencia }}</p>
+            {% endif %}
+
+            {% if a.siguiente_hito %}
+              <p class="mt-2 rounded-sm border-l-2 border-xp bg-xp/8 p-2.5 text-body-sm text-ink-2">
+                <span class="label text-xp">Siguiente +10</span><br>
+                {{ a.siguiente_hito }}
+              </p>
+            {% endif %}
+
+            {% if a.misiones.exists %}
+              <p class="mt-3 flex flex-wrap items-center gap-1.5">
+                <span class="label">Lo mueven</span>
+                {% for m in a.misiones.all %}
+                  <span class="pill-mut">{{ m.titulo }}</span>
+                {% endfor %}
+              </p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% empty %}
+    <p class="card p-5 text-body-sm text-ink-3">
+      No hay atributos sembrados todavía.
+    </p>
+  {% endfor %}
+
+</div>
+{% endblock %}

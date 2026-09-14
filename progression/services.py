@@ -178,15 +178,83 @@ def registrar_xp(
 
 
 def _actualizar_perfil(xp_neto: int) -> Profile:
-    """Suma la XP al perfil y recalcula nivel y rango."""
+    """Suma la XP al perfil y recalcula nivel y rango.
+
+    El nivel se detiene en el techo del rango mientras su criterio de ascenso no
+    este cumplido: el rango se verifica con numeros, no con XP acumulada. La XP
+    no se pierde, sigue contando para cuando el ascenso se desbloquee.
+    """
     perfil = Profile.get()
     perfil.xp_total += xp_neto
-    perfil.nivel = core_services.nivel_para_xp(perfil.xp_total)
+    perfil.nivel = core_services.techo_de_nivel(
+        perfil, core_services.nivel_para_xp(perfil.xp_total)
+    )
     rango = core_services.rango_para_nivel(perfil.nivel)
     if rango is not None:
         perfil.rango = rango
     perfil.save()
     return perfil
+
+
+# --- Acciones sueltas de la tabla de XP --------------------------------------
+#
+# La tabla de resultados tiene acciones que no caben en un ritmo fijo: pedir un
+# referido de mas, publicar algo, medir una automatizacion. Estas se registran a
+# mano desde el panel. Las que ya llegan solas por otro camino (dinero cobrado,
+# cierres, entregas, la accion comercial de D1 o la revision) NO estan aqui,
+# para no puntuar dos veces el mismo hecho.
+ACCIONES_MANUALES = (
+    "propuesta-enviada",
+    "conversacion-comercial",
+    "peticion-referido",
+    "testimonio-o-caso",
+    "automatizacion-propia",
+    "publicacion-contenido-real",
+    "proyecto-rechazado-precio-bajo",
+    "curso-con-artefacto",
+    "entreno",
+    "sueno-7h",
+)
+
+
+def acciones_registrables():
+    """Reglas de XP que se pueden registrar a mano, con su tope."""
+    reglas = {
+        r.accion_slug: r
+        for r in XPRule.objects.filter(accion_slug__in=ACCIONES_MANUALES, activa=True)
+    }
+    return [reglas[slug] for slug in ACCIONES_MANUALES if slug in reglas]
+
+
+def xp_disponible_esta_semana(regla: XPRule, fecha: dt.date | None = None) -> int | None:
+    """XP que aun cabe esta semana en esa regla. None si no tiene tope."""
+    if regla.tope_semanal is None:
+        return None
+    fecha = fecha or timezone.localdate()
+    return max(0, regla.tope_semanal - _xp_ya_concedida(regla.accion_slug, fecha))
+
+
+def registrar_accion(
+    slug: str, evidencia: str, fecha: dt.date | None = None
+) -> XPEvent:
+    """Registra a mano una accion de la tabla de XP.
+
+    Exige evidencia escrita, como las misiones: sin evidencia no hay XP. El
+    tope semanal lo aplica `registrar_xp`, asi que una accion por encima del
+    tope se guarda con 0 XP neta y queda constancia igual.
+    """
+    evidencia = (evidencia or "").strip()
+    if not evidencia:
+        raise ValueError("Escribe la evidencia: a quien, que y donde queda anotado.")
+    if slug not in ACCIONES_MANUALES:
+        raise ValueError(f"'{slug}' no es una accion registrable a mano.")
+
+    return registrar_xp(
+        slug,
+        descripcion=evidencia,
+        fecha=fecha,
+        fuente=XPEvent.Fuente.MANUAL,
+    )
 
 
 def penalizaciones_pendientes():

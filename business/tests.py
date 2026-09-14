@@ -273,4 +273,146 @@ class TestVistas:
 
     def test_el_dashboard_muestra_la_tarifa_efectiva(self, client):
         respuesta = client.get(reverse("core:index"))
-        assert "métrica maestra".encode() in respuesta.content
+        assert "Métrica maestra del mes".encode() in respuesta.content
+        assert "Tarifa efectiva".encode() in respuesta.content
+
+
+# --- XP por hechos comerciales -----------------------------------------------
+
+
+@pytest.mark.django_db
+class TestXPComercial:
+    """La tabla de resultados se concede cuando el hecho ocurre de verdad."""
+
+    def _xp(self, slug):
+        return XPEvent.objects.filter(accion_slug=slug).count()
+
+    def test_pasar_a_propuesta_da_80_xp(self):
+        deal = Deal.objects.create(negocio="Gimnasio", estado=Deal.Estado.CONVERSANDO)
+        deal.estado = Deal.Estado.PROPUESTA
+        deal.save()
+
+        services.puntuar_deal(deal, Deal.Estado.CONVERSANDO, fecha=LUNES)
+
+        evento = XPEvent.objects.get(accion_slug="propuesta-enviada")
+        assert evento.xp_bruto == 80
+
+    def test_la_misma_propuesta_no_puntua_dos_veces(self):
+        deal = Deal.objects.create(negocio="Gimnasio", estado=Deal.Estado.PROPUESTA)
+        services.puntuar_deal(deal, Deal.Estado.CONVERSANDO, fecha=LUNES)
+        # Vuelve atras y otra vez a propuesta: el hecho ya estaba puntuado.
+        services.puntuar_deal(deal, Deal.Estado.CONVERSANDO, fecha=LUNES)
+
+        assert self._xp("propuesta-enviada") == 1
+
+    def test_ganar_por_encima_del_suelo_da_250_xp(self):
+        deal = Deal.objects.create(
+            negocio="Ecommerce", estado=Deal.Estado.GANADO,
+            valor_potencial=Decimal("3000"),
+        )
+        services.puntuar_deal(deal, Deal.Estado.PROPUESTA, fecha=LUNES)
+
+        assert XPEvent.objects.get(accion_slug="proyecto-cerrado").xp_bruto == 250
+
+    def test_ganar_por_debajo_del_suelo_no_da_xp_de_cierre(self):
+        deal = Deal.objects.create(
+            negocio="Barato", estado=Deal.Estado.GANADO,
+            valor_potencial=Decimal("900"),
+        )
+        services.puntuar_deal(deal, Deal.Estado.PROPUESTA, fecha=LUNES)
+
+        assert self._xp("proyecto-cerrado") == 0
+
+    def test_rechazar_por_precio_bajo_da_150_xp(self):
+        deal = Deal.objects.create(
+            negocio="Barato", estado=Deal.Estado.PERDIDO,
+            valor_potencial=Decimal("900"), rechazado_por_precio=True,
+        )
+        services.puntuar_deal(deal, Deal.Estado.PROPUESTA, fecha=LUNES)
+
+        assert XPEvent.objects.get(
+            accion_slug="proyecto-rechazado-precio-bajo"
+        ).xp_bruto == 150
+
+    def test_perder_sin_marcar_el_precio_no_da_xp(self):
+        deal = Deal.objects.create(negocio="Se fue", estado=Deal.Estado.PERDIDO)
+        services.puntuar_deal(deal, Deal.Estado.PROPUESTA, fecha=LUNES)
+
+        assert self._xp("proyecto-rechazado-precio-bajo") == 0
+
+    def test_entregar_un_proyecto_da_200_xp(self, cliente):
+        proyecto = Project.objects.create(
+            client=cliente, nombre="Web", precio=Decimal("2000"),
+            estado=Project.Estado.ENTREGADO,
+        )
+        services.puntuar_proyecto(proyecto, Project.Estado.ACTIVO, fecha=LUNES)
+
+        assert XPEvent.objects.get(accion_slug="entrega-aceptada").xp_bruto == 200
+        # Guardarlo otra vez ya entregado no vuelve a puntuar.
+        services.puntuar_proyecto(proyecto, Project.Estado.ACTIVO, fecha=LUNES)
+        assert self._xp("entrega-aceptada") == 1
+
+    def test_firmar_un_recurrente_da_350_xp(self):
+        nuevo = Client.objects.create(
+            nombre="Mantenimiento", slug="mant", mrr=Decimal("139"),
+            estado=Client.Estado.ACTIVO,
+        )
+        services.puntuar_recurrente(nuevo, 0, fecha=LUNES)
+
+        assert XPEvent.objects.get(
+            accion_slug="contrato-recurrente-firmado"
+        ).xp_bruto == 350
+
+    def test_subir_el_mrr_de_un_cliente_que_ya_pagaba_no_puntua(self, cliente):
+        services.puntuar_recurrente(cliente, Decimal("79"), fecha=LUNES)
+
+        assert self._xp("contrato-recurrente-firmado") == 0
+
+
+
+# --- Umbrales que suben por rango --------------------------------------------
+
+
+@pytest.mark.django_db
+class TestUmbralesPorRango:
+    """El documento sube el suelo y el recurrente al llegar a Especialista."""
+
+    def _en_rango(self, orden: int):
+        from core.models import Rank
+
+        perfil = Profile.get()
+        rango = Rank.objects.get(orden=orden)
+        perfil.nivel = rango.nivel_min
+        perfil.rango = rango
+        perfil.save()
+        return rango
+
+    def test_en_operador_el_suelo_son_1500(self):
+        self._en_rango(2)
+        assert services.suelo_precio() == Decimal("1500")
+        assert services.objetivo_recurrente() == Decimal("450")
+
+    def test_en_especialista_sube_a_1800_y_800(self):
+        self._en_rango(3)
+        assert services.suelo_precio() == Decimal("1800")
+        assert services.objetivo_recurrente() == Decimal("800")
+
+    def test_no_vuelve_a_bajar_en_rangos_superiores(self):
+        self._en_rango(5)
+        assert services.suelo_precio() == Decimal("1800")
+        assert services.objetivo_recurrente() == Decimal("800")
+
+    def test_el_umbral_de_proyecto_cerrado_no_escala(self):
+        """La tabla de XP fija el cierre en 1.500 EUR y no lo sube por rango."""
+        self._en_rango(4)
+        assert services.VALOR_PROYECTO_CERRADO == Decimal("1500")
+
+    def test_el_formulario_avisa_con_el_suelo_del_rango(self):
+        self._en_rango(3)
+        cliente = Client.objects.create(nombre="X", slug="x")
+        form = ProjectForm(
+            {"client": cliente.pk, "nombre": "Web", "precio": "1600", "guardar": "1"}
+        )
+        assert not form.is_valid()
+        # 1.600 EUR pasaba en Operador y ya no pasa en Especialista.
+        assert "1800" in str(form.errors) or "1.800" in str(form.errors)

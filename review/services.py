@@ -157,7 +157,30 @@ def guardar_revision(form) -> WeeklyReview:
     revision = form.save()
     if revision.m8_revision_hecha and not ya_estaba_hecha:
         _puntuar_revision(revision)
+        _penalizar_bloques_cancelados(revision)
     return revision
+
+
+def _penalizar_bloques_cancelados(revision: WeeklyReview) -> None:
+    """-150 XP si la semana se cerro con un bloque con Alexandra cancelado.
+
+    La correccion exigida es recuperarlo esa misma semana. Se aplica una sola
+    vez por semana: la clave lleva el ano y la semana ISO.
+    """
+    if revision.m10_bloques_intactos:
+        return
+    progression.aplicar_penalizacion(
+        progression.clave_penalizacion(
+            "bloque-alexandra-cancelado",
+            f"{revision.anio}w{revision.semana_iso:02d}",
+        ),
+        descripcion=(
+            f"Semana {revision.semana_iso}/{revision.anio}: "
+            "un bloque con Alexandra cancelado por trabajo"
+        ),
+        correccion="Recuperarlo esta misma semana. No la que viene.",
+        fecha=revision.fecha,
+    )
 
 
 def _puntuar_revision(revision: WeeklyReview) -> None:

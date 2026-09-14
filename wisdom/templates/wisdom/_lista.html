@@ -1,9 +1,9 @@
 <div id="lista-maximas">
-  <div class="flex flex-wrap gap-1 text-xs">
-    <a class="rounded-md border px-2 py-1 {% if not tag_activo %}border-slate-500 text-slate-100{% else %}border-slate-800 text-slate-500 hover:text-slate-300{% endif %}"
+  <div class="flex flex-wrap gap-1 text-caption">
+    <a class="rounded-md border px-2 py-1 {% if not tag_activo %}border-ink-3 text-ink{% else %}border-line text-ink-3 hover:text-ink-2{% endif %}"
        href="{% url 'wisdom:maximas' %}" hx-get="{% url 'wisdom:maximas' %}" hx-target="#lista-maximas" hx-swap="outerHTML">Todas</a>
     {% for tag in tags %}
-      <a class="rounded-md border px-2 py-1 {% if tag_activo == tag %}border-slate-500 text-slate-100{% else %}border-slate-800 text-slate-500 hover:text-slate-300{% endif %}"
+      <a class="rounded-md border px-2 py-1 {% if tag_activo == tag %}border-ink-3 text-ink{% else %}border-line text-ink-3 hover:text-ink-2{% endif %}"
          href="{% url 'wisdom:maximas' %}?tag={{ tag }}" hx-get="{% url 'wisdom:maximas' %}?tag={{ tag }}"
          hx-target="#lista-maximas" hx-swap="outerHTML">{{ tag }}</a>
     {% endfor %}
@@ -11,22 +11,22 @@
 
   <div class="mt-4 space-y-3">
     {% for maxima in maximas %}
-      <article class="rounded-lg border border-slate-800 bg-slate-900 p-5">
+      <article class="card p-5">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <p class="text-xs uppercase tracking-wide text-slate-500">
+          <p class="label">
             {% if maxima.numero <= ultimo_libro %}{{ maxima.libro }}{% else %}Decálogo · regla {{ maxima.numero|add:"-10" }} · {{ maxima.libro }}{% endif %}
           </p>
-          <p class="text-xs text-slate-600">{{ maxima.tags }}</p>
+          <p class="text-caption text-ink-3">{{ maxima.tags }}</p>
         </div>
-        <h2 class="mt-1 text-base font-semibold text-slate-100">{{ maxima.titulo }}</h2>
+        <h2 class="mt-1 text-body font-semibold text-ink">{{ maxima.titulo }}</h2>
         {% if maxima.principio and maxima.numero <= ultimo_libro %}
-          <p class="mt-2 border-l-2 border-slate-700 pl-3 text-sm text-slate-400">{{ maxima.principio }}</p>
+          <p class="mt-2 border-l-2 border-line pl-3 text-body-sm text-ink-3">{{ maxima.principio }}</p>
         {% endif %}
-        <p class="mt-3 text-lg text-slate-100">{{ maxima.texto }}</p>
-        {% if maxima.aplicacion %}<p class="mt-2 text-sm text-slate-400">{{ maxima.aplicacion }}</p>{% endif %}
+        <p class="mt-3 text-h4 text-ink">{{ maxima.texto }}</p>
+        {% if maxima.aplicacion %}<p class="mt-2 text-body-sm text-ink-3">{{ maxima.aplicacion }}</p>{% endif %}
       </article>
     {% empty %}
-      <p class="rounded-lg border border-slate-800 bg-slate-900 p-5 text-slate-500">Ninguna máxima con ese tag.</p>
+      <p class="card p-5 text-ink-3">Ninguna máxima con ese tag.</p>
     {% endfor %}
   </div>
 </div>
