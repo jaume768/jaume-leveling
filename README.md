@@ -66,6 +66,19 @@ comando a mano; en el VPS lo hace el cron de las 07:00.
 
 ---
 
+## Acceso
+
+La instancia entera está detrás del login (`LoginRequiredMiddleware`): sin sesión,
+cualquier ruta redirige a `/entrar/`. Se sale por `/salir/` (POST, desde el botón
+de la barra lateral). No hay registro ni recuperación por correo: un solo usuario.
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+Los tests entran autenticados por defecto (`conftest.py` sobreescribe el fixture
+`client`); `client_anonimo` sirve para comprobar que el login protege.
+
 ## Qué comprueba el sistema
 
 ### Penalizaciones
@@ -94,6 +107,27 @@ Se concede cuando el hecho ocurre, una sola vez por objeto:
 | Contrato recurrente firmado | 350 | cliente activo que pasa a tener MRR |
 | Entrega aceptada | 200 | proyecto a «Entregado» |
 | Dinero cobrado | 1/10 € | factura marcada como cobrada |
+
+Sobre la XP concedida se aplican, en orden: el multiplicador de racha, el ×1,5 de
+la Semana de Reinicio si está activa, el tope por acción y el **techo semanal de
+1.000 XP**. El techo mide XP ganada, no el saldo: una semana llena de
+penalizaciones no abre más margen para seguir sumando.
+
+### Semana de Reinicio
+
+Máximo una al mes, se activa desde `/progresion/`. Baja la semana a lo mínimo
+—la acción comercial diaria, un entregable y la revisión— y multiplica la XP por
+1,5. Existe para que una mala semana tenga vuelta: sin ruta de regreso, el
+segundo tropiezo es el último.
+
+### Métrica maestra
+
+`tarifa_efectiva()` mide **precio ÷ horas de los proyectos entregados en los
+últimos 90 días**, ponderado por horas. No se calcula por mes a propósito: el
+cobro y las horas no caen en el mismo mes (50% por adelantado en enero, entrega
+en marzo), así que una tarifa mensual oscila sin querer decir nada. Un proyecto
+en curso no cuenta: su precio y sus horas todavía no son definitivos. Sin
+entregas en la ventana devuelve `None` en vez de una cifra inventada.
 | Conversación comercial | 30 | toque rápido en el pipeline (vía misión D1) |
 
 Lo que no cabe en un ritmo fijo —un referido de más, una publicación, un curso

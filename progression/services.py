@@ -14,7 +14,7 @@ from django.utils import timezone
 from core import services as core_services
 from core.models import Profile
 
-from .models import Categoria, Penalty, XPEvent, XPRule
+from .models import Categoria, Penalty, ResetWeek, XPEvent, XPRule
 
 # Objetivo semanal del sistema (docs/sistema-v2.md, §6): 500-750 XP, techo 1.000.
 OBJETIVO_XP_SEMANAL = 750
@@ -38,6 +38,10 @@ MAX_DIAS_RACHA = 400
 
 # Contactos que levantan el bloqueo por una semana sin accion comercial.
 CONTACTOS_PARA_DESBLOQUEAR = 6
+
+# Semana de Reinicio (docs/sistema-v2.md, SS6): XP x1,5, maximo una al mes.
+MULTIPLICADOR_REINICIO = Decimal("1.5")
+REINICIOS_POR_MES = 1
 
 
 def es_dia_protegido(fecha: dt.date) -> bool:
@@ -99,6 +103,53 @@ def multiplicador_racha(fecha: dt.date | None = None) -> Decimal:
     return Decimal("1.00")
 
 
+def semana_de_reinicio(fecha: dt.date | None = None) -> ResetWeek | None:
+    """La Semana de Reinicio de esa semana, si esta activada."""
+    fecha = fecha or timezone.localdate()
+    anio, semana = semana_iso(fecha)
+    return ResetWeek.objects.filter(anio=anio, semana_iso=semana).first()
+
+
+def reinicios_del_mes(fecha: dt.date | None = None) -> int:
+    """Cuantas Semanas de Reinicio se han activado en el mes de la fecha."""
+    fecha = fecha or timezone.localdate()
+    return ResetWeek.objects.filter(
+        fecha_activacion__year=fecha.year, fecha_activacion__month=fecha.month
+    ).count()
+
+
+def puede_activar_reinicio(fecha: dt.date | None = None) -> tuple[bool, str]:
+    """Si se puede activar hoy, y por que no si no se puede."""
+    fecha = fecha or timezone.localdate()
+    if semana_de_reinicio(fecha) is not None:
+        return False, "Esta semana ya es una Semana de Reinicio."
+    if reinicios_del_mes(fecha) >= REINICIOS_POR_MES:
+        return False, "Ya has usado tu Semana de Reinicio de este mes. Es una al mes."
+    return True, ""
+
+
+def activar_semana_de_reinicio(
+    motivo: str = "", fecha: dt.date | None = None
+) -> ResetWeek:
+    """Declara la semana en curso como Semana de Reinicio.
+
+    No es una excusa ni hace falta justificarla: el motivo es opcional y sirve
+    para que la calibracion del mes vea que paso.
+    """
+    fecha = fecha or timezone.localdate()
+    permitido, razon = puede_activar_reinicio(fecha)
+    if not permitido:
+        raise ValueError(razon)
+
+    anio, semana = semana_iso(fecha)
+    return ResetWeek.objects.create(
+        anio=anio,
+        semana_iso=semana,
+        fecha_activacion=fecha,
+        motivo=(motivo or "").strip(),
+    )
+
+
 def xp_de_la_semana(fecha: dt.date | None = None) -> int:
     """XP neta acumulada en la semana ISO de la fecha, penalizaciones incluidas."""
     fecha = fecha or timezone.localdate()
@@ -106,6 +157,20 @@ def xp_de_la_semana(fecha: dt.date | None = None) -> int:
     total = XPEvent.objects.filter(fecha__range=(lunes, domingo)).aggregate(
         total=Sum("xp_neto")
     )["total"]
+    return total or 0
+
+
+def xp_positiva_de_la_semana(fecha: dt.date | None = None) -> int:
+    """XP ganada en la semana, sin restar penalizaciones.
+
+    El techo semanal mide lo que ganas, no el saldo: una mala semana llena de
+    penalizaciones no debe abrirte mas margen para seguir sumando.
+    """
+    fecha = fecha or timezone.localdate()
+    lunes, domingo = rango_de_la_semana(fecha)
+    total = XPEvent.objects.filter(
+        fecha__range=(lunes, domingo), xp_neto__gt=0
+    ).aggregate(total=Sum("xp_neto"))["total"]
     return total or 0
 
 
@@ -145,10 +210,13 @@ def registrar_xp(
 
     xp_bruto = int(xp)
 
-    # La racha solo premia: nunca agrava una penalizacion.
+    # Los multiplicadores solo premian: nunca agravan una penalizacion. La
+    # Semana de Reinicio (x1,5) se acumula sobre el de racha.
     multiplicador = Decimal("1.00")
     if aplicar_racha and xp_bruto > 0 and categoria != Categoria.PENALIZACION:
         multiplicador = multiplicador_racha(fecha)
+        if semana_de_reinicio(fecha) is not None:
+            multiplicador *= MULTIPLICADOR_REINICIO
     xp_con_racha = int((Decimal(xp_bruto) * multiplicador).to_integral_value())
 
     xp_neto = xp_con_racha
@@ -158,6 +226,15 @@ def registrar_xp(
         disponible = max(0, tope - _xp_ya_concedida(accion_slug, fecha))
         if xp_con_racha > disponible:
             xp_neto = disponible
+            tope_aplicado = True
+
+    # Techo global de la semana (docs/sistema-v2.md, SS6): 1.000 XP. Va despues
+    # del tope por accion, porque una semana puede llegar al techo repartiendo
+    # XP entre muchas acciones sin pasarse en ninguna.
+    if xp_neto > 0:
+        margen = max(0, TECHO_XP_SEMANAL - xp_positiva_de_la_semana(fecha))
+        if xp_neto > margen:
+            xp_neto = margen
             tope_aplicado = True
 
     evento = XPEvent.objects.create(
@@ -276,6 +353,8 @@ def resumen_progresion(fecha: dt.date | None = None) -> dict:
         "objetivo_xp_semanal": OBJETIVO_XP_SEMANAL,
         "xp_semana_pct": min(100, round(max(0, xp_semana) / OBJETIVO_XP_SEMANAL * 100)),
         "penalizaciones": penalizaciones_pendientes(),
+        "reinicio": semana_de_reinicio(fecha),
+        "puede_reiniciar": puede_activar_reinicio(fecha)[0],
     }
 
 

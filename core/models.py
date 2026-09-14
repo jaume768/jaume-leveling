@@ -87,8 +87,8 @@ class Profile(models.Model):
         return services.progreso_en_nivel(self.nivel, self.xp_total)[1]
 
     @property
-    def progreso_nivel_pct(self) -> float:
-        """Porcentaje recorrido del nivel actual (0-100)."""
+    def progreso_nivel_pct(self) -> int:
+        """Porcentaje recorrido del nivel actual (0-100), entero."""
         return services.progreso_en_nivel(self.nivel, self.xp_total)[2]
 
 

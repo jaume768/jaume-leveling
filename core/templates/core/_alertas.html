@@ -1,4 +1,5 @@
-<div id="alertas">
+{# Vacio lleva el atributo hidden: space-y-* lo salta y no deja hueco doble. #}
+<div id="alertas"{% if not alertas and not penalizaciones and not aviso_revision and not bloqueo %} hidden{% endif %}>
   {% if alertas or penalizaciones or aviso_revision or bloqueo %}
     <section class="space-y-4">
 

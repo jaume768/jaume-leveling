@@ -47,9 +47,21 @@
       {% endfor %}
     </nav>
 
-    <p class="mt-6 border-t border-line/60 px-2 pt-5 font-serif text-body-sm italic text-ink-3">
-      «Disciplina hoy.<br>Libertad mañana.»
-    </p>
+    <div class="mt-6 border-t border-line/60 px-2 pt-5">
+      <p class="font-serif text-body-sm italic text-ink-3">
+        «Disciplina hoy.<br>Libertad mañana.»
+      </p>
+      {% if user.is_authenticated %}
+        <form method="post" action="{% url 'logout' %}" class="mt-4">
+          {% csrf_token %}
+          <button type="submit"
+                  class="flex items-center gap-2 text-caption text-ink-3 hover:text-ink-2">
+            {% include "_icono.html" with icono="usuario" clase="h-4 w-4" %}
+            Salir ({{ user.username }})
+          </button>
+        </form>
+      {% endif %}
+    </div>
   </aside>
 
   {# ------------------------------------------------------------------ #}

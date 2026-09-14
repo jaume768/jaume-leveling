@@ -459,23 +459,45 @@ def resumen_proyectos() -> dict:
     }
 
 
-def tarifa_efectiva_mes(fecha: dt.date | None = None) -> Decimal | None:
-    """Metrica maestra: EUR cobrados en el mes / horas reales con actividad en el mes.
+# Ventana de la metrica maestra. Se mide por proyecto entregado, no por mes:
+# el cobro y las horas no caen en el mismo mes (50% por adelantado en enero,
+# entrega en marzo), asi que una tarifa mensual oscila sin querer decir nada.
+VENTANA_TARIFA_DIAS = 90
 
-    Las horas se toman de los proyectos vivos en el mes (activos, o entregados
-    dentro del propio mes), porque el modelo no fecha las horas una a una.
+
+def tarifa_efectiva(fecha: dt.date | None = None) -> dict:
+    """Metrica maestra: EUR/h de los proyectos entregados en los ultimos 90 dias.
+
+    Se calcula sobre proyectos cerrados, que son los unicos con precio y horas
+    definitivos, y se pondera por horas: suma de precios entre suma de horas.
+    Eso equivale a la media de las tarifas de cada proyecto pesada por lo que
+    costo cada uno, que es lo que de verdad te llevas a la hora.
+
+    Devuelve `valor=None` cuando no hay ningun proyecto entregado con horas en
+    la ventana: es mejor no decir nada que dar una cifra inventada.
     """
     fecha = fecha or timezone.localdate()
-    primero, ultimo = _rango_del_mes(fecha)
+    desde = fecha - dt.timedelta(days=VENTANA_TARIFA_DIAS)
 
-    cobrado = Invoice.objects.filter(
-        cobrada=True, fecha_cobro__range=(primero, ultimo)
-    ).aggregate(total=Sum("importe"))["total"] or Decimal("0")
+    entregados = Project.objects.filter(
+        estado=Project.Estado.ENTREGADO,
+        fecha_entrega__range=(desde, fecha),
+        horas_reales__gt=0,
+    )
+    agregado = entregados.aggregate(euros=Sum("precio"), horas=Sum("horas_reales"))
+    euros = agregado["euros"] or Decimal("0")
+    horas = agregado["horas"] or Decimal("0")
 
-    horas = Project.objects.filter(
-        Q(estado=Project.Estado.ACTIVO) | Q(fecha_entrega__range=(primero, ultimo))
-    ).aggregate(total=Sum("horas_reales"))["total"] or Decimal("0")
+    return {
+        "valor": (euros / horas).quantize(Decimal("0.01")) if horas else None,
+        "euros": euros,
+        "horas": horas,
+        "proyectos": entregados.count(),
+        "desde": desde,
+        "dias": VENTANA_TARIFA_DIAS,
+    }
 
-    if not horas:
-        return None
-    return (cobrado / horas).quantize(Decimal("0.01"))
+
+def tarifa_efectiva_mes(fecha: dt.date | None = None) -> Decimal | None:
+    """Compatibilidad: solo el numero de la tarifa efectiva."""
+    return tarifa_efectiva(fecha)["valor"]

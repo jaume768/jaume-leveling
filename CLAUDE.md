@@ -54,6 +54,9 @@ Si ambos documentos parecen chocar, **gana la v2 en cifras y la v3 en criterio**
   testeables en servicios, con los valores en constantes/configuración, no dispersos.
 - Plantillas: una plantilla completa por página y fragmentos separados para las
   respuestas HTMX.
+- **Los comentarios `{# ... #}` de Django solo funcionan en una línea.** Si abren
+  en una línea y cierran en otra, Django no los reconoce y los imprime tal cual
+  en el HTML, a la vista del usuario. Para varias líneas, `{% comment %}`.
 
 ## 4. Restricciones explícitas
 

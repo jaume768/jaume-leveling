@@ -1,0 +1,59 @@
+{% load static %}
+<!doctype html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0f14">
+  <title>Entrar · Sistema</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="flex h-full items-center justify-center bg-base p-4 text-ink-2 text-body antialiased">
+
+  <main class="w-full max-w-sm">
+    <div class="flex items-center gap-3">
+      <span class="text-xp">{% include "_icono.html" with icono="marca" clase="h-8 w-8" %}</span>
+      <span>
+        <span class="block text-h3 font-semibold tracking-tight text-ink">Sistema</span>
+        <span class="block text-caption text-ink-3">Progreso con propósito.</span>
+      </span>
+    </div>
+
+    <form method="post" class="card mt-6 p-5">
+      {% csrf_token %}
+
+      {% if form.errors %}
+        <p class="mb-4 rounded-sm border border-bad/40 bg-bad/10 px-3 py-2 text-body-sm text-bad">
+          Usuario o contraseña incorrectos.
+        </p>
+      {% endif %}
+
+      <label for="{{ form.username.id_for_label }}" class="block text-body-sm font-medium text-ink-2">
+        Usuario
+      </label>
+      <input type="text" name="username" id="{{ form.username.id_for_label }}"
+             autocomplete="username" autofocus required
+             class="mt-1.5 w-full rounded-sm border border-line bg-base p-2.5 text-body-sm text-ink
+                    placeholder:text-ink-3 focus:border-xp focus:outline-none">
+
+      <label for="{{ form.password.id_for_label }}" class="mt-4 block text-body-sm font-medium text-ink-2">
+        Contraseña
+      </label>
+      <input type="password" name="password" id="{{ form.password.id_for_label }}"
+             autocomplete="current-password" required
+             class="mt-1.5 w-full rounded-sm border border-line bg-base p-2.5 text-body-sm text-ink
+                    placeholder:text-ink-3 focus:border-xp focus:outline-none">
+
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <button type="submit" class="btn-xp mt-6 w-full">Entrar</button>
+    </form>
+
+    <p class="mt-6 text-center font-serif text-body-sm italic text-ink-3">
+      «Disciplina hoy. Libertad mañana.»
+    </p>
+  </main>
+
+</body>
+</html>

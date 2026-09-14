@@ -290,16 +290,20 @@ class TestAscensoDeRango:
         perfil.rango = self._operador()
         perfil.save()
 
-        # XP de sobra para llegar al nivel 54, pero sin cumplir nada.
+        # XP de sobra para llegar al nivel 54, pero sin cumplir nada. Se pone
+        # directa porque el techo semanal de 1.000 XP no deja concederla de
+        # golpe; lo que se prueba aqui es el techo de rango, no el semanal.
+        perfil.xp_total = core_services.xp_acumulada_hasta_nivel(54)
+        perfil.save()
         progression.registrar_xp(
-            "regalo", xp=40_000, descripcion="prueba", aplicar_racha=False
+            "regalo", xp=1, descripcion="prueba", aplicar_racha=False
         )
 
         perfil = Profile.get()
         assert perfil.nivel == 50  # techo del rango Operador
         assert perfil.rango.orden == 2
         # La XP no se ha perdido: sigue acumulada esperando el ascenso.
-        assert perfil.xp_total >= 78_000
+        assert perfil.xp_total >= core_services.xp_acumulada_hasta_nivel(54)
 
     def test_cumpliendo_el_criterio_el_nivel_salta(self):
         import datetime as dt

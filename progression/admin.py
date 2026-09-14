@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Penalty, Reward, XPEvent, XPRule
+from .models import ResetWeek, Penalty, Reward, XPEvent, XPRule
 
 
 @admin.register(XPRule)
@@ -57,3 +57,10 @@ class RewardAdmin(admin.ModelAdmin):
     date_hierarchy = "fecha"
     autocomplete_fields = ("rango",)
     ordering = ("nivel_requerido",)
+
+
+@admin.register(ResetWeek)
+class ResetWeekAdmin(admin.ModelAdmin):
+    list_display = ("semana_iso", "anio", "fecha_activacion", "motivo")
+    list_filter = ("anio",)
+    date_hierarchy = "fecha_activacion"

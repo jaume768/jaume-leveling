@@ -141,3 +141,33 @@ class Reward(models.Model):
         else:
             requisito = "sin requisito"
         return f"{self.titulo} ({requisito})"
+
+
+class ResetWeek(models.Model):
+    """Semana de Reinicio (docs/sistema-v2.md, SS6): maximo una al mes.
+
+    Baja las exigencias de la semana a lo minimo -3 contactos, 1 entregable
+    pequeno y la revision- y multiplica la XP por 1,5. Existe para que una mala
+    semana tenga vuelta: sin ruta de regreso, el segundo tropiezo es el ultimo.
+    """
+
+    anio = models.PositiveSmallIntegerField("anio")
+    semana_iso = models.PositiveSmallIntegerField("semana ISO")
+    fecha_activacion = models.DateField("fecha de activacion")
+    motivo = models.TextField("motivo", blank=True)
+
+    class Meta:
+        verbose_name = "semana de reinicio"
+        verbose_name_plural = "semanas de reinicio"
+        ordering = ["-anio", "-semana_iso"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["anio", "semana_iso"], name="resetweek_unica_por_semana"
+            )
+        ]
+        indexes = [
+            models.Index(fields=["-anio", "-semana_iso"], name="resetweek_semana_idx"),
+        ]
+
+    def __str__(self):
+        return f"Semana de Reinicio {self.semana_iso}/{self.anio}"

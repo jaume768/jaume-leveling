@@ -1,4 +1,5 @@
-from django.shortcuts import get_object_or_404, render
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from core import services as core_services
@@ -7,12 +8,31 @@ from . import services
 from .models import Penalty, XPEvent
 
 
+@require_POST
+def activar_reinicio(request):
+    """Declara la semana en curso como Semana de Reinicio."""
+    try:
+        services.activar_semana_de_reinicio(request.POST.get("motivo", ""))
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(
+            request,
+            "Semana de Reinicio activada: 3 contactos, 1 entregable y la revisión. "
+            "La XP va ×1,5.",
+        )
+    return redirect("progression:index")
+
+
 def index(request):
     """Historial de XP y penalizaciones."""
     return render(
         request,
         "progression/index.html",
         {
+            "reinicio": services.semana_de_reinicio(),
+            "puede_reiniciar": services.puede_activar_reinicio()[0],
+            "motivo_no_reinicio": services.puede_activar_reinicio()[1],
             "eventos": XPEvent.objects.order_by("-fecha", "-id")[:100],
             "penalizaciones": Penalty.objects.order_by("resuelta", "-fecha")[:50],
             "resumen": services.resumen_progresion(),

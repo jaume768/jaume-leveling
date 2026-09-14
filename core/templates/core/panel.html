@@ -10,10 +10,10 @@
 {% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
+<div class="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
 
   {# ================= Columna izquierda: estado ================= #}
-  <div class="space-y-5">
+  <div class="space-y-6">
 
     {# --- Nivel y progreso --- #}
     <section class="card p-5 transition-colors hover:border-xp/40">
@@ -84,7 +84,7 @@
     {# --- Métrica maestra --- #}
     <section class="card p-5">
       <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <p class="label">Métrica maestra del mes</p>
+        <p class="label">Métrica maestra · 90 días</p>
         <p class="label">Objetivo ≥ 40 €/h</p>
       </div>
 
@@ -97,8 +97,8 @@
             <span class="text-h3 font-normal text-ink-3">€/h</span>
           </p>
           <p class="mt-1 text-body-sm text-ink-3">
-            {% if hay_horas %}€ cobrados del mes ÷ horas reales. Es la única que no se puede engañar.
-            {% else %}Aún no has registrado horas este mes.{% endif %}
+            {% if hay_horas %}Precio ÷ horas de lo entregado en 90 días. Es la única que no se puede engañar.
+            {% else %}Sin proyectos entregados con horas en los últimos 90 días.{% endif %}
           </p>
         </div>
 
@@ -110,7 +110,7 @@
     </section>
 
     {# --- Tres cifras --- #}
-    <section class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <section class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-4">
       <div class="card p-4">
         <p class="flex items-center gap-2">
           <span class="text-warn">{% include "_icono.html" with icono="fuego" clase="h-4 w-4" %}</span>
@@ -205,7 +205,7 @@
   </div>
 
   {# ================= Columna derecha: misiones ================= #}
-  <div class="space-y-5">
+  <div class="space-y-6">
     {% include "missions/_bloque.html" %}
     {# Hueco del modal de evidencia #}
     <div id="modal"></div>

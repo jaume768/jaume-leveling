@@ -33,14 +33,19 @@ def xp_acumulada_hasta_nivel(nivel: int) -> int:
     return sum(xp_por_nivel(n) for n in range(1, nivel))
 
 
-def progreso_en_nivel(nivel: int, xp_total: int) -> tuple[int, int, float]:
-    """Devuelve (xp_en_el_nivel, xp_que_faltan, porcentaje) para el nivel dado."""
+def progreso_en_nivel(nivel: int, xp_total: int) -> tuple[int, int, int]:
+    """Devuelve (xp_en_el_nivel, xp_que_faltan, porcentaje) para el nivel dado.
+
+    El porcentaje es entero a proposito: va directo a un `style="width: N%"` y
+    con el locale espanol un float se renderiza como "0,0", que es CSS invalido.
+    El navegador lo descarta y la barra aparece llena estando a cero.
+    """
     coste = xp_por_nivel(nivel)
     base = xp_acumulada_hasta_nivel(nivel)
     en_nivel = max(0, min(xp_total - base, coste))
     if nivel >= NIVEL_MAXIMO:
-        return coste, 0, 100.0
-    return en_nivel, coste - en_nivel, round(en_nivel / coste * 100, 1)
+        return coste, 0, 100
+    return en_nivel, coste - en_nivel, round(en_nivel / coste * 100)
 
 
 def nivel_para_xp(xp_total: int) -> int:

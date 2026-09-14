@@ -134,13 +134,42 @@ class TestClientesYProyectos:
         proyecto = Project.objects.create(client=cliente, nombre="Web", precio=Decimal("2000"))
         assert proyecto.tarifa_efectiva is None
 
-    def test_tarifa_efectiva_del_mes(self, cliente):
+    def test_tarifa_efectiva_de_los_ultimos_90_dias(self, cliente):
+        """Se mide por proyecto entregado, no por mes.
+
+        El cobro y las horas no caen en el mismo mes -50% por adelantado en
+        enero, entrega en marzo-, asi que una tarifa mensual oscilaria sin
+        querer decir nada. Un proyecto a medias tampoco cuenta: sus horas y su
+        precio todavia no son definitivos.
+        """
+        hoy = timezone.localdate()
         Project.objects.create(
-            client=cliente, nombre="Web", precio=Decimal("2000"),
-            horas_reales=Decimal("20"), estado=Project.Estado.ACTIVO,
+            client=cliente, nombre="Entregada", precio=Decimal("2000"),
+            horas_reales=Decimal("25"), estado=Project.Estado.ENTREGADO,
+            fecha_entrega=hoy - dt.timedelta(days=10),
         )
-        _factura(cliente, "1000", cobrada=True, fecha_cobro=timezone.localdate())
-        assert services.tarifa_efectiva_mes() == Decimal("50.00")
+        Project.objects.create(
+            client=cliente, nombre="En curso", precio=Decimal("9000"),
+            horas_reales=Decimal("5"), estado=Project.Estado.ACTIVO,
+        )
+        # Un cobro suelto no mueve la tarifa: lo que manda son precio y horas.
+        _factura(cliente, "1000", cobrada=True, fecha_cobro=hoy)
+
+        resultado = services.tarifa_efectiva()
+        assert resultado["valor"] == Decimal("80.00")
+        assert resultado["proyectos"] == 1
+
+    def test_tarifa_efectiva_sin_entregas_no_inventa_cifra(self, cliente):
+        _factura(cliente, "2000", cobrada=True, fecha_cobro=timezone.localdate())
+        assert services.tarifa_efectiva()["valor"] is None
+
+    def test_la_tarifa_ignora_lo_entregado_hace_mas_de_90_dias(self, cliente):
+        Project.objects.create(
+            client=cliente, nombre="Vieja", precio=Decimal("2000"),
+            horas_reales=Decimal("25"), estado=Project.Estado.ENTREGADO,
+            fecha_entrega=timezone.localdate() - dt.timedelta(days=120),
+        )
+        assert services.tarifa_efectiva()["valor"] is None
 
 
 @pytest.mark.django_db
@@ -273,7 +302,7 @@ class TestVistas:
 
     def test_el_dashboard_muestra_la_tarifa_efectiva(self, client):
         respuesta = client.get(reverse("core:index"))
-        assert "Métrica maestra del mes".encode() in respuesta.content
+        assert "Métrica maestra".encode() in respuesta.content
         assert "Tarifa efectiva".encode() in respuesta.content
 
 

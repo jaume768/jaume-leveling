@@ -30,6 +30,16 @@ def slug_de_mision(mission: Mission) -> str:
 # panel. Mensuales y principales se pintan aparte, con su propio recuento.
 TIPOS_DEL_DIA = (Mission.Tipo.DIARIA, Mission.Tipo.SEMANAL)
 
+# Lo unico que se pide en una Semana de Reinicio (docs/sistema-v2.md, SS6):
+# la accion comercial diaria, un entregable pequeno y la revision. Se
+# identifican por tipo y orden, no por titulo, para que no se rompa al
+# reescribir un enunciado.
+MISIONES_DE_REINICIO = (
+    (Mission.Tipo.DIARIA, 1),    # D1 - accion comercial
+    (Mission.Tipo.SEMANAL, 2),   # S2 - 1 entregable visible
+    (Mission.Tipo.SEMANAL, 4),   # S4 - revision semanal
+)
+
 
 def disponibles_para_rango(queryset, rango):
     """Recorta un queryset de misiones a las que el rango actual permite ver.
@@ -111,6 +121,17 @@ def misiones_de_hoy(fecha: dt.date | None = None):
         return Mission.objects.none()
 
     rango = _rango_actual()
+
+    # Semana de Reinicio: solo lo imprescindible, nada mas.
+    if progression.semana_de_reinicio(fecha) is not None:
+        condiciones = Q()
+        for tipo, orden in MISIONES_DE_REINICIO:
+            condiciones |= Q(tipo=tipo, orden=orden)
+        return (
+            Mission.objects.filter(condiciones, activa=True, es_minima=False)
+            .order_by("tipo", "orden")
+        )
+
     semanales = _semanales_pendientes(fecha)
     if fecha.weekday() == progression.DOMINGO:
         return disponibles_para_rango(semanales, rango).order_by("orden", "titulo")
@@ -311,6 +332,7 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
         "fecha": fecha,
         "dia_protegido": protegido,
         "modo_minimo": minimo,
+        "reinicio": progression.semana_de_reinicio(fecha),
         "filas": filas,
         "grupos": agrupar_filas(filas),
         "pct": round(hechas_dia / len(del_dia) * 100) if del_dia else 0,
