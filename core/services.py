@@ -78,6 +78,7 @@ def contexto_panel(fecha=None, minimo: bool = False) -> dict:
             "alertas": business.alertas(fecha),
             "consejo": wisdom.maxima_contextual(fecha),
             "aviso_revision": review.aviso_revision_pendiente(fecha),
+            "bloqueo": progression.bloqueo_tecnico_activo(fecha),
             "recurrente": business.recurrente_activo(),
             "tarifa_efectiva": tarifa,
             "hay_horas": tarifa is not None,

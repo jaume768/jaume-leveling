@@ -132,3 +132,103 @@ def maximas(tag: str = ""):
     if tag:
         consulta = consulta.filter(tags__icontains=tag)
     return consulta
+
+
+# --- Consejo ----------------------------------------------------------------
+
+# Consultas predefinidas de la vista de consejo.
+CONSULTAS = {
+    "ahora": {
+        "etiqueta": "¿Qué hago ahora mismo?",
+        "pregunta": (
+            "Mirando el contexto, ¿qué hago ahora mismo? Dame como mucho tres acciones "
+            "ordenadas por lo que más ingreso desbloquea, y marca cuál es la de hoy."
+        ),
+    },
+    "semana": {
+        "etiqueta": "Revisa mi semana",
+        "pregunta": (
+            "Revisa mi semana con los datos del contexto. Qué ha funcionado, qué no, "
+            "y dónde me estoy engañando. Sé concreto con las cifras."
+        ),
+    },
+    "propuesta": {
+        "etiqueta": "Critica esta propuesta",
+        "pregunta": (
+            "Critica esta propuesta comercial. Mira el precio contra mi suelo, el alcance "
+            "contra mis 10 h/semana y qué falta para que no se desborde:"
+        ),
+        "necesita_texto": True,
+    },
+}
+
+
+def gasto_del_mes(fecha=None):
+    """Gasto acumulado en consultas durante el mes en curso."""
+    from django.db.models import Count, Sum
+
+    from .models import AdviceSession
+
+    fecha = fecha or timezone.localdate()
+    sesiones = AdviceSession.objects.filter(
+        fecha__year=fecha.year, fecha__month=fecha.month
+    )
+    agregado = sesiones.aggregate(
+        total=Sum("coste_estimado"),
+        tokens_in=Sum("tokens_in"),
+        tokens_out=Sum("tokens_out"),
+        consultas=Count("id"),
+    )
+    return {
+        "mes": fecha.replace(day=1),
+        "total": agregado["total"] or 0,
+        "tokens_in": agregado["tokens_in"] or 0,
+        "tokens_out": agregado["tokens_out"] or 0,
+        "consultas": agregado["consultas"] or 0,
+    }
+
+
+def consultar(pregunta: str, fecha=None):
+    """Pregunta al modelo con el contexto inyectado y guarda la sesión.
+
+    Devuelve (sesion, error). Si algo falla, `sesion` es None y `error` es un
+    texto para enseñar en pantalla: la app sigue funcionando igual.
+    """
+    import json
+
+    from . import ai
+    from .models import AdviceSession
+
+    pregunta = (pregunta or "").strip()
+    if not pregunta:
+        return None, "Escribe una pregunta."
+
+    prompt = ai.prompt_activo()
+    if prompt is None:
+        return None, "No hay ningún prompt de sistema activo. Créalo en el admin."
+
+    contexto = ai.construir_contexto(fecha)
+    mensaje = (
+        "CONTEXTO DEL SISTEMA (solo lectura, generado automáticamente):\n"
+        f"{json.dumps(contexto, ensure_ascii=False, indent=1)}\n\n"
+        f"PREGUNTA:\n{pregunta}"
+    )
+
+    cliente = ai.ClienteIA()
+    try:
+        respuesta = cliente.preguntar(prompt.contenido, mensaje)
+    except ai.IAError as exc:
+        return None, str(exc)
+
+    sesion = AdviceSession.objects.create(
+        fecha=timezone.now(),
+        pregunta=pregunta,
+        contexto_json=contexto,
+        respuesta=respuesta.texto,
+        modelo=respuesta.modelo,
+        tokens_in=respuesta.tokens_in,
+        tokens_out=respuesta.tokens_out,
+        coste_estimado=respuesta.coste,
+        system_prompt=prompt,
+    )
+    return sesion, ""

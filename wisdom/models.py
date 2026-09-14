@@ -30,7 +30,9 @@ class Maxim(models.Model):
 class SystemPrompt(models.Model):
     """Prompt de sistema con el que se consulta al modelo."""
 
-    slug = models.SlugField("slug", max_length=60, unique=True)
+    # El slug NO es único: identifica al prompt, y cada fila es una versión suya.
+    # La unicidad real es (slug, version), abajo en Meta.
+    slug = models.SlugField("slug", max_length=60)
     nombre = models.CharField("nombre", max_length=160)
     contenido = models.TextField("contenido")
     activo = models.BooleanField("activo", default=True)

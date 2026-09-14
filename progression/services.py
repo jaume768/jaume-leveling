@@ -36,6 +36,9 @@ ORDEN_ACCION_COMERCIAL = 1
 # Cuantos dias hacia atras se recorre como maximo al calcular la racha.
 MAX_DIAS_RACHA = 400
 
+# Contactos que levantan el bloqueo por una semana sin accion comercial.
+CONTACTOS_PARA_DESBLOQUEAR = 6
+
 
 def es_dia_protegido(fecha: dt.date) -> bool:
     """Miercoles y domingo estan fuera del sistema."""
@@ -206,3 +209,114 @@ def resumen_progresion(fecha: dt.date | None = None) -> dict:
         "xp_semana_pct": min(100, round(max(0, xp_semana) / OBJETIVO_XP_SEMANAL * 100)),
         "penalizaciones": penalizaciones_pendientes(),
     }
+
+
+# --- Penalizaciones automáticas ---------------------------------------------
+
+# La clave de idempotencia se guarda en Penalty.regla_slug con la forma
+# "<regla>--<objeto>", para no aplicar dos veces la misma penalización por el
+# mismo hecho. Todo son caracteres válidos de slug.
+SEPARADOR_CLAVE = "--"
+
+
+def clave_penalizacion(regla: str, objeto: str) -> str:
+    return f"{regla}{SEPARADOR_CLAVE}{objeto}"
+
+
+def regla_de(clave: str) -> str:
+    """Regla base a partir de una clave de idempotencia."""
+    return clave.split(SEPARADOR_CLAVE, 1)[0]
+
+
+def clave_semana(fecha: dt.date) -> str:
+    anio, semana = semana_iso(fecha)
+    return f"{anio}w{semana:02d}"
+
+
+def penalizacion_ya_aplicada(clave: str) -> bool:
+    return Penalty.objects.filter(regla_slug=clave).exists()
+
+
+def aplicar_penalizacion(
+    clave: str,
+    *,
+    descripcion: str,
+    correccion: str,
+    xp: int | None = None,
+    fecha: dt.date | None = None,
+) -> Penalty | None:
+    """Crea la penalización y descuenta la XP. Devuelve None si ya estaba aplicada.
+
+    La penalización queda pendiente hasta que se marca como resuelta a mano.
+    """
+    if penalizacion_ya_aplicada(clave):
+        return None
+
+    fecha = fecha or timezone.localdate()
+    regla = regla_de(clave)
+    if xp is None:
+        regla_xp = XPRule.objects.filter(accion_slug=regla).first()
+        if regla_xp is None:
+            raise ValueError(f"No hay regla de XP para '{regla}' y no se ha pasado xp.")
+        xp = regla_xp.xp
+
+    penalizacion = Penalty.objects.create(
+        fecha=fecha,
+        regla_slug=clave,
+        descripcion=descripcion,
+        xp=xp,
+        correccion_exigida=correccion,
+        resuelta=False,
+    )
+    registrar_xp(
+        regla,
+        xp=xp,
+        categoria=Categoria.PENALIZACION,
+        descripcion=descripcion,
+        fecha=fecha,
+        fuente=XPEvent.Fuente.AUTO,
+        objeto_relacionado=f"penalty:{penalizacion.pk}",
+    )
+    return penalizacion
+
+
+def bloqueo_tecnico_activo(fecha: dt.date | None = None) -> dict | None:
+    """Bloqueo del trabajo técnico no facturable por una semana sin comercial.
+
+    Sigue activo mientras la penalización esté sin resolver. Devuelve el
+    progreso de los 6 contactos que lo levantan.
+    """
+    from business.models import Deal
+
+    fecha = fecha or timezone.localdate()
+    pendiente = (
+        Penalty.objects.filter(
+            regla_slug__startswith="semana-sin-comercial", resuelta=False
+        )
+        .order_by("-fecha")
+        .first()
+    )
+    if pendiente is None:
+        return None
+
+    lunes, domingo = rango_de_la_semana(fecha)
+    nuevos = Deal.objects.filter(fecha_primer_contacto__range=(lunes, domingo))
+    tocados = Deal.objects.filter(ultimo_toque__range=(lunes, domingo))
+    contactos = nuevos.union(tocados).count()
+
+    return {
+        "penalizacion": pendiente,
+        "contactos": contactos,
+        "objetivo": CONTACTOS_PARA_DESBLOQUEAR,
+        "cumplido": contactos >= CONTACTOS_PARA_DESBLOQUEAR,
+    }
+
+
+def resolver_penalizacion(pk: int) -> Penalty | None:
+    """Marca una penalización como resuelta. No devuelve la XP: ya está gastada."""
+    penalizacion = Penalty.objects.filter(pk=pk).first()
+    if penalizacion is None:
+        return None
+    penalizacion.resuelta = True
+    penalizacion.save(update_fields=["resuelta"])
+    return penalizacion

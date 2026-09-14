@@ -4,6 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>[x-cloak]{display:none!important}</style>
   <title>{% block title %}Sistema{% endblock %} · Sistema</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
@@ -26,12 +27,14 @@
         {% url 'business:index' as url_negocio %}
         {% url 'review:index' as url_revision %}
         {% url 'wisdom:index' as url_consejo %}
+        {% url 'wisdom:maximas' as url_maximas %}
         <a href="{{ url_panel }}" class="block rounded-md px-3 py-2 {% if request.path == url_panel %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Panel</a>
         <a href="{{ url_misiones }}" class="block rounded-md px-3 py-2 {% if request.path == url_misiones %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Misiones</a>
         <a href="{{ url_progresion }}" class="block rounded-md px-3 py-2 {% if request.path == url_progresion %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Progresión</a>
         <a href="{{ url_negocio }}" class="block rounded-md px-3 py-2 {% if request.path == url_negocio %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Negocio</a>
         <a href="{{ url_revision }}" class="block rounded-md px-3 py-2 {% if request.path == url_revision %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Revisión</a>
         <a href="{{ url_consejo }}" class="block rounded-md px-3 py-2 {% if request.path == url_consejo %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Consejo</a>
+        <a href="{{ url_maximas }}" class="block rounded-md px-3 py-2 {% if request.path == url_maximas %}bg-slate-800 text-slate-100{% else %}text-slate-400 hover:bg-slate-800/60 hover:text-slate-200{% endif %}">Máximas</a>
       </nav>
     </aside>
 

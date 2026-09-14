@@ -1,10 +1,10 @@
 <div id="lista-maximas">
   <div class="flex flex-wrap gap-1 text-xs">
     <a class="rounded-md border px-2 py-1 {% if not tag_activo %}border-slate-500 text-slate-100{% else %}border-slate-800 text-slate-500 hover:text-slate-300{% endif %}"
-       href="{% url 'wisdom:index' %}" hx-get="{% url 'wisdom:index' %}" hx-target="#lista-maximas" hx-swap="outerHTML">Todas</a>
+       href="{% url 'wisdom:maximas' %}" hx-get="{% url 'wisdom:maximas' %}" hx-target="#lista-maximas" hx-swap="outerHTML">Todas</a>
     {% for tag in tags %}
       <a class="rounded-md border px-2 py-1 {% if tag_activo == tag %}border-slate-500 text-slate-100{% else %}border-slate-800 text-slate-500 hover:text-slate-300{% endif %}"
-         href="{% url 'wisdom:index' %}?tag={{ tag }}" hx-get="{% url 'wisdom:index' %}?tag={{ tag }}"
+         href="{% url 'wisdom:maximas' %}?tag={{ tag }}" hx-get="{% url 'wisdom:maximas' %}?tag={{ tag }}"
          hx-target="#lista-maximas" hx-swap="outerHTML">{{ tag }}</a>
     {% endfor %}
   </div>

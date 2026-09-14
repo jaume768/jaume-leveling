@@ -122,12 +122,12 @@ class TestMaximaContextual:
 @pytest.mark.django_db
 class TestVistaMaximas:
     def test_la_vista_carga_las_22(self, client):
-        respuesta = client.get(reverse("wisdom:index"))
+        respuesta = client.get(reverse("wisdom:maximas"))
         assert respuesta.status_code == 200
         assert len(respuesta.context["maximas"]) == 22
 
     def test_el_filtro_por_tag_reduce_la_lista(self, client):
-        respuesta = client.get(reverse("wisdom:index"), {"tag": "cobro"})
+        respuesta = client.get(reverse("wisdom:maximas"), {"tag": "cobro"})
         maximas = list(respuesta.context["maximas"])
         assert maximas
         assert all("cobro" in m.tags for m in maximas)

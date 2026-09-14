@@ -1,0 +1,52 @@
+<div id="alertas">
+  {% if alertas or penalizaciones or aviso_revision or bloqueo %}
+    <section class="space-y-3">
+      {% if bloqueo %}
+        <div class="rounded-lg border border-red-900 bg-red-950/50 p-4">
+          <p class="font-semibold text-red-200">Trabajo técnico no facturable BLOQUEADO</p>
+          <p class="mt-1 text-sm text-red-200/80">{{ bloqueo.penalizacion.descripcion }}. Se levanta con {{ bloqueo.objetivo }} contactos.</p>
+          <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-red-950">
+            <div class="h-full bg-red-400" style="width: {% widthratio bloqueo.contactos bloqueo.objetivo 100 %}%"></div>
+          </div>
+          <p class="mt-1 text-xs text-red-200/70">{{ bloqueo.contactos }}/{{ bloqueo.objetivo }} contactos esta semana{% if bloqueo.cumplido %} · cumplido, ya puedes marcarla como resuelta{% endif %}</p>
+        </div>
+      {% endif %}
+      {% if aviso_revision %}
+        <div class="rounded-lg border border-amber-800 bg-amber-950/40 p-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="font-semibold text-amber-200">{{ aviso_revision.texto }}</p>
+            <a href="{% url 'review:index' %}" class="text-xs text-amber-400 underline">
+              {% if aviso_revision.borrador %}Abrir borrador{% else %}Empezar{% endif %}
+            </a>
+          </div>
+        </div>
+      {% endif %}
+      {% for alerta in alertas %}
+        <div class="rounded-lg border border-red-900 bg-red-950/40 p-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="font-semibold text-red-300">{{ alerta.titulo }}</p>
+            <a href="{{ alerta.url }}" class="text-xs text-red-400 underline">Abrir</a>
+          </div>
+          <p class="mt-1 text-sm text-red-200/80">{{ alerta.detalle }}</p>
+          <ul class="mt-2 space-y-0.5 text-xs text-red-200/60">
+            {% for item in alerta.items %}<li>{{ item }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endfor %}
+
+      {% for penalizacion in penalizaciones %}
+        <div class="rounded-lg border border-red-900 bg-red-950/40 p-4">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <p class="font-semibold text-red-300">{{ penalizacion.descripcion }} ({{ penalizacion.xp }} XP)</p>
+            <button type="button"
+                    class="rounded-md border border-red-800 px-2 py-1 text-xs text-red-300 hover:bg-red-900/40"
+                    hx-post="{% url 'progression:resolver' penalizacion.pk %}"
+                    hx-target="#alertas" hx-swap="outerHTML"
+                    title="Marcar la corrección como hecha">Resuelta</button>
+          </div>
+          <p class="mt-1 text-sm text-red-200/80">{{ penalizacion.correccion_exigida }}</p>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+</div>

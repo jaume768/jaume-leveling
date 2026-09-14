@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Consejo{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-6">
+  <div class="flex flex-wrap items-baseline justify-between gap-2">
+    <h1 class="text-2xl font-semibold text-slate-100">Consejo</h1>
+    <a href="{% url 'wisdom:gasto' %}" class="text-sm text-slate-500 underline">
+      Gasto del mes: {{ gasto.total|floatformat:2 }} €
+    </a>
+  </div>
+
+  {% if not ia_configurada %}
+    <div class="rounded-lg border border-amber-800 bg-amber-950/40 p-4">
+      <p class="font-semibold text-amber-200">Falta la clave de la API</p>
+      <p class="mt-1 text-sm text-amber-200/80">
+        Añade <code class="text-amber-100">ANTHROPIC_API_KEY</code> a tu <code class="text-amber-100">.env</code>
+        y reinicia. Todo lo demás del sistema funciona sin esto.
+      </p>
+    </div>
+  {% else %}
+    <p class="text-sm text-slate-500">
+      Cada pregunta lleva tu contexto real: nivel, racha, pipeline, facturas, recurrente
+      y las tres últimas revisiones. Modelo: {{ modelo }}.
+    </p>
+  {% endif %}
+
+  <section class="rounded-lg border border-slate-800 bg-slate-900 p-5" x-data="{ propuesta: false }">
+    <form hx-post="{% url 'wisdom:index' %}" hx-target="#conversacion" hx-swap="outerHTML"
+          hx-indicator="#pensando" class="space-y-4">
+      {% csrf_token %}
+
+      <div class="flex flex-wrap gap-2">
+        <button type="submit" name="consulta" value="ahora" @click="propuesta = false"
+                class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800">
+          ¿Qué hago ahora mismo?
+        </button>
+        <button type="submit" name="consulta" value="semana" @click="propuesta = false"
+                class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800">
+          Revisa mi semana
+        </button>
+        <button type="button" @click="propuesta = true"
+                class="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-800">
+          Critica esta propuesta
+        </button>
+      </div>
+
+      <div x-show="propuesta" x-cloak class="space-y-2">
+        <label for="texto" class="block text-sm text-slate-300">Pega la propuesta</label>
+        <textarea id="texto" name="texto" rows="6"
+                  class="w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none"
+                  placeholder="Alcance, precio, plazos, condiciones..."></textarea>
+        <button type="submit" name="consulta" value="propuesta"
+                class="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-white">
+          Criticar
+        </button>
+      </div>
+
+      <div class="border-t border-slate-800 pt-4">
+        <label for="pregunta" class="block text-sm text-slate-300">O pregunta lo que quieras</label>
+        <textarea id="pregunta" name="pregunta" rows="3"
+                  class="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-slate-500 focus:outline-none"
+                  placeholder="¿Subo el precio a 1.800 € ya, o espero a tener dos casos publicados?"></textarea>
+        <div class="mt-2 flex items-center justify-between">
+          <span id="pensando" class="htmx-indicator text-sm text-slate-500">Pensando…</span>
+          <button type="submit"
+                  class="rounded-md bg-slate-200 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-white">
+            Preguntar
+          </button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  {% include "wisdom/_conversacion.html" %}
+</div>
+{% endblock %}
