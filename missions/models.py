@@ -53,6 +53,20 @@ class Mission(models.Model):
     )
     motivo = models.TextField("por que", blank=True)
     evidencia_requerida = models.BooleanField("requiere evidencia", default=False)
+    pide_notas = models.BooleanField(
+        "abre el cuaderno",
+        default=False,
+        help_text=(
+            "Al completarla se abre un cuaderno para apuntar. Es el caso del "
+            "cierre del dia: lo anotado ES la mision."
+        ),
+    )
+    etiqueta_notas = models.CharField(
+        "que se apunta",
+        max_length=120,
+        blank=True,
+        help_text="Rotulo del cuaderno, p. ej. 'Las dos tareas de manana'.",
+    )
     activa = models.BooleanField("activa", default=True)
     orden = models.PositiveSmallIntegerField("orden", default=0)
     es_minima = models.BooleanField(

@@ -4,9 +4,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#0a0f14">
+  <meta name="theme-color" content="#070b12">
   <style>[x-cloak]{display:none!important}</style>
+  <script>
+    /* Unico JavaScript propio de la aplicacion. Va aqui, antes de pintar nada,
+       porque leer el tema despues provocaria un fogonazo del tema contrario.
+       Por defecto, oscuro: el claro solo aparece si se pide a mano. */
+    (function () {
+      document.documentElement.dataset.tema =
+        localStorage.getItem("tema") === "claro" ? "claro" : "oscuro";
+    })();
+  </script>
   <title>{% block title %}Sistema{% endblock %} · Sistema</title>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
@@ -28,7 +36,7 @@
          :class="abierto ? 'translate-x-0' : '-translate-x-full'">
 
     <a href="{% url 'core:index' %}" class="flex items-center gap-3 px-2">
-      <span class="text-xp">{% include "_icono.html" with icono="marca" clase="h-7 w-7" %}</span>
+      <span class="text-xp">{% include "_icono.html" with icono="marca" clase="h-9 w-9" %}</span>
       <span>
         <span class="block text-h4 font-semibold tracking-tight text-ink">Sistema</span>
         <span class="block text-caption text-ink-3">Progreso con propósito.</span>
@@ -41,13 +49,19 @@
            class="{% if entrada.activa %}nav-item-on{% else %}nav-item{% endif %}"
            {% if entrada.activa %}aria-current="page"{% endif %}
            @click="abierto = false">
-          {% include "_icono.html" with icono=entrada.icono %}
+          {% include "_icono.html" with icono=entrada.icono clase="h-6 w-6" %}
           {{ entrada.etiqueta }}
         </a>
       {% endfor %}
     </nav>
 
-    <div class="mt-6 border-t border-line/60 px-2 pt-5">
+    <div class="relative mt-6 overflow-hidden rounded-md border-t border-line/60 px-2 pb-24 pt-5">
+      <span class="pointer-events-none absolute inset-x-0 bottom-0 -z-10 block h-28 bg-cover bg-bottom
+                   opacity-70"
+            style="background-image: url('{% static 'img/cumbres-mini.svg' %}')" aria-hidden="true"></span>
+      <span class="pointer-events-none absolute inset-x-0 bottom-0 -z-10 block h-28
+                   bg-gradient-to-t from-transparent via-surface-1/40 to-surface-1" aria-hidden="true"></span>
+
       <p class="font-serif text-body-sm italic text-ink-3">
         «Disciplina hoy.<br>Libertad mañana.»
       </p>
@@ -87,11 +101,42 @@
         {% endblock %}
       </div>
 
-      <p class="hidden items-center gap-2 rounded-sm border border-line bg-surface-2 px-4 py-2.5
-                text-body-sm text-ink-3 lg:flex">
-        {% include "_icono.html" with icono="buscar" clase="h-4 w-4" %}
-        Enfoque. Ejecuta. Repite.
-      </p>
+      {# El buscador va al cuaderno, que es lo unico que se busca de verdad. #}
+      <form action="{% url 'notebook:index' %}" method="get"
+            class="hidden items-center gap-2 rounded-sm border border-line bg-surface-2 px-3 py-2
+                   text-body-sm transition-colors focus-within:border-xp lg:flex">
+        <span class="text-ink-3">{% include "_icono.html" with icono="buscar" clase="h-4 w-4" %}</span>
+        <label for="buscador" class="sr-only">Buscar en el cuaderno</label>
+        <input type="search" id="buscador" name="q" placeholder="Buscar en el cuaderno…"
+               class="w-56 bg-transparent text-ink placeholder:text-ink-3 focus:outline-none">
+      </form>
+
+      <div class="flex shrink-0 items-center gap-2"
+           x-data="{ tema: document.documentElement.dataset.tema }">
+        <button type="button" class="btn-icono"
+                @click="tema = tema === 'claro' ? 'oscuro' : 'claro';
+                        document.documentElement.dataset.tema = tema;
+                        localStorage.setItem('tema', tema)"
+                :aria-label="tema === 'claro' ? 'Cambiar al tema oscuro' : 'Cambiar al tema claro'"
+                :title="tema === 'claro' ? 'Tema oscuro' : 'Tema claro'">
+          <span x-show="tema === 'oscuro'">{% include "_icono.html" with icono="sol" clase="h-4 w-4" %}</span>
+          <span x-show="tema === 'claro'" x-cloak>{% include "_icono.html" with icono="luna" clase="h-4 w-4" %}</span>
+        </button>
+
+        <a href="{% url 'admin:index' %}" class="btn-icono hidden sm:inline-flex"
+           title="Administración" aria-label="Administración">
+          {% include "_icono.html" with icono="ajustes" clase="h-4 w-4" %}
+        </a>
+
+        {% if user.is_authenticated %}
+          <a href="{% url 'core:personaje' %}" title="{{ user.username }}"
+             class="flex h-9 w-9 items-center justify-center rounded-full border border-xp/40
+                    bg-xp/15 text-body-sm font-semibold uppercase text-xp transition-colors
+                    hover:bg-xp/25">
+            {{ user.username|first }}
+          </a>
+        {% endif %}
+      </div>
     </header>
 
     <main class="flex-1 px-4 pb-28 pt-6 md:px-10 md:pb-10">
@@ -110,14 +155,14 @@
            class="flex flex-col items-center gap-1 py-2.5 text-caption
                   {% if entrada.activa %}text-xp{% else %}text-ink-3{% endif %}"
            {% if entrada.activa %}aria-current="page"{% endif %}>
-          {% include "_icono.html" with icono=entrada.icono %}
+          {% include "_icono.html" with icono=entrada.icono clase="h-6 w-6" %}
           {{ entrada.etiqueta }}
         </a>
       {% endif %}
     {% endfor %}
     <button type="button" @click="abierto = true"
             class="flex flex-col items-center gap-1 py-2.5 text-caption text-ink-3">
-      {% include "_icono.html" with icono="mas" %}
+      {% include "_icono.html" with icono="mas" clase="h-6 w-6" %}
       Más
     </button>
   </nav>

@@ -407,3 +407,134 @@ def test_el_marcador_del_panel_solo_cuenta_el_ritmo_del_dia():
     assert panel["total"] == 8
     titulos = [g["titulo"] for g in panel["grupos"]]
     assert titulos == ["Diarias", "Semanales", "Mensuales", "Principales"]
+
+
+# --- Cuaderno del cierre del día ---------------------------------------------
+
+
+@pytest.fixture
+def d2(db):
+    """El cierre del día: la misión que se hace escribiendo."""
+    return Mission.objects.get(titulo__startswith="D2 · ")
+
+
+@pytest.mark.django_db
+class TestCuaderno:
+    def test_el_cierre_del_dia_pide_notas(self, d2):
+        assert d2.pide_notas is True
+        assert d2.etiqueta_notas == "Las dos tareas de mañana"
+
+    def test_la_accion_comercial_no_pide_notas(self, d1):
+        assert d1.pide_notas is False
+
+    def test_guardar_notas_no_completa_ni_da_xp(self, d2):
+        antes = Profile.get().xp_total
+        registro = services.guardar_notas(d2, "1. Llamar\n2. Escribir", fecha=LUNES)
+        assert registro.notas == "1. Llamar\n2. Escribir"
+        assert registro.completada is False
+        assert Profile.get().xp_total == antes
+        assert not XPEvent.objects.exists()
+
+    def test_completar_guarda_las_notas_y_da_la_xp(self, d2):
+        antes = Profile.get().xp_total
+        registro = services.completar_mision(d2, notas="1. Llamar\n2. Escribir", fecha=LUNES)
+        assert registro.completada is True
+        assert registro.notas == "1. Llamar\n2. Escribir"
+        assert Profile.get().xp_total == antes + d2.xp
+
+    def test_se_puede_apuntar_primero_y_completar_despues(self, d2):
+        services.guardar_notas(d2, "borrador", fecha=LUNES)
+        registro = services.completar_mision(d2, notas="1. Llamar\n2. Escribir", fecha=LUNES)
+        assert registro.completada is True
+        assert registro.notas == "1. Llamar\n2. Escribir"
+        assert MissionLog.objects.filter(mission=d2, fecha=LUNES).count() == 1
+
+    def test_editar_despues_de_completada_no_vuelve_a_puntuar(self, d2):
+        services.completar_mision(d2, notas="primera versión", fecha=LUNES)
+        antes = Profile.get().xp_total
+        services.completar_mision(d2, notas="versión corregida", fecha=LUNES)
+        registro = MissionLog.objects.get(mission=d2, fecha=LUNES)
+        assert registro.notas == "versión corregida"
+        assert Profile.get().xp_total == antes
+        assert XPEvent.objects.filter(objeto_relacionado=f"mission:{d2.pk}").count() == 1
+
+    def test_completar_sin_notas_no_borra_lo_ya_escrito(self, d2):
+        services.guardar_notas(d2, "lo de antes", fecha=LUNES)
+        registro = services.completar_mision(d2, fecha=LUNES)
+        assert registro.notas == "lo de antes"
+
+    def test_las_notas_se_recortan(self, d2):
+        assert services.guardar_notas(d2, "   con espacios   ", fecha=LUNES).notas == "con espacios"
+
+    def test_ultimas_notas_devuelve_el_dia_anterior_con_algo_escrito(self, d2):
+        services.guardar_notas(d2, "lo del lunes", fecha=LUNES)
+        anteriores = services.ultimas_notas(d2, fecha=LUNES + dt.timedelta(days=1))
+        assert anteriores is not None
+        assert anteriores.notas == "lo del lunes"
+        assert anteriores.fecha == LUNES
+
+    def test_ultimas_notas_ignora_los_dias_en_blanco(self, d2):
+        services.guardar_notas(d2, "lo del lunes", fecha=LUNES)
+        services.guardar_notas(d2, "", fecha=LUNES + dt.timedelta(days=1))
+        anteriores = services.ultimas_notas(d2, fecha=LUNES + dt.timedelta(days=2))
+        assert anteriores.fecha == LUNES
+
+    def test_ultimas_notas_no_mira_el_futuro(self, d2):
+        services.guardar_notas(d2, "lo de hoy", fecha=LUNES)
+        assert services.ultimas_notas(d2, fecha=LUNES) is None
+
+    def test_el_panel_trae_lo_apuntado_hoy_y_lo_de_ayer(self, d2):
+        services.guardar_notas(d2, "lo del lunes", fecha=LUNES)
+        martes = LUNES + dt.timedelta(days=1)
+        services.guardar_notas(d2, "lo del martes", fecha=martes)
+
+        fila = next(
+            f for f in services.panel_de_misiones(martes)["filas"] if f["mision"].pk == d2.pk
+        )
+        assert fila["notas"] == "lo del martes"
+        assert fila["anteriores"].notas == "lo del lunes"
+
+    def test_las_misiones_normales_no_arrastran_notas_anteriores(self, d1):
+        fila = next(
+            f for f in services.panel_de_misiones(LUNES)["filas"] if f["mision"].pk == d1.pk
+        )
+        assert fila["anteriores"] is None
+
+
+@pytest.mark.django_db
+class TestCuadernoHTMX:
+    def test_el_modal_se_abre_con_lo_ya_escrito(self, client, d2):
+        services.guardar_notas(d2, "1. Llamar")
+        respuesta = client.get(reverse("missions:notas", args=[d2.pk]))
+        assert respuesta.status_code == 200
+        assert b"1. Llamar" in respuesta.content
+        assert "Las dos tareas de mañana".encode() in respuesta.content
+
+    def test_guardar_por_htmx_devuelve_el_bloque(self, client, d2):
+        respuesta = client.post(
+            reverse("missions:notas", args=[d2.pk]), {"notas": "1. Llamar\n2. Escribir"}
+        )
+        assert respuesta.status_code == 200
+        assert b'id="bloque-misiones"' in respuesta.content
+        assert b"<html" not in respuesta.content
+        assert services.notas_de(d2) == "1. Llamar\n2. Escribir"
+        assert not services.esta_completada(d2)
+
+    def test_guardar_y_completar_en_la_misma_accion(self, client, d2):
+        respuesta = client.post(
+            reverse("missions:notas", args=[d2.pk]),
+            {"notas": "1. Llamar\n2. Escribir", "completar": "1"},
+        )
+        assert respuesta.status_code == 200
+        assert services.esta_completada(d2)
+        assert services.notas_de(d2) == "1. Llamar\n2. Escribir"
+
+    def test_el_panel_pinta_lo_apuntado(self, client, d2):
+        services.guardar_notas(d2, "1. Llamar a Gruas")
+        contenido = client.get(reverse("core:index")).content.decode()
+        assert "Apuntado hoy" in contenido
+        assert "1. Llamar a Gruas" in contenido
+
+    def test_la_casilla_del_cierre_abre_el_cuaderno(self, client, d2):
+        contenido = client.get(reverse("core:index")).content.decode()
+        assert reverse("missions:notas", args=[d2.pk]) in contenido

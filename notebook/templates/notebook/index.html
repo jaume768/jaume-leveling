@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Cuaderno{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl">
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <p class="label">Cuaderno</p>
+      <h1 class="mt-1 text-h2 font-semibold text-ink">Lo que apuntas</h1>
+      <p class="mt-1 text-body-sm text-ink-3">
+        Tus notas sueltas y lo que escribes al cerrar una misión, en el mismo sitio.
+      </p>
+    </div>
+
+    <form class="w-full sm:w-64" hx-get="{% url 'notebook:index' %}"
+          hx-target="#cuaderno" hx-swap="outerHTML"
+          hx-trigger="submit, input from:find input delay:400ms">
+      <label for="q" class="sr-only">Buscar en el cuaderno</label>
+      <input type="search" id="q" name="q" value="{{ busqueda }}" placeholder="Buscar…"
+             class="w-full rounded-sm border border-line bg-base p-2 text-body-sm text-ink
+                    placeholder:text-ink-3 focus:border-xp focus:outline-none">
+    </form>
+  </div>
+
+  <div class="mt-6">
+    {% include "notebook/_lista.html" %}
+  </div>
+</div>
+{% endblock %}

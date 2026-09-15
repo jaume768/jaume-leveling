@@ -501,3 +501,4 @@ def tarifa_efectiva(fecha: dt.date | None = None) -> dict:
 def tarifa_efectiva_mes(fecha: dt.date | None = None) -> Decimal | None:
     """Compatibilidad: solo el numero de la tarifa efectiva."""
     return tarifa_efectiva(fecha)["valor"]
+

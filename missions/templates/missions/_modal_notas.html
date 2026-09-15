@@ -1,0 +1,54 @@
+{# Cuaderno de la misión: se apunta aquí, y aquí se relee lo del día anterior. #}
+<div class="fixed inset-0 z-40 flex items-end justify-center bg-base/80 p-4 backdrop-blur-sm sm:items-center"
+     hx-on:click="if (event.target === this) htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+  <div class="card w-full max-w-lg p-5">
+
+    <p class="label">{{ etiqueta }}</p>
+    <h3 class="mt-1 text-h4 font-semibold text-ink">
+      {% if codigo %}<span class="text-ink-3">{{ codigo }}</span> {% endif %}{{ titulo }}
+    </h3>
+    <p class="mt-1 text-caption text-ink-3">{{ mision.definicion_terminada }}</p>
+
+    {% if anteriores %}
+      <div class="mt-4 rounded-sm border-l-2 border-ink-3 bg-surface-1 p-3">
+        <p class="label text-ink-3">Lo que apuntaste el {{ anteriores.fecha|date:"j \d\e F" }}</p>
+        <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ anteriores.notas }}</p>
+      </div>
+    {% endif %}
+
+    <form hx-post="{% url 'missions:notas' mision.pk %}"
+          hx-target="#bloque-misiones"
+          hx-swap="outerHTML"
+          hx-on::after-request="htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+      {% csrf_token %}
+      <input type="hidden" name="minimo" value="{% if modo_minimo %}1{% else %}0{% endif %}">
+
+      <label for="notas" class="mt-5 block text-body-sm font-medium text-ink-2">
+        {{ etiqueta }}
+      </label>
+      <textarea id="notas" name="notas" rows="6" autofocus
+                placeholder="1. &#10;2. "
+                class="mt-2 w-full rounded-sm border border-line bg-base p-3 text-body-sm text-ink
+                       placeholder:text-ink-3 focus:border-xp focus:outline-none">{{ notas }}</textarea>
+      <p class="mt-2 text-caption text-ink-3">
+        Se guarda en el día de hoy. Mañana lo tendrás aquí arriba y en el panel.
+      </p>
+
+      <div class="mt-5 flex flex-wrap justify-end gap-2">
+        <button type="button" class="btn"
+                hx-get="{% url 'missions:cerrar_modal' %}"
+                hx-target="#modal"
+                hx-swap="innerHTML">Cancelar</button>
+
+        {% if completada %}
+          <button type="submit" class="btn-xp">Guardar</button>
+        {% else %}
+          <button type="submit" class="btn">Guardar sin completar</button>
+          <button type="submit" name="completar" value="1" class="btn-xp">
+            Guardar y completar
+          </button>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>

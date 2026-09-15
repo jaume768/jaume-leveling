@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" preserveAspectRatio="xMidYMax slice" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="mini-cielo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#241a4a" stop-opacity="0"/>
+      <stop offset="55%" stop-color="#3b2a6b"/>
+      <stop offset="100%" stop-color="#7a3f6a"/>
+    </linearGradient>
+    <radialGradient id="mini-sol" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#ffd08a"/>
+      <stop offset="100%" stop-color="#ff9a5a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mini-monte" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a2f63"/>
+      <stop offset="100%" stop-color="#140f2b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="320" height="240" fill="url(#mini-cielo)"/>
+  <circle cx="150" cy="170" r="72" fill="url(#mini-sol)"/>
+  <path d="M0 150 L52 108 L96 142 L150 92 L198 146 L250 112 L320 158 L320 240 L0 240 Z" fill="#4a3a72" opacity="0.6"/>
+  <path d="M0 186 L60 140 L120 182 L180 132 L240 184 L300 146 L320 176 L320 240 L0 240 Z" fill="url(#mini-monte)"/>
+</svg>

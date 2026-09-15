@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id="ocaso" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0%" stop-color="#2a1b4d"/>
+      <stop offset="40%" stop-color="#7b2f5e"/>
+      <stop offset="72%" stop-color="#d4622f"/>
+      <stop offset="100%" stop-color="#f0a341"/>
+    </linearGradient>
+    <radialGradient id="sol" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#ffe9b0"/>
+      <stop offset="55%" stop-color="#ffb347" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#ff8a3d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="silueta-lejos" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6b3a63"/>
+      <stop offset="100%" stop-color="#3a2049"/>
+    </linearGradient>
+    <linearGradient id="silueta-cerca" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2b1636"/>
+      <stop offset="100%" stop-color="#140b1d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="420" fill="url(#ocaso)"/>
+  <circle cx="820" cy="300" r="230" fill="url(#sol)"/>
+
+  <path d="M0 268 L140 190 L260 250 L400 165 L520 255 L640 205 L780 262 L900 195 L1030 258 L1140 210 L1200 250 L1200 420 L0 420 Z" fill="url(#silueta-lejos)" opacity="0.75"/>
+  <path d="M0 330 L110 262 L240 325 L380 240 L500 320 L620 275 L740 335 L870 255 L990 325 L1110 272 L1200 330 L1200 420 L0 420 Z" fill="url(#silueta-cerca)"/>
+</svg>

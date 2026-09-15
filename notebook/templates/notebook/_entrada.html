@@ -1,0 +1,38 @@
+{# Una entrada del cuaderno: nota suelta (editable) o nota de misión (solo lectura). #}
+{% if entrada.tipo == "nota" %}
+  <article id="nota-{{ entrada.nota.pk }}"
+           class="rounded-sm border border-line bg-surface-1 p-4 transition-colors hover:bg-surface-2">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        {% if entrada.nota.titulo %}
+          <h4 class="text-body-sm font-semibold text-ink">{{ entrada.nota.titulo }}</h4>
+        {% endif %}
+      </div>
+      <div class="flex shrink-0 items-center gap-2 text-caption text-ink-3">
+        <button type="button" class="underline hover:text-ink-2"
+                hx-post="{% url 'notebook:fijar' entrada.nota.pk %}"
+                hx-target="#cuaderno" hx-swap="outerHTML"
+                title="{% if entrada.fijada %}Quitar de arriba{% else %}Fijar arriba{% endif %}">
+          {% if entrada.fijada %}Desfijar{% else %}Fijar{% endif %}
+        </button>
+        <button type="button" class="underline hover:text-ink-2"
+                hx-get="{% url 'notebook:editar' entrada.nota.pk %}"
+                hx-target="#nota-{{ entrada.nota.pk }}" hx-swap="outerHTML">Editar</button>
+        <button type="button" class="underline hover:text-bad"
+                hx-post="{% url 'notebook:borrar' entrada.nota.pk %}"
+                hx-target="#cuaderno" hx-swap="outerHTML"
+                hx-confirm="¿Borrar esta nota? No se puede deshacer.">Borrar</button>
+      </div>
+    </div>
+    <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ entrada.contenido }}</p>
+  </article>
+
+{% else %}
+  <article class="rounded-sm border border-line border-l-2 border-l-xp bg-surface-1 p-4">
+    <div class="flex items-start justify-between gap-3">
+      <p class="label text-ink-3">{{ entrada.titulo }}</p>
+      <a href="{% url 'missions:index' %}" class="shrink-0 text-caption text-ink-3 underline hover:text-ink-2">Misión</a>
+    </div>
+    <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ entrada.contenido }}</p>
+  </article>
+{% endif %}

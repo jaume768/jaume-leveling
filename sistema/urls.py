@@ -18,5 +18,6 @@ urlpatterns = [
     path("progresion/", include("progression.urls")),
     path("negocio/", include("business.urls")),
     path("revision/", include("review.urls")),
+    path("cuaderno/", include("notebook.urls")),
     path("", include("wisdom.urls")),
 ]

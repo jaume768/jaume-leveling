@@ -1,0 +1,19 @@
+{# Edición en línea de una nota ya guardada. #}
+<form id="nota-{{ nota.pk }}"
+      class="rounded-sm border border-xp/40 bg-surface-2 p-4"
+      hx-post="{% url 'notebook:editar' nota.pk %}"
+      hx-target="#cuaderno" hx-swap="outerHTML">
+  {% csrf_token %}
+  <input type="text" name="titulo" value="{{ nota.titulo }}" placeholder="Título (opcional)"
+         class="w-full rounded-sm border border-line bg-base p-2 text-body-sm font-semibold text-ink
+                placeholder:text-ink-3 focus:border-xp focus:outline-none">
+  <textarea name="contenido" rows="5" autofocus
+            class="mt-2 w-full rounded-sm border border-line bg-base p-3 text-body-sm text-ink
+                   focus:border-xp focus:outline-none">{{ nota.contenido }}</textarea>
+  <div class="mt-3 flex justify-end gap-2">
+    <button type="button" class="btn"
+            hx-get="{% url 'notebook:cancelar' nota.pk %}"
+            hx-target="#nota-{{ nota.pk }}" hx-swap="outerHTML">Cancelar</button>
+    <button type="submit" class="btn-xp">Guardar</button>
+  </div>
+</form>

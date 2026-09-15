@@ -83,10 +83,22 @@
               hx-get="{% url 'missions:cerrar_modal' %}"
               hx-target="#modal" hx-swap="innerHTML">Cerrar</button>
 
+      {% if puede_completar %}
+        <button type="button" class="btn"
+                hx-get="{% url 'missions:notas' mision.pk %}{% if modo_minimo %}?minimo=1{% endif %}"
+                hx-target="#modal" hx-swap="innerHTML">
+          {% if notas %}Ver notas{% else %}Apuntar{% endif %}
+        </button>
+      {% endif %}
+
       {% if not puede_completar %}
         <a href="{% url 'core:index' %}" class="btn-xp">Ir al panel para hacerla</a>
       {% elif completada %}
         <span class="pill-ok px-3 py-2">Ya está hecha hoy</span>
+      {% elif mision.pide_notas %}
+        <button type="button" class="btn-xp"
+                hx-get="{% url 'missions:notas' mision.pk %}{% if modo_minimo %}?minimo=1{% endif %}"
+                hx-target="#modal" hx-swap="innerHTML">Completar apuntando</button>
       {% elif mision.evidencia_requerida %}
         <button type="button" class="btn-xp"
                 hx-get="{% url 'missions:evidencia' mision.pk %}{% if modo_minimo %}?minimo=1{% endif %}"

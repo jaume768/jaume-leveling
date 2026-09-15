@@ -31,7 +31,11 @@ def completar(request, pk):
     """Marca una mision como hecha y devuelve el bloque actualizado."""
     mision = get_object_or_404(Mission, pk=pk, activa=True)
     try:
-        services.completar_mision(mision, evidencia=request.POST.get("evidencia", ""))
+        services.completar_mision(
+            mision,
+            evidencia=request.POST.get("evidencia", ""),
+            notas=request.POST.get("notas", ""),
+        )
     except services.EvidenciaRequerida:
         return _fragmento(
             request,
@@ -58,6 +62,34 @@ def evidencia(request, pk):
     return render(
         request, "missions/_modal_evidencia.html", {"mision": mision, "modo_minimo": minimo}
     )
+
+
+def notas(request, pk):
+    """Cuaderno de la mision: apuntar, releer lo de ayer y cerrarla si toca.
+
+    GET abre el cuaderno. POST guarda lo escrito; si ademas llega `completar`,
+    da la mision por hecha en la misma accion.
+    """
+    mision = get_object_or_404(Mission, pk=pk, activa=True)
+
+    if request.method == "POST":
+        texto = request.POST.get("notas", "")
+        if "completar" in request.POST:
+            try:
+                services.completar_mision(mision, notas=texto)
+            except services.EvidenciaRequerida:
+                return _fragmento(
+                    request,
+                    error="Esa misión no se da por hecha sin evidencia.",
+                    mision=mision,
+                )
+        else:
+            services.guardar_notas(mision, texto)
+        return _fragmento(request)
+
+    contexto = services.cuaderno_de(mision)
+    contexto["modo_minimo"] = request.GET.get("minimo") == "1"
+    return render(request, "missions/_modal_notas.html", contexto)
 
 
 def cerrar_modal(request):

@@ -170,19 +170,27 @@ def _categoria_de(mission: Mission) -> str:
 
 @transaction.atomic
 def completar_mision(
-    mission: Mission, evidencia: str = "", fecha: dt.date | None = None
+    mission: Mission,
+    evidencia: str = "",
+    fecha: dt.date | None = None,
+    notas: str = "",
 ) -> MissionLog:
     """Da una mision por hecha y concede su XP. Idempotente dentro del mismo dia.
 
     Si la mision ya estaba completada hoy, devuelve el registro existente sin
-    volver a puntuar.
+    volver a puntuar, pero las notas si se actualizan: el cuaderno se puede
+    seguir escribiendo despues de haber marcado la mision.
     """
     fecha = fecha or timezone.localdate()
 
     registro, _ = MissionLog.objects.select_for_update().get_or_create(
         mission=mission, fecha=fecha
     )
+    notas = (notas or "").strip()
     if registro.completada:
+        if notas and notas != registro.notas:
+            registro.notas = notas
+            registro.save(update_fields=["notas"])
         return registro
 
     evidencia = (evidencia or "").strip()
@@ -202,8 +210,74 @@ def completar_mision(
     registro.completada = True
     registro.evidencia_texto = evidencia
     registro.xp_otorgado = evento.xp_neto
-    registro.save(update_fields=["completada", "evidencia_texto", "xp_otorgado"])
+    if notas:
+        registro.notas = notas
+    registro.save(update_fields=["completada", "evidencia_texto", "xp_otorgado", "notas"])
     return registro
+
+
+# --- Cuaderno ----------------------------------------------------------------
+#
+# Algunas misiones no se prueban con evidencia: se hacen escribiendo. El cierre
+# del dia es la principal —"2 tareas para manana", terminada cuando estan
+# "Anotadas"—, asi que lo apuntado se guarda en MissionLog.notas y se puede
+# releer al dia siguiente, que es para lo que sirve.
+
+
+@transaction.atomic
+def guardar_notas(
+    mission: Mission, notas: str, fecha: dt.date | None = None
+) -> MissionLog:
+    """Escribe en el cuaderno del dia sin completar la mision ni dar XP.
+
+    Sirve para apuntar a media tarde y cerrar la mision mas tarde, y para
+    corregir lo anotado despues de haberla dado por hecha.
+    """
+    fecha = fecha or timezone.localdate()
+    registro, _ = MissionLog.objects.select_for_update().get_or_create(
+        mission=mission, fecha=fecha
+    )
+    registro.notas = (notas or "").strip()
+    registro.save(update_fields=["notas"])
+    return registro
+
+
+def notas_de(mission: Mission, fecha: dt.date | None = None) -> str:
+    """Lo apuntado hoy en esa mision."""
+    fecha = fecha or timezone.localdate()
+    registro = MissionLog.objects.filter(mission=mission, fecha=fecha).first()
+    return registro.notas if registro else ""
+
+
+def ultimas_notas(mission: Mission, fecha: dt.date | None = None) -> MissionLog | None:
+    """El ultimo dia anterior con algo escrito. Lo de ayer, normalmente.
+
+    Es el motivo de que el cuaderno exista: por la manana quieres leer las dos
+    tareas que dejaste apuntadas anoche.
+    """
+    fecha = fecha or timezone.localdate()
+    return (
+        MissionLog.objects.filter(mission=mission, fecha__lt=fecha)
+        .exclude(notas="")
+        .order_by("-fecha")
+        .first()
+    )
+
+
+def cuaderno_de(mission: Mission, fecha: dt.date | None = None) -> dict:
+    """Contexto del cuaderno de una mision."""
+    fecha = fecha or timezone.localdate()
+    codigo, titulo = partir_titulo(mission.titulo)
+    return {
+        "mision": mission,
+        "codigo": codigo,
+        "titulo": titulo,
+        "fecha": fecha,
+        "notas": notas_de(mission, fecha),
+        "anteriores": ultimas_notas(mission, fecha),
+        "completada": esta_completada(mission, fecha),
+        "etiqueta": mission.etiqueta_notas or "Notas",
+    }
 
 
 # --- Presentacion del panel de misiones --------------------------------------
@@ -292,6 +366,7 @@ def detalle_de_mision(mission: Mission, fecha: dt.date | None = None) -> dict:
         "titulo": titulo,
         "guia": guia_de(mission),
         "completada": esta_completada(mission, fecha),
+        "notas": notas_de(mission, fecha),
     }
 
 
@@ -312,6 +387,11 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
             "mission_id", flat=True
         )
     )
+    notas_del_dia = dict(
+        MissionLog.objects.filter(fecha=fecha)
+        .exclude(notas="")
+        .values_list("mission_id", "notas")
+    )
     filas = []
     for mision in misiones:
         codigo, titulo = partir_titulo(mision.titulo)
@@ -321,6 +401,10 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
                 "completada": mision.pk in hechas,
                 "codigo": codigo,
                 "titulo": titulo,
+                "notas": notas_del_dia.get(mision.pk, ""),
+                # Lo de ayer solo se pinta en las misiones de cuaderno, que es
+                # donde tiene sentido releerlo por la manana.
+                "anteriores": ultimas_notas(mision, fecha) if mision.pide_notas else None,
             }
         )
     # El marcador de arriba cuenta solo el ritmo del dia (diarias y semanales).

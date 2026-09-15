@@ -76,6 +76,7 @@ NAVEGACION = (
     ("progression:index", "Progresión", "progresion", False),
     ("business:index", "Negocio", "negocio", True),
     ("review:index", "Revisión", "revision", True),
+    ("notebook:index", "Cuaderno", "cuaderno", False),
     ("wisdom:index", "Consejo", "consejo", False),
     ("wisdom:maximas", "Máximas", "maximas", False),
 )
