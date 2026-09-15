@@ -12,7 +12,7 @@
   <div class="space-y-4">
 
     <section class="retrato relative overflow-hidden rounded-md border border-line">
-      {# El retrato manda: el texto va encima, sobre un velo que sube desde abajo. #}
+      {# El retrato manda. El texto se apoya en el pie, que es donde el velo lo sostiene: arriba está la cara. #}
       <picture>
         <source media="(min-width: 768px)" srcset="{% static 'img/personaje.webp' %}">
         <img src="{% static 'img/personaje-mini.webp' %}" alt="Tu personaje: rango Operador"
@@ -22,7 +22,7 @@
 
       <div class="velo-retrato pointer-events-none absolute inset-0"></div>
 
-      <div class="absolute inset-x-0 top-0 p-5">
+      <div class="absolute inset-x-0 bottom-0 p-5">
         <div class="flex items-center gap-3">
           <span class="pedestal">
             {% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}
