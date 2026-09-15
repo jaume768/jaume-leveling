@@ -500,7 +500,15 @@
 }
 
 @utility retrato {
-  background-color: #070b12;
+  /* La ilustracion viene recortada, asi que el fondo lo pone la tarjeta y se
+     adapta al tema. Antes iba fijo en oscuro porque la imagen traia su propio
+     fondo negro incrustado. */
+  background-color: var(--color-base);
+  background-image: radial-gradient(
+    70% 55% at 50% 22%,
+    color-mix(in oklab, var(--color-xp) 18%, transparent),
+    transparent 70%
+  );
 
   /* Movil: caja apaisada. Con object-cover la imagen se ajusta al ancho, asi
      que de una ilustracion 2:3 solo queda visible la mitad de arriba. El
