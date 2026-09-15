@@ -49,19 +49,27 @@
                    {% else %}border-line/60 bg-surface-1{% endif %}">
 
           <div class="flex items-start gap-4">
-            {# Medallón con el número romano del rango #}
-            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full
-                         border-2 text-body-sm font-bold tabular
-                         {% if paso.estado == 'en_curso' %}border-xp bg-xp/15 text-xp
-                         {% elif paso.estado == 'superado' %}border-ok bg-ok/15 text-ok
-                         {% else %}border-line bg-surface-2 text-ink-3{% endif %}">
+            {# Emblema del rango. Apagado si aún no se ha llegado. #}
+            <span class="relative shrink-0 {% if paso.estado == 'en_curso' %}pedestal{% endif %}">
+              {% include "core/_emblema.html" with rango=paso.rango clase="h-16 w-16" bloqueado=paso.bloqueado %}
+
               {% if paso.estado == 'superado' %}
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="m5 12.5 5 5L19 7"/>
-                </svg>
-              {% else %}
-                {{ paso.rango.orden }}
+                <span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center
+                             rounded-full border border-ok bg-surface-2 text-ok">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="m5 12.5 5 5L19 7"/>
+                  </svg>
+                </span>
+              {% elif paso.estado == 'bloqueado' %}
+                <span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center
+                             rounded-full border border-line bg-surface-2 text-ink-3">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="4.5" y="10.5" width="15" height="10" rx="2"/>
+                    <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+                  </svg>
+                </span>
               {% endif %}
             </span>
 

@@ -370,7 +370,7 @@ cada app, vistas finas, y ni DRF, ni React, ni Celery, ni multiusuario.
 
 ## Sistema de diseño
 
-Los tokens viven en `static/src/input.css`, dentro del bloque `@theme`. Son la
+Los tokens viven en `assets/input.css`, dentro del bloque `@theme`. Son la
 fuente de verdad visual: **ningún color, tamaño ni radio se escribe a mano en
 las plantillas**, siempre a través de las clases que generan.
 

@@ -1,13 +1,18 @@
 @import "tailwindcss";
 
 /* Rastrea las plantillas del proyecto para generar solo las clases usadas. */
-@source "../../templates";
-@source "../../core";
-@source "../../missions";
-@source "../../progression";
-@source "../../business";
-@source "../../review";
-@source "../../wisdom";
+@source "../templates";
+@source "../core";
+@source "../missions";
+@source "../progression";
+@source "../business";
+@source "../review";
+@source "../wisdom";
+@source "../notebook";
+
+/* El CLI de Tailwind se descarga aqui y lleva dentro el nombre de cada
+   utilidad: si se escanea, las genera todas. */
+@source not "../bin";
 
 /* ---------------------------------------------------------------------------
    Tokens de diseño. Son la fuente de verdad visual: ningún color, tamaño ni
@@ -533,5 +538,64 @@
 
   @media (min-width: 1280px) {
     aspect-ratio: 2 / 3;
+  }
+}
+
+/* Boton flotante de captura rapida. Se aparta de la barra inferior en movil y
+   baja a la esquina en escritorio, donde esa barra no existe. */
+@utility fab {
+  @apply fixed right-4 z-30 flex items-center justify-center rounded-full
+         border border-xp/40 bg-xp text-white transition-transform;
+  bottom: 5.5rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  box-shadow: 0 10px 30px -8px var(--color-xp), 0 2px 6px rgb(0 0 0 / 0.35);
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+
+  @media (min-width: 768px) {
+    bottom: 1.5rem;
+    right: 1.5rem;
+  }
+}
+
+/* Emblemas de rango. Llevan su propio metal y su luz, asi que aqui solo se
+   les da presencia: un halo del color del sistema y el relieve al pasar. */
+@utility emblema {
+  @apply block shrink-0 object-contain;
+  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.55))
+          drop-shadow(0 0 14px color-mix(in oklab, var(--color-xp) 35%, transparent));
+}
+
+/* Rango aun no alcanzado: apagado y sin color, como en cualquier juego. */
+@utility emblema-off {
+  filter: grayscale(1) brightness(0.55) drop-shadow(0 4px 12px rgb(0 0 0 / 0.5));
+  opacity: 0.75;
+}
+
+/* Pedestal del emblema en la tarjeta de nivel: un halo detras de la insignia. */
+@utility pedestal {
+  @apply relative flex shrink-0 items-center justify-center;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -18%;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--color-xp) 26%, transparent),
+      transparent 68%
+    );
+  }
+
+  & > * {
+    position: relative;
   }
 }

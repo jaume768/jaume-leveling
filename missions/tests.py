@@ -538,3 +538,241 @@ class TestCuadernoHTMX:
     def test_la_casilla_del_cierre_abre_el_cuaderno(self, client, d2):
         contenido = client.get(reverse("core:index")).content.decode()
         assert reverse("missions:notas", args=[d2.pk]) in contenido
+
+
+# --- Identidad de las misiones y variantes -----------------------------------
+
+
+@pytest.mark.django_db
+class TestIdentidadDeMision:
+    """El título y el orden son presentación; el slug es identidad."""
+
+    def test_la_accion_comercial_esta_marcada_para_la_racha(self):
+        marcadas = set(
+            Mission.objects.filter(cuenta_para_racha=True).values_list("slug", flat=True)
+        )
+        assert marcadas == {"accion-comercial", "accion-comercial-minima"}
+
+    def test_reordenar_desde_el_admin_no_cambia_la_racha(self, d1):
+        """Antes la racha se deducía de (tipo, orden) y esto la rompía."""
+        services.completar_mision(d1, evidencia="contacto", fecha=LUNES)
+        assert progression.racha_actual(LUNES) == 1
+
+        # Se reordena y se reescribe el enunciado, como en el admin.
+        d1.orden = 9
+        d1.titulo = "D9 · Otro nombre para lo mismo"
+        d1.save()
+
+        assert progression.racha_actual(LUNES) == 1
+
+    def test_otra_diaria_de_orden_1_no_cuenta_para_la_racha(self, db):
+        """Antes, cualquier diaria con orden 1 mantenía la racha."""
+        impostora = Mission.objects.create(
+            titulo="Leer el correo", tipo=Mission.Tipo.DIARIA, orden=1,
+            definicion_terminada="Leído", xp=5,
+        )
+        services.completar_mision(impostora, fecha=LUNES)
+
+        assert impostora.cuenta_para_racha is False
+        assert progression.racha_actual(LUNES) == 0
+
+    def test_el_slug_se_deriva_del_titulo_si_no_se_da(self, db):
+        mision = Mission.objects.create(
+            titulo="Z9 · Misión de prueba", tipo=Mission.Tipo.DIARIA,
+            definicion_terminada="Hecha", xp=5,
+        )
+        assert mision.slug == "z9-mision-de-prueba"
+
+    def test_dos_misiones_con_el_mismo_titulo_no_chocan(self, db):
+        datos = dict(tipo=Mission.Tipo.DIARIA, definicion_terminada="Hecha", xp=5)
+        a = Mission.objects.create(titulo="Repetida", **datos)
+        b = Mission.objects.create(titulo="Repetida", **datos)
+        assert (a.slug, b.slug) == ("repetida", "repetida-2")
+
+    def test_la_semana_de_reinicio_se_identifica_por_slug(self, db):
+        from missions.services import MISIONES_DE_REINICIO
+
+        assert set(MISIONES_DE_REINICIO) <= set(
+            Mission.objects.values_list("slug", flat=True)
+        )
+
+
+@pytest.mark.django_db
+class TestVariantesDelMismoGrupo:
+    """La versión mínima mantiene la racha, pero no es una segunda fuente de XP."""
+
+    @pytest.fixture
+    def d1_minima(self, db):
+        return Mission.objects.get(slug="accion-comercial-minima")
+
+    @pytest.fixture
+    def d2_minima(self, db):
+        return Mission.objects.get(slug="cierre-del-dia-minima")
+
+    def test_comparten_grupo(self, d1, d1_minima):
+        assert d1.grupo == d1_minima.grupo == "accion-comercial"
+
+    def test_la_minima_mantiene_la_racha(self, d1_minima):
+        services.completar_mision(d1_minima, evidencia="tres líneas", fecha=LUNES)
+        assert progression.racha_actual(LUNES) == 1
+
+    def test_no_se_puede_completar_la_normal_despues_de_la_minima(self, d1, d1_minima):
+        services.completar_mision(d1_minima, evidencia="tres líneas", fecha=LUNES)
+        antes = Profile.get().xp_total
+
+        with pytest.raises(services.VarianteYaCompletada):
+            services.completar_mision(d1, evidencia="contacto", fecha=LUNES)
+
+        assert Profile.get().xp_total == antes
+        assert XPEvent.objects.filter(fecha=LUNES).count() == 1
+
+    def test_ni_al_reves(self, d1, d1_minima):
+        services.completar_mision(d1, evidencia="contacto", fecha=LUNES)
+        antes = Profile.get().xp_total
+
+        with pytest.raises(services.VarianteYaCompletada):
+            services.completar_mision(d1_minima, evidencia="tres líneas", fecha=LUNES)
+
+        assert Profile.get().xp_total == antes
+
+    def test_lo_mismo_con_el_cierre_del_dia(self, d2, d2_minima):
+        services.completar_mision(d2, notas="1. y 2.", fecha=LUNES)
+        with pytest.raises(services.VarianteYaCompletada):
+            services.completar_mision(d2_minima, fecha=LUNES)
+
+    def test_al_dia_siguiente_se_puede_elegir_la_otra(self, d1, d1_minima):
+        services.completar_mision(d1, evidencia="contacto", fecha=LUNES)
+        martes = LUNES + dt.timedelta(days=1)
+        registro = services.completar_mision(d1_minima, evidencia="tres líneas", fecha=martes)
+        assert registro.completada
+
+    def test_el_panel_deja_de_ofrecer_la_hermana(self, d1, d1_minima):
+        services.completar_mision(d1_minima, evidencia="tres líneas", fecha=LUNES)
+        panel = services.panel_de_misiones(LUNES, minimo=True)
+        ofrecidas = {f["mision"].slug for f in panel["filas"]}
+        assert "accion-comercial-minima" in ofrecidas
+        assert "accion-comercial" not in ofrecidas
+
+    def test_la_vista_avisa_en_vez_de_reventar(self, client, d1, d1_minima):
+        services.completar_mision(d1_minima, evidencia="tres líneas")
+        respuesta = client.post(
+            reverse("missions:completar", args=[d1.pk]), {"evidencia": "contacto"}
+        )
+        assert respuesta.status_code == 200
+        assert "solo cuenta una vez".encode() in respuesta.content
+
+    def test_el_toque_rapido_no_revienta_si_ya_se_hizo_la_minima(self, d1_minima):
+        from business import services as negocio
+        from business.models import Deal
+
+        services.completar_mision(d1_minima, evidencia="tres líneas")
+        deal = Deal.objects.create(negocio="Gimnasio")
+        antes = Profile.get().xp_total
+
+        negocio.toque_rapido(deal)
+
+        deal.refresh_from_db()
+        assert deal.ultimo_toque == timezone.localdate()
+        assert Profile.get().xp_total == antes
+
+
+# --- Catálogo de misiones ----------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestCatalogoDeMisiones:
+    """La pantalla de misiones: orden por periodicidad, no por alfabeto."""
+
+    def test_los_grupos_van_en_orden_de_periodicidad(self):
+        catalogo = services.catalogo_de_misiones(LUNES)
+        assert [g["titulo"] for g in catalogo["grupos"]] == [
+            "Diarias", "Semanales", "Mensuales", "Principales",
+        ]
+
+    def test_ordenar_por_el_valor_del_tipo_daba_otro_orden(self):
+        """El fallo original: 'MENSUAL' va antes que 'SEMANAL' alfabéticamente."""
+        alfabetico = list(
+            Mission.objects.filter(activa=True)
+            .order_by("tipo")
+            .values_list("tipo", flat=True)
+            .distinct()
+        )
+        assert alfabetico.index("MENSUAL") < alfabetico.index("SEMANAL")
+
+        real = [g["tipo"] for g in services.catalogo_de_misiones(LUNES)["grupos"]]
+        assert real.index("SEMANAL") < real.index("MENSUAL")
+
+    def test_la_variante_minima_va_detras_de_su_version_normal(self):
+        diarias = services.catalogo_de_misiones(LUNES)["grupos"][0]["filas"]
+        slugs = [f["mision"].slug for f in diarias]
+        assert slugs.index("accion-comercial") < slugs.index("accion-comercial-minima")
+
+    def test_cada_grupo_lleva_su_recuento(self):
+        for grupo in services.catalogo_de_misiones(LUNES)["grupos"]:
+            assert grupo["total"] == len(grupo["filas"])
+            assert 0 <= grupo["hechas"] <= grupo["total"]
+
+    def test_una_diaria_cuenta_como_hecha_solo_el_dia_que_se_hizo(self, d1):
+        services.completar_mision(d1, evidencia="contacto", fecha=LUNES)
+
+        hoy = {f["mision"].pk: f["completada"] for g in services.catalogo_de_misiones(LUNES)["grupos"] for f in g["filas"]}
+        assert hoy[d1.pk] is True
+
+        martes = LUNES + dt.timedelta(days=1)
+        manana = {f["mision"].pk: f["completada"] for g in services.catalogo_de_misiones(martes)["grupos"] for f in g["filas"]}
+        assert manana[d1.pk] is False
+
+    def test_una_semanal_cuenta_hecha_toda_la_semana(self, db):
+        semanal = Mission.objects.get(slug="entregable-visible")
+        services.completar_mision(semanal, fecha=LUNES)
+
+        viernes = LUNES + dt.timedelta(days=4)
+        filas = {f["mision"].pk: f["completada"] for g in services.catalogo_de_misiones(viernes)["grupos"] for f in g["filas"]}
+        assert filas[semanal.pk] is True
+
+    def test_las_bloqueadas_por_rango_se_marcan_pero_se_ven(self):
+        catalogo = services.catalogo_de_misiones(LUNES)
+        filas = [f for g in catalogo["grupos"] for f in g["filas"]]
+        bloqueadas = [f for f in filas if not f["disponible"]]
+
+        assert bloqueadas, "Con rango Operador debería haber misiones de rangos superiores"
+        for fila in bloqueadas:
+            assert fila["motivo"]
+
+    def test_el_filtro_deja_un_solo_grupo(self):
+        catalogo = services.catalogo_de_misiones(LUNES, tipo="SEMANAL")
+        assert [g["tipo"] for g in catalogo["grupos"]] == ["SEMANAL"]
+
+    def test_el_filtro_no_falsea_los_recuentos_de_las_pestanas(self):
+        completo = services.catalogo_de_misiones(LUNES)
+        filtrado = services.catalogo_de_misiones(LUNES, tipo="SEMANAL")
+        assert filtrado["pestanas"] == completo["pestanas"]
+        assert filtrado["total"] == completo["total"]
+
+
+@pytest.mark.django_db
+class TestPantallaDeMisiones:
+    def test_la_pantalla_carga_con_los_grupos_en_orden(self, client):
+        """Se buscan los subtítulos: son únicos de cada cabecera de grupo."""
+        contenido = client.get(reverse("missions:index")).content.decode()
+        posiciones = [
+            contenido.index("Haz lo esencial"),
+            contenido.index("Construye resultados"),
+            contenido.index("El mes se gana"),
+            contenido.index("Cierran tu rango"),
+        ]
+        assert posiciones == sorted(posiciones)
+
+    def test_el_filtro_por_htmx_devuelve_solo_el_catalogo(self, client):
+        respuesta = client.get(
+            reverse("missions:index"), {"tipo": "SEMANAL"}, headers={"HX-Request": "true"}
+        )
+        assert respuesta.status_code == 200
+        assert b'id="catalogo"' in respuesta.content
+        assert b"<html" not in respuesta.content
+        assert respuesta.content.count(b"<section") == 1
+
+    def test_un_tipo_inventado_no_rompe_la_pantalla(self, client):
+        respuesta = client.get(reverse("missions:index"), {"tipo": "INVENTADO"})
+        assert respuesta.status_code == 200
+        assert respuesta.context["tipo_activo"] == ""

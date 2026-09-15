@@ -147,7 +147,7 @@
   {# ------------------------------------------------------------------ #}
   {# Barra inferior de movil                                             #}
   {# ------------------------------------------------------------------ #}
-  <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line
+  <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line
               bg-surface-1/95 backdrop-blur md:hidden">
     {% for entrada in navegacion %}
       {% if entrada.movil %}
@@ -160,12 +160,19 @@
         </a>
       {% endif %}
     {% endfor %}
-    <button type="button" @click="abierto = true"
-            class="flex flex-col items-center gap-1 py-2.5 text-caption text-ink-3">
-      {% include "_icono.html" with icono="mas" clase="h-6 w-6" %}
-      Más
-    </button>
   </nav>
+
+  {# Captura rapida: contacto, toque, nota o entreno sin cambiar de pantalla. #}
+  {% if user.is_authenticated %}
+    <button type="button" class="fab" aria-label="Captura rápida"
+            hx-get="{% url 'core:captura' %}"
+            hx-target="#modal" hx-swap="innerHTML">
+      {% include "_icono.html" with icono="suma" clase="h-7 w-7" %}
+    </button>
+  {% endif %}
+
+  {# Hueco unico de los modales de toda la aplicacion. #}
+  <div id="modal"></div>
 
 </div>
 </body>

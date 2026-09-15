@@ -19,14 +19,15 @@
     <section class="card-viva escena-cumbres acento-xp p-5">
       <a href="{% url 'core:niveles' %}" class="flex items-start gap-4"
          title="Ver rangos y niveles">
-        <span class="icon-chip-lg">
-          {% include "_icono.html" with icono="rangos" clase="h-11 w-11" %}
+        <span class="pedestal">
+          {% include "core/_emblema.html" with rango=rango clase="h-20 w-20" %}
         </span>
 
         <div class="min-w-0 flex-1">
-          <p class="label">Sistema</p>
-          <p class="text-body-sm text-ink-2">
-            {% if rango %}Rango {{ rango.nombre }}{% else %}Sin rango asignado{% endif %}
+          <p class="label">Rango actual</p>
+          <p class="text-h4 font-bold uppercase tracking-wide text-xp
+                    [text-shadow:0_0_18px_color-mix(in_oklab,var(--color-xp)_55%,transparent)]">
+            {% if rango %}{{ rango.nombre }}{% else %}Sin rango{% endif %}
           </p>
 
           <div class="mt-1 flex flex-wrap items-baseline justify-between gap-2">
@@ -207,8 +208,6 @@
   {# ================= Columna derecha: misiones ================= #}
   <div class="space-y-6">
     {% include "missions/_bloque.html" %}
-    {# Hueco del modal de evidencia #}
-    <div id="modal"></div>
   </div>
 
 </div>

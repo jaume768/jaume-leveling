@@ -183,15 +183,17 @@ def toque_rapido(deal: Deal, fecha: dt.date | None = None) -> Deal:
     from missions.models import Mission
 
     d1 = Mission.objects.filter(
-        tipo=Mission.Tipo.DIARIA,
-        orden=progression.ORDEN_ACCION_COMERCIAL,
-        es_minima=False,
-        activa=True,
+        slug=progression.SLUG_ACCION_COMERCIAL, activa=True
     ).first()
 
     evidencia = f"Toque a {deal.negocio}"
     if d1 is not None:
-        missions_services.completar_mision(d1, evidencia=evidencia, fecha=fecha)
+        try:
+            missions_services.completar_mision(d1, evidencia=evidencia, fecha=fecha)
+        except missions_services.VarianteYaCompletada:
+            # Ya se cerro la version minima hoy: la racha esta viva y la XP
+            # concedida. El toque solo actualiza la fecha de seguimiento.
+            pass
     else:
         progression.registrar_xp(
             "accion-comercial",

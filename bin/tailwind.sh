@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Compila static/src/input.css -> static/css/app.css con el binario standalone
+# Compila assets/input.css -> static/css/app.css con el binario standalone
 # de Tailwind. Sin Node. Descarga el binario la primera vez.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${TAILWIND_VERSION:-v4.1.11}"
 BIN="$ROOT/bin/tailwindcss"
-INPUT="$ROOT/static/src/input.css"
+INPUT="$ROOT/assets/input.css"
 OUTPUT="$ROOT/static/css/app.css"
 
 detect_target() {

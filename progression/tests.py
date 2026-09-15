@@ -451,3 +451,69 @@ class TestEtiquetasDeLasAcciones:
     def test_la_calibracion_tambien(self, client):
         contenido = client.get(reverse("core:calibracion")).content.decode()
         assert "sueno-7h" not in contenido or "Sueño de 7 h o más" in contenido
+
+
+@pytest.mark.django_db
+class TestDiasProtegidos:
+    """Miércoles y domingo no penalizan, pase lo que pase.
+
+    Se monta el peor escenario posible —factura vencida, propuesta fría y tres
+    proyectos abiertos— y aun así el comando no debe escribir nada.
+    """
+
+    MIERCOLES = dt.date(2026, 9, 16)
+    DOMINGO = dt.date(2026, 9, 20)
+
+    @pytest.fixture
+    def todo_mal(self, cliente):
+        """Una factura vencida, una propuesta fría y WIP por encima del tope."""
+        Invoice.objects.create(
+            client=cliente, concepto="Web", importe=Decimal("2000"),
+            fecha_emision=LUNES_S37 - dt.timedelta(days=40),
+            vencimiento=LUNES_S37 - dt.timedelta(days=20),
+        )
+        Deal.objects.create(
+            negocio="Gimnasio", estado=Deal.Estado.PROPUESTA,
+            fecha_primer_contacto=LUNES_S37 - dt.timedelta(days=30),
+            ultimo_toque=LUNES_S37 - dt.timedelta(days=20),
+        )
+        for i in range(3):
+            Project.objects.create(
+                client=cliente, nombre=f"Proyecto {i}", precio=Decimal("2000"),
+                estado=Project.Estado.ACTIVO,
+            )
+
+    def test_el_miercoles_no_penaliza_nada(self, todo_mal):
+        antes = Profile.get().xp_total
+        salida = chequeo(self.MIERCOLES)
+
+        assert Penalty.objects.count() == 0
+        assert XPEvent.objects.count() == 0
+        assert Profile.get().xp_total == antes
+        assert "protegido" in salida
+
+    def test_el_domingo_no_penaliza_nada(self, todo_mal):
+        antes = Profile.get().xp_total
+        salida = chequeo(self.DOMINGO)
+
+        assert Penalty.objects.count() == 0
+        assert XPEvent.objects.count() == 0
+        assert Profile.get().xp_total == antes
+        assert "protegido" in salida
+
+    def test_el_mismo_escenario_en_martes_si_penaliza(self, todo_mal):
+        """Prueba de control: sin ella, los dos tests de arriba no valen nada."""
+        chequeo(MARTES_S38)
+
+        reglas = {p.regla_slug.split("--")[0] for p in Penalty.objects.all()}
+        assert "factura-vencida-sin-reclamar" in reglas
+        assert "propuesta-sin-seguimiento" in reglas
+        assert "exceso-wip" in reglas
+
+    def test_un_dia_protegido_no_bloquea_el_dia_siguiente(self, todo_mal):
+        """Saltarse el miércoles no puede perdonar la deuda: el jueves cobra."""
+        chequeo(self.MIERCOLES)
+        assert Penalty.objects.count() == 0
+
+        chequeo(self.MIERCOLES + dt.timedelta(days=1))
+        assert Penalty.objects.count() > 0

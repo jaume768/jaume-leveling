@@ -1,0 +1,111 @@
+<div id="catalogo">
+
+  {# --- Filtros por periodicidad --- #}
+  <div class="flex flex-wrap gap-1.5 text-caption">
+    <a href="{% url 'missions:index' %}"
+       hx-get="{% url 'missions:index' %}" hx-target="#catalogo" hx-swap="outerHTML"
+       class="rounded-sm border px-3 py-1.5 transition-colors
+              {% if not tipo_activo %}border-xp bg-xp/10 text-ink{% else %}border-line text-ink-3 hover:bg-surface-3{% endif %}">
+      Todas <span class="tabular text-ink-3">{{ total }}</span>
+    </a>
+    {% for pestana in pestanas %}
+      <a href="{% url 'missions:index' %}?tipo={{ pestana.clave }}"
+         hx-get="{% url 'missions:index' %}?tipo={{ pestana.clave }}"
+         hx-target="#catalogo" hx-swap="outerHTML"
+         class="rounded-sm border px-3 py-1.5 transition-colors
+                {% if tipo_activo == pestana.clave %}border-xp bg-xp/10 text-ink{% else %}border-line text-ink-3 hover:bg-surface-3{% endif %}">
+        {{ pestana.etiqueta }} <span class="tabular text-ink-3">{{ pestana.total }}</span>
+      </a>
+    {% endfor %}
+  </div>
+
+  {# --- Grupos, en orden de periodicidad --- #}
+  {% for grupo in grupos %}
+    <section class="mt-8">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-caption font-medium uppercase tracking-widest
+                   {% if grupo.acento == 'warn' %}text-warn
+                   {% elif grupo.acento == 'ok' %}text-ok
+                   {% elif grupo.acento == 'ink' %}text-ink-2
+                   {% else %}text-xp{% endif %}">
+          {{ grupo.titulo }}
+          <span class="tabular text-ink-3">({{ grupo.hechas }}/{{ grupo.total }})</span>
+        </h2>
+        <p class="text-caption text-ink-3">{{ grupo.subtitulo }}</p>
+      </div>
+
+      <ul class="rail mt-3 space-y-2 border-l-2 pl-4
+                 {% if grupo.acento == 'warn' %}acento-warn border-warn
+                 {% elif grupo.acento == 'ok' %}acento-ok border-ok
+                 {% elif grupo.acento == 'ink' %}acento-ink border-ink-3
+                 {% else %}acento-xp border-xp{% endif %}">
+        {% for fila in grupo.filas %}
+          <li>
+            <button type="button"
+                    class="fila-mision flex w-full items-start gap-3 text-left
+                           {% if not fila.disponible %}opacity-60{% endif %}"
+                    hx-get="{% url 'missions:detalle' fila.mision.pk %}"
+                    hx-target="#modal" hx-swap="innerHTML">
+
+              {# Estado: hecha en su periodo, bloqueada por rango, o pendiente #}
+              {% if fila.completada %}
+                <span class="check-done" aria-label="Completada">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="m5 12.5 5 5L19 7"/>
+                  </svg>
+                </span>
+              {% elif not fila.disponible %}
+                <span class="check text-ink-3" aria-label="Bloqueada">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+                  </svg>
+                </span>
+              {% else %}
+                <span class="check border-line" aria-hidden="true"></span>
+              {% endif %}
+
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-baseline gap-2">
+                  {% if fila.codigo %}
+                    <span class="text-caption font-medium tracking-wider text-ink-3">{{ fila.codigo }}</span>
+                  {% endif %}
+                  <span class="text-body-sm font-semibold
+                               {% if fila.completada %}text-ink-3 line-through{% else %}text-ink{% endif %}">
+                    {{ fila.titulo }}
+                  </span>
+                </span>
+
+                <span class="mt-0.5 block text-caption leading-4 text-ink-3">
+                  {{ fila.mision.definicion_terminada }}
+                </span>
+
+                <span class="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span class="pill-xp">{{ fila.mision.xp }} XP</span>
+                  {% if fila.mision.tiempo_estimado_min %}
+                    <span class="pill-mut">{{ fila.mision.tiempo_estimado_min }} min</span>
+                  {% endif %}
+                  {% if fila.mision.attribute %}
+                    <span class="pill-mut">{{ fila.mision.attribute.nombre }}</span>
+                  {% endif %}
+                  {% if fila.mision.evidencia_requerida %}<span class="pill-bad">Evidencia</span>{% endif %}
+                  {% if fila.mision.pide_notas %}<span class="pill-mut">Cuaderno</span>{% endif %}
+                  {% if fila.mision.es_minima %}<span class="pill-warn">Versión mínima</span>{% endif %}
+                  {% if fila.mision.cuenta_para_racha %}<span class="pill-warn">Racha</span>{% endif %}
+                  {% if not fila.disponible %}<span class="pill-mut">{{ fila.motivo }}</span>{% endif %}
+                </span>
+              </span>
+
+              <span class="mt-1 shrink-0 text-ink-3">
+                {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
+              </span>
+            </button>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% empty %}
+    <p class="mt-8 card p-5 text-body-sm text-ink-3">No hay misiones activas de ese tipo.</p>
+  {% endfor %}
+</div>

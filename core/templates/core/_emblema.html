@@ -1,0 +1,16 @@
+{% load static %}
+{% comment %}
+  Emblema de un rango. Se incluye con:
+    {% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}
+  y opcionalmente bloqueado=True para pintarlo apagado.
+  Si ese rango no tiene imagen, cae al icono de línea y no rompe nada.
+{% endcomment %}
+{% if rango.emblema %}
+  <img src="{% static rango.emblema %}" alt="Emblema del rango {{ rango.nombre }}"
+       width="320" height="320" loading="lazy" decoding="async"
+       class="emblema {{ clase|default:'h-14 w-14' }}{% if bloqueado %} emblema-off{% endif %}">
+{% else %}
+  <span class="icon-chip {{ clase|default:'h-14 w-14' }}">
+    {% include "_icono.html" with icono="rangos" clase=clase|default:"h-14 w-14" %}
+  </span>
+{% endif %}

@@ -627,3 +627,133 @@ class TestComentariosDeLasPlantillas:
             "Estos comentarios se imprimen en la página; usa {% comment %} "
             f"o una sola línea: {malos}"
         )
+
+
+@pytest.mark.django_db
+class TestCapturaRapida:
+    """Cuatro cosas que se anotan de pie, sin cambiar de pantalla."""
+
+    def test_un_contacto_entra_en_el_pipeline_y_cuenta_como_accion(self, client):
+        from business.models import Deal
+        from missions.models import MissionLog
+
+        antes = Profile.get().xp_total
+        respuesta = client.post(
+            reverse("core:captura"),
+            {"tipo": "contacto", "negocio": "Gimnasio Palma", "canal": "presencial"},
+        )
+
+        assert respuesta.status_code == 200
+        deal = Deal.objects.get(negocio="Gimnasio Palma")
+        assert deal.ultimo_toque == timezone.localdate()
+        assert MissionLog.objects.filter(
+            completada=True, mission__cuenta_para_racha=True
+        ).exists()
+        assert Profile.get().xp_total > antes
+
+    def test_un_contacto_sin_nombre_no_se_guarda(self, client):
+        from business.models import Deal
+
+        respuesta = client.post(reverse("core:captura"), {"tipo": "contacto", "negocio": " "})
+        assert "nombre del negocio".encode() in respuesta.content
+        assert Deal.objects.count() == 0
+
+    def test_una_nota_va_al_cuaderno(self, client):
+        from notebook.models import Note
+
+        client.post(reverse("core:captura"), {"tipo": "nota", "contenido": "Subir a 1.800 €"})
+        assert Note.objects.get().contenido == "Subir a 1.800 €"
+
+    def test_un_entreno_puntua_y_queda_en_el_registro_de_salud(self, client):
+        from review.models import HealthLog
+
+        antes = Profile.get().xp_total
+        client.post(reverse("core:captura"), {"tipo": "entreno", "tipo_entreno": "Muay Thai"})
+
+        registro = HealthLog.objects.get(fecha=timezone.localdate())
+        assert registro.entreno is True
+        assert registro.tipo_entreno == "Muay Thai"
+        assert Profile.get().xp_total == antes + 20
+
+    def test_un_toque_actualiza_la_oportunidad(self, client):
+        from business.models import Deal
+
+        deal = Deal.objects.create(negocio="Gruas Perelló")
+        client.post(
+            reverse("core:captura"),
+            {"tipo": "toque", "deal": deal.pk, "proximo_paso": "Llamar el jueves"},
+        )
+
+        deal.refresh_from_db()
+        assert deal.ultimo_toque == timezone.localdate()
+        assert deal.proximo_paso == "Llamar el jueves"
+
+    def test_recuerda_el_ultimo_tipo_usado(self, client):
+        client.post(reverse("core:captura"), {"tipo": "nota", "contenido": "algo"})
+
+        respuesta = client.get(reverse("core:captura"))
+        assert respuesta.context["tipo"] == "nota"
+
+    def test_un_fallo_no_cambia_el_tipo_recordado(self, client):
+        client.post(reverse("core:captura"), {"tipo": "nota", "contenido": "algo"})
+        client.post(reverse("core:captura"), {"tipo": "entreno", "tipo_entreno": " "})
+
+        assert client.get(reverse("core:captura")).context["tipo"] == "nota"
+
+    def test_un_tipo_inventado_cae_en_el_de_por_defecto(self, client):
+        respuesta = client.get(reverse("core:captura"), {"tipo": "inventado"})
+        assert respuesta.context["tipo"] == "contacto"
+
+    def test_el_boton_flotante_esta_en_todas_las_paginas(self, client):
+        for nombre in ("core:index", "core:personaje", "notebook:index", "business:pipeline"):
+            contenido = client.get(reverse(nombre)).content.decode()
+            assert 'class="fab"' in contenido, nombre
+            assert contenido.count('id="modal"') == 1, nombre
+
+
+@pytest.mark.django_db
+class TestEmblemasDeRango:
+    """Las insignias de rango, atadas al orden y no al nombre."""
+
+    def test_cada_rango_tiene_su_emblema(self):
+        from core.models import Rank
+
+        for rango in Rank.objects.all():
+            assert rango.emblema == f"img/rangos/rango-{rango.orden}.webp"
+
+    def test_renombrar_un_rango_no_le_quita_la_insignia(self):
+        from core.models import Rank
+
+        rango = Rank.objects.get(orden=2)
+        rango.nombre = "Otro nombre"
+        rango.save()
+        assert rango.emblema == "img/rangos/rango-2.webp"
+
+    def test_un_rango_sin_imagen_no_devuelve_ruta(self):
+        from core.services import emblema_de_rango
+
+        assert emblema_de_rango(99) == ""
+
+    def test_el_panel_muestra_el_emblema_del_rango_actual(self, client):
+        contenido = client.get(reverse("core:index")).content.decode()
+        assert "rango-2" in contenido
+        assert "Emblema del rango Operador" in contenido
+
+    def test_el_personaje_muestra_el_actual_y_el_siguiente_apagado(self, client):
+        contenido = client.get(reverse("core:personaje")).content.decode()
+        assert "rango-2" in contenido
+        assert "rango-3" in contenido
+        assert "emblema-off" in contenido
+
+    def test_la_escalera_muestra_los_seis(self, client):
+        contenido = client.get(reverse("core:niveles")).content.decode()
+        for orden in range(1, 7):
+            assert f"rango-{orden}.webp" in contenido
+        # Los cuatro que aún no se han alcanzado van apagados.
+        assert contenido.count("emblema-off") == 4
+
+    def test_las_imagenes_existen_en_disco(self):
+        from django.contrib.staticfiles import finders
+
+        for orden in range(1, 7):
+            assert finders.find(f"img/rangos/rango-{orden}.webp"), orden

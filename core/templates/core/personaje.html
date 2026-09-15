@@ -23,12 +23,19 @@
       <div class="velo-retrato pointer-events-none absolute inset-0"></div>
 
       <div class="absolute inset-x-0 top-0 p-5">
-        <p class="label">Rango actual</p>
-        <h2 class="mt-1 text-h2 font-bold uppercase tracking-tight text-xp
-                   [text-shadow:0_0_24px_var(--color-xp)]">
-          {{ rango.nombre|default:"Sin rango" }}
-        </h2>
-        <p class="text-h4 font-semibold text-ink">Nivel {{ perfil.nivel }}</p>
+        <div class="flex items-center gap-3">
+          <span class="pedestal">
+            {% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}
+          </span>
+          <div class="min-w-0">
+            <p class="label">Rango actual</p>
+            <h2 class="text-h2 font-bold uppercase tracking-tight text-xp
+                       [text-shadow:0_0_24px_var(--color-xp)]">
+              {{ rango.nombre|default:"Sin rango" }}
+            </h2>
+            <p class="text-h4 font-semibold text-ink">Nivel {{ perfil.nivel }}</p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -43,12 +50,16 @@
               Niveles {{ siguiente_rango.nivel_min }}–{{ siguiente_rango.nivel_max }}
             </p>
           </div>
-          <span class="icon-chip acento-ink shrink-0" title="Bloqueado">
-            <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="4.5" y="10.5" width="15" height="10" rx="2"/>
-              <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
-            </svg>
+          <span class="relative shrink-0" title="Bloqueado">
+            {% include "core/_emblema.html" with rango=siguiente_rango clase="h-16 w-16" bloqueado=True %}
+            <span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center
+                         rounded-full border border-line bg-surface-2 text-ink-3">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4.5" y="10.5" width="15" height="10" rx="2"/>
+                <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+              </svg>
+            </span>
           </span>
         </div>
         {% if siguiente_rango.objetivo %}

@@ -24,6 +24,17 @@ class Rank(models.Model):
     def __str__(self):
         return f"{self.orden}. {self.nombre} (niveles {self.nivel_min}-{self.nivel_max})"
 
+    @property
+    def emblema(self) -> str:
+        """Ruta estatica del emblema del rango, o cadena vacia si no lo tiene.
+
+        Se ata al orden, no al nombre: renombrar un rango desde el admin no
+        deberia dejarlo sin insignia.
+        """
+        from . import services
+
+        return services.emblema_de_rango(self.orden)
+
 
 class Profile(models.Model):
     """Perfil del unico usuario del sistema. Singleton: usa Profile.get()."""

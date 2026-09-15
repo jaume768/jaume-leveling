@@ -17,8 +17,12 @@ venv/
 .coverage
 htmlcov/
 
-# Artefactos que se generan dentro del contenedor.
+# Artefactos que se generan dentro del contenedor. app.css se excluye a
+# proposito: lo compila la etapa `assets`, y dejar entrar el del portatil
+# haria que la imagen dependiera de lo que hubiera en la maquina de quien
+# construye.
 staticfiles/
+static/css/app.css
 bin/tailwindcss
 backups/
 

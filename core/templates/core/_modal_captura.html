@@ -1,0 +1,99 @@
+{% load core_extras %}
+{# Captura rápida. Cuatro tipos; recuerda el último que usaste. #}
+<div class="fixed inset-0 z-40 flex items-center justify-center bg-base/80 p-4 backdrop-blur-sm"
+     hx-on:click="if (event.target === this) htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+  <div class="card w-full max-w-md p-5">
+
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="label">Captura rápida</p>
+        <h3 class="mt-1 text-h4 font-semibold text-ink">{{ tipos|dictkey:tipo|dictkey:"etiqueta" }}</h3>
+      </div>
+      <button type="button" class="btn-icono" aria-label="Cerrar"
+              hx-get="{% url 'missions:cerrar_modal' %}"
+              hx-target="#modal" hx-swap="innerHTML">×</button>
+    </div>
+
+    {# --- Los cuatro tipos --- #}
+    <div class="mt-4 grid grid-cols-4 gap-2">
+      {% for clave, info in tipos.items %}
+        <button type="button"
+                class="flex flex-col items-center gap-1 rounded-sm border p-2 text-caption transition-colors
+                       {% if clave == tipo %}border-xp bg-xp/10 text-ink{% else %}border-line text-ink-3 hover:bg-surface-3{% endif %}"
+                hx-get="{% url 'core:captura' %}?tipo={{ clave }}"
+                hx-target="#modal" hx-swap="innerHTML">
+          <span class="icon-chip acento-{{ info.acento }}">
+            {% include "_icono.html" with icono=info.icono clase="h-6 w-6" %}
+          </span>
+          {{ info.etiqueta }}
+        </button>
+      {% endfor %}
+    </div>
+
+    <p class="mt-3 text-caption text-ink-3">{{ tipos|dictkey:tipo|dictkey:"ayuda" }}</p>
+
+    {% if error %}
+      <p class="mt-3 rounded-sm border border-bad/40 bg-bad/10 px-3 py-2 text-body-sm text-bad">{{ error }}</p>
+    {% endif %}
+
+    <form hx-post="{% url 'core:captura' %}" hx-target="#modal" hx-swap="innerHTML" class="mt-4">
+      {% csrf_token %}
+      <input type="hidden" name="tipo" value="{{ tipo }}">
+
+      {% if tipo == "contacto" %}
+        <label for="negocio" class="block text-body-sm font-medium text-ink-2">Negocio</label>
+        <input type="text" id="negocio" name="negocio" autofocus required
+               placeholder="Gimnasio de la esquina"
+               class="mt-1 w-full rounded-sm border border-line bg-base p-3 text-body-sm text-ink placeholder:text-ink-3 focus:border-xp focus:outline-none">
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <input type="text" name="contacto" placeholder="Persona (opcional)"
+                 class="w-full rounded-sm border border-line bg-base p-2 text-body-sm text-ink placeholder:text-ink-3 focus:border-xp focus:outline-none">
+          <input type="text" name="canal" placeholder="Canal (opcional)"
+                 class="w-full rounded-sm border border-line bg-base p-2 text-body-sm text-ink placeholder:text-ink-3 focus:border-xp focus:outline-none">
+        </div>
+        <input type="text" name="proximo_paso" placeholder="Próximo paso (opcional)"
+               class="mt-2 w-full rounded-sm border border-line bg-base p-2 text-body-sm text-ink placeholder:text-ink-3 focus:border-xp focus:outline-none">
+
+      {% elif tipo == "toque" %}
+        <label for="deal" class="block text-body-sm font-medium text-ink-2">¿A quién?</label>
+        <select id="deal" name="deal" autofocus required
+                class="mt-1 w-full rounded-sm border border-line bg-base p-3 text-body-sm text-ink focus:border-xp focus:outline-none">
+          {% for abierto in abiertos %}
+            <option value="{{ abierto.pk }}">
+              {{ abierto.negocio }}{% if abierto.dias_sin_toque %} · {{ abierto.dias_sin_toque }} d{% endif %}
+            </option>
+          {% empty %}
+            <option value="">No hay nada abierto en el pipeline</option>
+          {% endfor %}
+        </select>
+        <input type="text" name="proximo_paso" placeholder="Próximo paso (opcional)"
+               class="mt-2 w-full rounded-sm border border-line bg-base p-2 text-body-sm text-ink placeholder:text-ink-3 focus:border-xp focus:outline-none">
+
+      {% elif tipo == "nota" %}
+        <label for="contenido" class="block text-body-sm font-medium text-ink-2">Qué apuntas</label>
+        <textarea id="contenido" name="contenido" rows="4" autofocus required
+                  placeholder="Lo que sea. Ya lo ordenarás luego."
+                  class="mt-1 w-full rounded-sm border border-line bg-base p-3 text-body-sm text-ink placeholder:text-ink-3 focus:border-xp focus:outline-none"></textarea>
+
+      {% elif tipo == "entreno" %}
+        <label for="tipo_entreno" class="block text-body-sm font-medium text-ink-2">Qué has entrenado</label>
+        <input type="text" id="tipo_entreno" name="tipo_entreno" autofocus required
+               list="entrenos" placeholder="Fuerza, Muay Thai, jiu-jitsu…"
+               class="mt-1 w-full rounded-sm border border-line bg-base p-3 text-body-sm text-ink placeholder:text-ink-3 focus:border-xp focus:outline-none">
+        <datalist id="entrenos">
+          <option value="Fuerza"></option>
+          <option value="Muay Thai"></option>
+          <option value="Jiu-jitsu"></option>
+          <option value="Carrera"></option>
+        </datalist>
+      {% endif %}
+
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="btn"
+                hx-get="{% url 'missions:cerrar_modal' %}"
+                hx-target="#modal" hx-swap="innerHTML">Cancelar</button>
+        <button type="submit" class="btn-xp">Anotar</button>
+      </div>
+    </form>
+  </div>
+</div>

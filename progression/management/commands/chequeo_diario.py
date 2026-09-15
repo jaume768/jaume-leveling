@@ -41,6 +41,18 @@ class Command(BaseCommand):
             fecha = dt.datetime.strptime(opciones["fecha"], "%Y-%m-%d").date()
         self.simular = opciones["simular"]
 
+        # Miercoles y domingo estan fuera del sistema: no generan XP, no rompen
+        # la racha y no pueden penalizar. Se sale antes de tocar nada, que es
+        # lo que la cabecera de este comando promete.
+        if progression.es_dia_protegido(fecha):
+            dia = "miércoles" if fecha.weekday() == progression.MIERCOLES else "domingo"
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"{fecha} es {dia}: día protegido. No se penaliza nada."
+                )
+            )
+            return
+
         aplicadas = []
         for comprobacion in (
             self._facturas_sin_reclamar,

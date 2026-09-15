@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from django.db import transaction
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -21,6 +21,30 @@ class EvidenciaRequerida(Exception):
     """La mision exige evidencia y no se ha aportado."""
 
 
+class VarianteYaCompletada(Exception):
+    """Otra variante del mismo grupo ya se completo hoy.
+
+    La version normal y la minima son la misma mision contada de dos maneras.
+    Completar las dos el mismo dia daria XP dos veces por un solo hecho.
+    """
+
+
+def hermana_completada_hoy(mission: Mission, fecha: dt.date):
+    """Otra variante del grupo ya cerrada ese dia, si la hay."""
+    return (
+        MissionLog.objects.filter(
+            mission__grupo=mission.grupo,
+            fecha=fecha,
+            completada=True,
+        )
+        .exclude(mission_id=mission.pk)
+        .select_related("mission")
+        .first()
+        if mission.grupo
+        else None
+    )
+
+
 def slug_de_mision(mission: Mission) -> str:
     """Slug estable con el que la mision aparece en el registro de XP."""
     return f"mision-{mission.pk}"
@@ -32,12 +56,11 @@ TIPOS_DEL_DIA = (Mission.Tipo.DIARIA, Mission.Tipo.SEMANAL)
 
 # Lo unico que se pide en una Semana de Reinicio (docs/sistema-v2.md, SS6):
 # la accion comercial diaria, un entregable pequeno y la revision. Se
-# identifican por tipo y orden, no por titulo, para que no se rompa al
-# reescribir un enunciado.
+# identifican por slug: ni el titulo ni el orden son identidad.
 MISIONES_DE_REINICIO = (
-    (Mission.Tipo.DIARIA, 1),    # D1 - accion comercial
-    (Mission.Tipo.SEMANAL, 2),   # S2 - 1 entregable visible
-    (Mission.Tipo.SEMANAL, 4),   # S4 - revision semanal
+    "accion-comercial",
+    "entregable-visible",
+    "revision-semanal",
 )
 
 
@@ -124,13 +147,9 @@ def misiones_de_hoy(fecha: dt.date | None = None):
 
     # Semana de Reinicio: solo lo imprescindible, nada mas.
     if progression.semana_de_reinicio(fecha) is not None:
-        condiciones = Q()
-        for tipo, orden in MISIONES_DE_REINICIO:
-            condiciones |= Q(tipo=tipo, orden=orden)
-        return (
-            Mission.objects.filter(condiciones, activa=True, es_minima=False)
-            .order_by("tipo", "orden")
-        )
+        return Mission.objects.filter(
+            slug__in=MISIONES_DE_REINICIO, activa=True
+        ).order_by("tipo", "orden")
 
     semanales = _semanales_pendientes(fecha)
     if fecha.weekday() == progression.DOMINGO:
@@ -192,6 +211,12 @@ def completar_mision(
             registro.notas = notas
             registro.save(update_fields=["notas"])
         return registro
+
+    # Una sola variante del grupo puede puntuar cada dia. La comprobacion va
+    # dentro de la transaccion, despues del select_for_update de arriba.
+    hermana = hermana_completada_hoy(mission, fecha)
+    if hermana is not None:
+        raise VarianteYaCompletada(hermana.mission.titulo)
 
     evidencia = (evidencia or "").strip()
     if mission.evidencia_requerida and not evidencia:
@@ -382,11 +407,14 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
     else:
         misiones = misiones_de_hoy(fecha)
 
-    hechas = set(
-        MissionLog.objects.filter(fecha=fecha, completada=True).values_list(
-            "mission_id", flat=True
-        )
+    cerradas = MissionLog.objects.filter(fecha=fecha, completada=True).select_related(
+        "mission"
     )
+    hechas = {registro.mission_id for registro in cerradas}
+    # Grupos ya cerrados hoy: su otra variante deja de ofrecerse.
+    grupos_hechos = {
+        registro.mission.grupo for registro in cerradas if registro.mission.grupo
+    }
     notas_del_dia = dict(
         MissionLog.objects.filter(fecha=fecha)
         .exclude(notas="")
@@ -394,6 +422,8 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
     )
     filas = []
     for mision in misiones:
+        if mision.grupo and mision.grupo in grupos_hechos and mision.pk not in hechas:
+            continue
         codigo, titulo = partir_titulo(mision.titulo)
         filas.append(
             {
@@ -422,4 +452,119 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
         "pct": round(hechas_dia / len(del_dia) * 100) if del_dia else 0,
         "hechas": hechas_dia,
         "total": len(del_dia),
+    }
+
+
+# --- Catalogo completo -------------------------------------------------------
+#
+# La pantalla de misiones enseña TODAS las activas, no solo las de hoy. Se
+# agrupan por periodicidad en el orden real (diarias, semanales, mensuales,
+# principales, anuales), no por el alfabeto del valor guardado, que era lo que
+# pasaba: "MENSUAL" va antes que "SEMANAL" si ordenas por texto.
+
+
+def _cerradas_por_periodo(fecha: dt.date) -> set[int]:
+    """Misiones ya cerradas dentro de su propio periodo.
+
+    Una diaria cuenta si se hizo hoy; una semanal, si se hizo esta semana; una
+    mensual, este mes; una principal, alguna vez. Compararlas todas contra hoy
+    daria una foto falsa del catalogo.
+    """
+    lunes, domingo = progression.rango_de_la_semana(fecha)
+    primero = fecha.replace(day=1)
+    if primero.month == 12:
+        siguiente = primero.replace(year=primero.year + 1, month=1)
+    else:
+        siguiente = primero.replace(month=primero.month + 1)
+    ultimo_del_mes = siguiente - dt.timedelta(days=1)
+
+    hechas: set[int] = set()
+    periodos = (
+        (Mission.Tipo.DIARIA, (fecha, fecha)),
+        (Mission.Tipo.SEMANAL, (lunes, domingo)),
+        (Mission.Tipo.MENSUAL, (primero, ultimo_del_mes)),
+    )
+    for tipo, (desde, hasta) in periodos:
+        hechas |= set(
+            MissionLog.objects.filter(
+                completada=True, fecha__range=(desde, hasta), mission__tipo=tipo
+            ).values_list("mission_id", flat=True)
+        )
+
+    # Principales y anuales: se cierran una vez en la vida del sistema.
+    hechas |= set(
+        MissionLog.objects.filter(
+            completada=True,
+            mission__tipo__in=(Mission.Tipo.PRINCIPAL, Mission.Tipo.ANUAL),
+        ).values_list("mission_id", flat=True)
+    )
+    return hechas
+
+
+def _estado_de_disponibilidad(mission: Mission, rango) -> dict:
+    """Si la mision esta disponible para el rango actual, y si no, por que."""
+    if rango is None or (mission.rango_min_id is None and mission.rango_max_id is None):
+        return {"disponible": True, "motivo": ""}
+
+    if mission.rango_min and mission.rango_min.orden > rango.orden:
+        return {
+            "disponible": False,
+            "motivo": f"Se desbloquea en {mission.rango_min.nombre}",
+        }
+    if mission.rango_max and mission.rango_max.orden < rango.orden:
+        return {
+            "disponible": False,
+            "motivo": f"Cerrada al superar {mission.rango_max.nombre}",
+        }
+    return {"disponible": True, "motivo": ""}
+
+
+def catalogo_de_misiones(fecha: dt.date | None = None, tipo: str = "") -> dict:
+    """Todas las misiones activas, agrupadas por periodicidad y en orden."""
+    fecha = fecha or timezone.localdate()
+    rango = _rango_actual()
+
+    consulta = Mission.objects.filter(activa=True).select_related(
+        "attribute", "rango_min", "rango_max"
+    )
+    if tipo:
+        consulta = consulta.filter(tipo=tipo)
+
+    # La variante minima va justo detras de su version normal.
+    misiones = list(consulta.order_by("orden", "es_minima", "titulo"))
+    hechas = _cerradas_por_periodo(fecha)
+
+    filas = []
+    for mision in misiones:
+        codigo, titulo = partir_titulo(mision.titulo)
+        filas.append(
+            {
+                "mision": mision,
+                "codigo": codigo,
+                "titulo": titulo,
+                "completada": mision.pk in hechas,
+                **_estado_de_disponibilidad(mision, rango),
+            }
+        )
+
+    grupos = agrupar_filas(filas)
+    # El recuento de cada pestaña se calcula sobre el catalogo entero, no sobre
+    # lo filtrado: si no, al filtrar las demas pestañas marcarian cero.
+    totales = dict(
+        Mission.objects.filter(activa=True)
+        .values_list("tipo")
+        .annotate(n=models.Count("pk"))
+    )
+
+    return {
+        "grupos": grupos,
+        "tipo_activo": tipo,
+        "pestanas": [
+            {"clave": clave, "etiqueta": etiqueta, "total": totales.get(clave, 0)}
+            for clave, etiqueta, _sub, _acento in GRUPOS
+            if totales.get(clave)
+        ],
+        "total": sum(totales.values()),
+        "hechas": sum(1 for f in filas if f["completada"]),
+        "rango": rango,
     }

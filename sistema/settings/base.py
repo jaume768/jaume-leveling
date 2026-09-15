@@ -1,7 +1,12 @@
 """Configuracion comun a todos los entornos."""
+import mimetypes
 from pathlib import Path
 
 import environ
+
+# Algunos sistemas no traen WebP en su tabla de tipos y las imagenes se acaban
+# sirviendo como application/octet-stream. Se registra explicitamente.
+mimetypes.add_type("image/webp", ".webp", True)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 

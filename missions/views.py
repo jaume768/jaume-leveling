@@ -8,9 +8,14 @@ from .models import Mission
 
 
 def index(request):
-    """Listado completo de misiones por tipo."""
-    misiones = Mission.objects.filter(activa=True).order_by("tipo", "orden", "titulo")
-    return render(request, "missions/index.html", {"misiones": misiones})
+    """Catalogo completo, agrupado por periodicidad y filtrable por tipo."""
+    tipo = request.GET.get("tipo", "")
+    if tipo not in dict(Mission.Tipo.choices):
+        tipo = ""
+
+    contexto = services.catalogo_de_misiones(tipo=tipo)
+    plantilla = "missions/_catalogo.html" if request.htmx else "missions/index.html"
+    return render(request, plantilla, contexto)
 
 
 def _fragmento(request, error: str = "", mision=None):
@@ -39,7 +44,13 @@ def completar(request, pk):
     except services.EvidenciaRequerida:
         return _fragmento(
             request,
-            error="Esa mision no se da por hecha sin evidencia.",
+            error="Esa misión no se da por hecha sin evidencia.",
+            mision=mision,
+        )
+    except services.VarianteYaCompletada as otra:
+        return _fragmento(
+            request,
+            error=f"Hoy ya cerraste «{otra}». Es la misma misión: solo cuenta una vez.",
             mision=mision,
         )
     return _fragmento(request)
@@ -81,6 +92,12 @@ def notas(request, pk):
                 return _fragmento(
                     request,
                     error="Esa misión no se da por hecha sin evidencia.",
+                    mision=mision,
+                )
+            except services.VarianteYaCompletada as otra:
+                return _fragmento(
+                    request,
+                    error=f"Hoy ya cerraste «{otra}». Es la misma misión: solo cuenta una vez.",
                     mision=mision,
                 )
         else:

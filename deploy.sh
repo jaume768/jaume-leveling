@@ -37,6 +37,10 @@ $COMPOSE up -d db
 paso "Aplicando migraciones"
 $COMPOSE run --rm web python manage.py migrate --noinput
 
+paso "Comprobando que el CSS viene compilado en la imagen"
+$COMPOSE run --rm web test -s /app/static/css/app.css \
+  || error "La imagen no trae static/css/app.css. Reconstruye: $COMPOSE build --no-cache web"
+
 paso "Recogiendo estáticos"
 $COMPOSE run --rm web python manage.py collectstatic --noinput
 

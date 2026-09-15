@@ -360,6 +360,8 @@ def escalera_de_rangos(nivel: int) -> list[dict]:
             {
                 "rango": rank,
                 "estado": estado,
+                # La plantilla necesita un booleano suelto para el emblema.
+                "bloqueado": estado == "bloqueado",
                 "pct": pct,
                 "jefe": desglosar_jefe(rank.jefe),
                 "niveles": f"{rank.nivel_min}-{rank.nivel_max}",
@@ -752,3 +754,166 @@ def contexto_panel(fecha=None, minimo: bool = False) -> dict:
         }
     )
     return contexto
+
+
+# --- Captura rapida ----------------------------------------------------------
+#
+# Cuatro cosas que uno quiere anotar de pie y en diez segundos: un contacto
+# nuevo, un toque a algo que ya esta en el pipeline, una idea suelta y un
+# entreno. Cada una acaba en el servicio de su dominio; aqui solo se reparte.
+
+TIPOS_DE_CAPTURA = {
+    "contacto": {
+        "etiqueta": "Contacto",
+        "icono": "negocio",
+        "acento": "xp",
+        "ayuda": "Alguien nuevo en el pipeline. Cuenta como acción comercial del día.",
+    },
+    "toque": {
+        "etiqueta": "Toque",
+        "icono": "fuego",
+        "acento": "warn",
+        "ayuda": "Seguimiento de algo que ya está abierto.",
+    },
+    "nota": {
+        "etiqueta": "Nota",
+        "icono": "cuaderno",
+        "acento": "ink",
+        "ayuda": "Lo que se te acaba de ocurrir. No puntúa.",
+    },
+    "entreno": {
+        "etiqueta": "Entreno",
+        "icono": "rayo",
+        "acento": "ok",
+        "ayuda": "Sesión hecha. 20 XP, con tope de 80 a la semana.",
+    },
+}
+
+TIPO_DE_CAPTURA_POR_DEFECTO = "contacto"
+
+
+def _capturar_contacto(datos) -> str:
+    from business.models import Deal
+    from business.services import toque_rapido
+
+    negocio = (datos.get("negocio") or "").strip()
+    if not negocio:
+        raise ValueError("Escribe al menos el nombre del negocio.")
+
+    deal = Deal.objects.create(
+        negocio=negocio,
+        contacto=(datos.get("contacto") or "").strip(),
+        canal=(datos.get("canal") or "").strip(),
+        proximo_paso=(datos.get("proximo_paso") or "").strip(),
+    )
+    toque_rapido(deal)
+    return f"{negocio} entra en el pipeline. Cuenta como acción comercial de hoy."
+
+
+def _capturar_toque(datos) -> str:
+    from business.models import Deal
+    from business.services import toque_rapido
+
+    deal = Deal.objects.filter(pk=datos.get("deal") or 0).first()
+    if deal is None:
+        raise ValueError("Elige a quién has tocado.")
+
+    paso = (datos.get("proximo_paso") or "").strip()
+    if paso:
+        deal.proximo_paso = paso
+        deal.save(update_fields=["proximo_paso"])
+
+    toque_rapido(deal)
+    return f"Toque anotado en {deal.negocio}."
+
+
+def _capturar_nota(datos) -> str:
+    from notebook.services import crear_nota
+
+    nota = crear_nota(datos.get("contenido", ""), titulo=datos.get("titulo", ""))
+    if nota is None:
+        raise ValueError("Escribe algo antes de guardar.")
+    return "Apuntado en el cuaderno."
+
+
+def _capturar_entreno(datos) -> str:
+    from django.utils import timezone
+
+    from progression.services import registrar_accion
+    from review.models import HealthLog
+
+    tipo = (datos.get("tipo_entreno") or "").strip()
+    if not tipo:
+        raise ValueError("¿Qué has entrenado? Fuerza, Muay Thai, jiu-jitsu…")
+
+    hoy = timezone.localdate()
+    registro, _ = HealthLog.objects.get_or_create(fecha=hoy)
+    registro.entreno = True
+    registro.tipo_entreno = tipo
+    registro.save(update_fields=["entreno", "tipo_entreno"])
+
+    evento = registrar_accion("entreno", f"Entreno: {tipo}")
+    if evento.xp_neto:
+        return f"{tipo} anotado. +{evento.xp_neto} XP."
+    return f"{tipo} anotado. Esta semana ya has llegado al tope de entrenos."
+
+
+CAPTURADORES = {
+    "contacto": _capturar_contacto,
+    "toque": _capturar_toque,
+    "nota": _capturar_nota,
+    "entreno": _capturar_entreno,
+}
+
+
+def capturar(tipo: str, datos) -> str:
+    """Ejecuta una captura rapida. Devuelve el mensaje de confirmacion.
+
+    Lanza ValueError con un texto que se puede enseñar tal cual si falta algo.
+    """
+    capturador = CAPTURADORES.get(tipo)
+    if capturador is None:
+        raise ValueError("Ese tipo de captura no existe.")
+    return capturador(datos)
+
+
+def contexto_captura(tipo: str) -> dict:
+    """Lo que necesita pintar el formulario de captura."""
+    from business.models import Deal
+
+    return {
+        "tipos": TIPOS_DE_CAPTURA,
+        "tipo": tipo,
+        "abiertos": Deal.objects.filter(estado__in=Deal.ESTADOS_ABIERTOS).order_by(
+            "ultimo_toque", "negocio"
+        )[:15],
+    }
+
+
+# --- Emblemas de rango -------------------------------------------------------
+#
+# Un .webp por rango en static/img/rangos/rango-<orden>.webp. Se comprueba que
+# el fichero exista antes de devolverlo: en produccion {% static %} revienta
+# con un fichero ausente, porque el manifiesto no lo encuentra.
+
+_EMBLEMAS_DISPONIBLES: set[int] | None = None
+
+
+def _emblemas_disponibles() -> set[int]:
+    global _EMBLEMAS_DISPONIBLES
+    if _EMBLEMAS_DISPONIBLES is None:
+        from django.contrib.staticfiles import finders
+
+        encontrados = set()
+        for orden in range(1, 21):
+            if finders.find(f"img/rangos/rango-{orden}.webp"):
+                encontrados.add(orden)
+        _EMBLEMAS_DISPONIBLES = encontrados
+    return _EMBLEMAS_DISPONIBLES
+
+
+def emblema_de_rango(orden: int) -> str:
+    """Ruta estatica del emblema de ese rango, o "" si no hay imagen."""
+    if orden in _emblemas_disponibles():
+        return f"img/rangos/rango-{orden}.webp"
+    return ""

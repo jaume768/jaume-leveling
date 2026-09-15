@@ -2,41 +2,12 @@
 
 {% block title %}Misiones{% endblock %}
 {% block encabezado %}Misiones{% endblock %}
-{% block subtitulo %}Todas las misiones activas. Pulsa una para ver cómo se hace.{% endblock %}
+{% block subtitulo %}
+  El catálogo completo. {{ hechas }} de {{ total }} cerradas en su periodo.
+{% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-5xl">
-  <ul class="divide-y divide-line card">
-    {% for mision in misiones %}
-      <li>
-        <button type="button"
-                class="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-surface-3"
-                hx-get="{% url 'missions:detalle' mision.pk %}"
-                hx-target="#modal"
-                hx-swap="innerHTML">
-          <span class="min-w-0 flex-1">
-            <span class="flex flex-wrap items-baseline justify-between gap-2">
-              <span class="text-body-sm font-semibold text-ink">{{ mision.titulo }}</span>
-              <span class="flex items-center gap-2">
-                <span class="pill-xp">{{ mision.xp }} XP</span>
-                <span class="pill-mut">{{ mision.get_tipo_display|lower }}</span>
-              </span>
-            </span>
-            <span class="mt-1 block text-caption text-ink-3">{{ mision.definicion_terminada }}</span>
-            {% if mision.motivo %}
-              <span class="mt-1 block text-caption text-ink-3">{{ mision.motivo }}</span>
-            {% endif %}
-          </span>
-
-          <span class="mt-0.5 shrink-0 text-ink-3">
-            {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
-          </span>
-        </button>
-      </li>
-    {% endfor %}
-  </ul>
-
-  {# Hueco del modal de detalle #}
-  <div id="modal"></div>
+<div class="mx-auto max-w-4xl">
+  {% include "missions/_catalogo.html" %}
 </div>
 {% endblock %}

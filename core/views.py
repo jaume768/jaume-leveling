@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.views.decorators.http import require_http_methods
 
 from . import services
 
@@ -39,3 +40,35 @@ def calibracion(request):
     contexto = services.contexto_calibracion()
     contexto.update({"error": error, "hecho": hecho})
     return render(request, "core/calibracion.html", contexto)
+
+
+# Clave de sesion donde se recuerda el ultimo tipo de captura usado.
+SESION_ULTIMA_CAPTURA = "captura_ultimo_tipo"
+
+
+@require_http_methods(["GET", "POST"])
+def captura(request):
+    """Captura rapida: contacto, toque, nota o entreno, en diez segundos.
+
+    Recuerda en la sesion el ultimo tipo usado, que casi siempre es el que
+    vuelves a necesitar.
+    """
+    recordado = request.session.get(
+        SESION_ULTIMA_CAPTURA, services.TIPO_DE_CAPTURA_POR_DEFECTO
+    )
+    tipo = request.POST.get("tipo") or request.GET.get("tipo") or recordado
+    if tipo not in services.TIPOS_DE_CAPTURA:
+        tipo = services.TIPO_DE_CAPTURA_POR_DEFECTO
+
+    contexto = services.contexto_captura(tipo)
+
+    if request.method == "POST":
+        try:
+            contexto["hecho"] = services.capturar(tipo, request.POST)
+        except ValueError as exc:
+            contexto["error"] = str(exc)
+        else:
+            request.session[SESION_ULTIMA_CAPTURA] = tipo
+            return render(request, "core/_captura_hecha.html", contexto)
+
+    return render(request, "core/_modal_captura.html", contexto)

@@ -1,0 +1,19 @@
+{# Confirmación de una captura. Se queda abierta para encadenar otra. #}
+<div class="fixed inset-0 z-40 flex items-center justify-center bg-base/80 p-4 backdrop-blur-sm"
+     hx-on:click="if (event.target === this) htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+  <div class="card w-full max-w-md p-5 text-center">
+    <span class="icon-chip-lg acento-ok mx-auto block w-fit">
+      {% include "_icono.html" with icono="revision" clase="h-10 w-10" %}
+    </span>
+    <p class="mt-4 text-body font-semibold text-ink">{{ hecho }}</p>
+
+    <div class="mt-5 flex justify-center gap-2">
+      <button type="button" class="btn"
+              hx-get="{% url 'core:captura' %}?tipo={{ tipo }}"
+              hx-target="#modal" hx-swap="innerHTML">Anotar otra</button>
+      <button type="button" class="btn-xp"
+              hx-get="{% url 'missions:cerrar_modal' %}"
+              hx-target="#modal" hx-swap="innerHTML">Listo</button>
+    </div>
+  </div>
+</div>

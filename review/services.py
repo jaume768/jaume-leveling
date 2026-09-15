@@ -31,6 +31,9 @@ OBJETIVOS = {
 
 XP_REVISION = 60
 
+# La mision semanal que representa esta revision. Por slug, no por titulo.
+SLUG_REVISION_SEMANAL = "revision-semanal"
+
 # Umbral para el ámbar: a partir del 60% del objetivo, la métrica va encaminada.
 UMBRAL_AMBAR = Decimal("0.6")
 
@@ -187,9 +190,7 @@ def _puntuar_revision(revision: WeeklyReview) -> None:
     from missions.models import Mission
     from missions import services as missions_services
 
-    s4 = Mission.objects.filter(
-        tipo=Mission.Tipo.SEMANAL, titulo__startswith="S4", activa=True
-    ).first()
+    s4 = Mission.objects.filter(slug=SLUG_REVISION_SEMANAL, activa=True).first()
     if s4 is not None:
         missions_services.completar_mision(s4, evidencia="Revisión semanal cerrada", fecha=revision.fecha)
     else:

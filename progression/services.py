@@ -29,9 +29,9 @@ DIAS_PROTEGIDOS = (MIERCOLES, DOMINGO)
 # Rachas (docs/sistema-v2.md, §6): dia 5 -> x1,10 · dia 15 -> x1,25 (tope).
 ESCALONES_RACHA = ((15, Decimal("1.25")), (5, Decimal("1.10")))
 
-# La racha cuenta dias consecutivos con accion comercial: la mision diaria D1,
-# identificada por su orden dentro del tipo DIARIA (su variante minima incluida).
-ORDEN_ACCION_COMERCIAL = 1
+# Slug de la mision comercial diaria. Es identidad, no presentacion: el titulo
+# y el orden se pueden cambiar desde el admin sin que esto se entere.
+SLUG_ACCION_COMERCIAL = "accion-comercial"
 
 # Cuantos dias hacia atras se recorre como maximo al calcular la racha.
 MAX_DIAS_RACHA = 400
@@ -62,11 +62,12 @@ def rango_de_la_semana(fecha: dt.date) -> tuple[dt.date, dt.date]:
 
 def _hubo_accion_comercial(fecha: dt.date) -> bool:
     MissionLog = apps.get_model("missions", "MissionLog")
+    # Cualquier mision marcada como "cuenta para la racha", incluida la version
+    # minima: mantenerla viva en un dia malo es justo para lo que existe.
     return MissionLog.objects.filter(
         fecha=fecha,
         completada=True,
-        mission__tipo="DIARIA",
-        mission__orden=ORDEN_ACCION_COMERCIAL,
+        mission__cuenta_para_racha=True,
     ).exists()
 
 

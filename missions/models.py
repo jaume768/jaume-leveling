@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.text import slugify
 
 
 class Mission(models.Model):
@@ -11,6 +12,23 @@ class Mission(models.Model):
         ANUAL = "ANUAL", "Anual"
         PRINCIPAL = "PRINCIPAL", "Principal"
 
+    # Identidad estable. El titulo y el orden son presentacion: se reescriben y
+    # se reordenan desde el admin sin que nada del codigo deba enterarse. Lo que
+    # el codigo referencia es el slug.
+    slug = models.SlugField(
+        "slug",
+        max_length=60,
+        unique=True,
+        help_text="Identidad de la mision. No se cambia una vez creada.",
+    )
+    # Variantes de la misma mision: la version normal y la minima comparten
+    # grupo, y solo una de las dos puede completarse cada dia.
+    grupo = models.SlugField(
+        "grupo de variantes",
+        max_length=60,
+        blank=True,
+        help_text="Vacio = la mision es su propio grupo.",
+    )
     titulo = models.CharField("titulo", max_length=160)
     tipo = models.CharField("tipo", max_length=12, choices=Tipo.choices, db_index=True)
     descripcion = models.TextField("descripcion", blank=True)
@@ -74,6 +92,14 @@ class Mission(models.Model):
         default=False,
         help_text="Version reducida que mantiene la racha en un dia malo.",
     )
+    cuenta_para_racha = models.BooleanField(
+        "cuenta para la racha",
+        default=False,
+        help_text=(
+            "Completarla mantiene viva la racha comercial. Antes esto se "
+            "deducia del orden, y reordenar en el admin lo rompia en silencio."
+        ),
+    )
 
     class Meta:
         verbose_name = "mision"
@@ -86,6 +112,26 @@ class Mission(models.Model):
 
     def __str__(self):
         return f"[{self.get_tipo_display()}] {self.titulo} ({self.xp} XP)"
+
+    def save(self, *args, **kwargs):
+        """Un slug vacio se deriva del titulo. Asi crear desde el admin sigue
+        siendo tan facil como antes, pero la identidad existe desde el minuto
+        uno y ya no depende del orden."""
+        if not self.slug:
+            base = slugify(self.titulo)[:56] or "mision"
+            slug = base
+            sufijo = 2
+            hermanas = Mission.objects.exclude(pk=self.pk)
+            while hermanas.filter(slug=slug).exists():
+                slug = f"{base}-{sufijo}"
+                sufijo += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    @property
+    def clave_de_grupo(self) -> str:
+        """Grupo al que pertenece. Sin grupo declarado, la mision es su grupo."""
+        return self.grupo or self.slug
 
 
 class MissionLog(models.Model):
