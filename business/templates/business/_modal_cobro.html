@@ -1,0 +1,55 @@
+{% comment %}
+  Confirmación antes de dar una factura por cobrada. Registrar un cobro que no
+  ha entrado ensucia el dinero y la XP, así que se pregunta.
+{% endcomment %}
+<div class="fixed inset-0 z-40 flex items-center justify-center bg-base/80 p-4 backdrop-blur-sm"
+     hx-on:click="if (event.target === this) htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+  <div class="card w-full max-w-md p-5">
+
+    <div class="flex items-start gap-3">
+      <span class="icon-chip acento-ok mt-0.5">
+        {% include "_icono.html" with icono="euro" clase="h-7 w-7" %}
+      </span>
+      <div class="min-w-0">
+        <p class="label">Confirmar cobro</p>
+        <h3 class="mt-1 text-h4 font-semibold text-ink">
+          {{ factura.importe|floatformat:0 }} € · {{ factura.client.nombre }}
+        </h3>
+        <p class="mt-1 text-caption text-ink-3">{{ factura.concepto }}</p>
+      </div>
+    </div>
+
+    <dl class="mt-5 grid grid-cols-2 gap-3 text-body-sm">
+      <div>
+        <dt class="label">Vencimiento</dt>
+        <dd class="mt-0.5 tabular text-ink-2">
+          {{ factura.vencimiento|date:"d/m/Y" }}
+          {% if factura.dias_vencida %}
+            <span class="text-bad">· {{ factura.dias_vencida }} d de retraso</span>
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt class="label">XP que concede</dt>
+        <dd class="mt-0.5 tabular text-ok">+{{ xp }} XP</dd>
+      </div>
+    </dl>
+
+    <p class="mt-4 rounded-sm border-l-2 border-warn bg-surface-1 p-3 text-caption text-ink-2">
+      Se marca como cobrada <strong class="text-ink">hoy</strong> y la XP se concede en el acto.
+      Confírmalo solo si el dinero está en tu cuenta.
+    </p>
+
+    <form hx-post="{% url 'business:factura_cobrar' factura.pk %}"
+          hx-target="#facturas" hx-swap="outerHTML"
+          hx-on::after-request="htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+      {% csrf_token %}
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" class="btn"
+                hx-get="{% url 'missions:cerrar_modal' %}"
+                hx-target="#modal" hx-swap="innerHTML">Cancelar</button>
+        <button type="submit" class="btn-xp">Sí, lo he cobrado</button>
+      </div>
+    </form>
+  </div>
+</div>

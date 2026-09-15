@@ -95,6 +95,20 @@ def facturas(request):
     return render(request, plantilla, contexto)
 
 
+def confirmar_cobro(request, pk):
+    """Pregunta antes de dar una factura por cobrada.
+
+    Marcarla es irreversible desde la interfaz y concede XP en el acto, asi
+    que un toque accidental en el movil no deberia bastar.
+    """
+    factura = get_object_or_404(Invoice, pk=pk)
+    return render(
+        request,
+        "business/_modal_cobro.html",
+        {"factura": factura, "xp": int(factura.importe / services.XP_POR_EURO_COBRADO)},
+    )
+
+
 @require_POST
 def factura_cobrar(request, pk):
     """Marca la factura como cobrada y concede 1 XP por cada 10 EUR."""

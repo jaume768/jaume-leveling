@@ -60,9 +60,9 @@
             <td class="px-3 py-2 text-right">
               {% if not factura.cobrada %}
                 <button type="button" class="btn-sm"
-                        hx-post="{% url 'business:factura_cobrar' factura.pk %}"
-                        hx-target="#facturas" hx-swap="outerHTML"
-                        title="Registra el cobro y concede 1 XP por cada 10 €">Cobrada</button>
+                        hx-get="{% url 'business:confirmar_cobro' factura.pk %}"
+                        hx-target="#modal" hx-swap="innerHTML"
+                        title="Pide confirmación antes de registrar el cobro">Cobrada</button>
               {% endif %}
             </td>
           </tr>

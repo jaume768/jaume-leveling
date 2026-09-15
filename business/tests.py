@@ -445,3 +445,43 @@ class TestUmbralesPorRango:
         assert not form.is_valid()
         # 1.600 EUR pasaba en Operador y ya no pasa en Especialista.
         assert "1800" in str(form.errors) or "1.800" in str(form.errors)
+
+
+@pytest.mark.django_db
+class TestConfirmacionDeCobro:
+    """Marcar una factura cobrada exige pasar por la confirmación."""
+
+    @pytest.fixture
+    def factura(self, cliente):
+        return _factura(cliente, "2000")
+
+    def test_el_boton_abre_la_confirmacion_y_no_cobra(self, client, factura):
+        contenido = client.get(reverse("business:facturas")).content.decode()
+        assert reverse("business:confirmar_cobro", args=[factura.pk]) in contenido
+        assert reverse("business:factura_cobrar", args=[factura.pk]) not in contenido
+
+    def test_la_confirmacion_dice_importe_cliente_y_xp(self, client, factura):
+        respuesta = client.get(reverse("business:confirmar_cobro", args=[factura.pk]))
+        contenido = respuesta.content.decode()
+        assert respuesta.status_code == 200
+        assert "Confirmar cobro" in contenido
+        assert factura.client.nombre in contenido
+        assert "+200 XP" in contenido
+
+    def test_abrir_la_confirmacion_no_cambia_nada(self, client, factura):
+        antes = Profile.get().xp_total
+        client.get(reverse("business:confirmar_cobro", args=[factura.pk]))
+        factura.refresh_from_db()
+        assert factura.cobrada is False
+        assert Profile.get().xp_total == antes
+
+    def test_al_confirmar_si_se_cobra(self, client, factura):
+        antes = Profile.get().xp_total
+        respuesta = client.post(reverse("business:factura_cobrar", args=[factura.pk]))
+        assert respuesta.status_code == 200
+        factura.refresh_from_db()
+        assert factura.cobrada is True
+        assert Profile.get().xp_total == antes + 200
+
+    def test_el_cobro_no_acepta_peticiones_get(self, client, factura):
+        assert client.get(reverse("business:factura_cobrar", args=[factura.pk])).status_code == 405
