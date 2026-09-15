@@ -1,0 +1,100 @@
+{# Detalle de un evento de XP: de dónde salió y qué se anotó ese día. #}
+<div class="fixed inset-0 z-40 flex items-end justify-center bg-base/80 p-4 backdrop-blur-sm sm:items-center"
+     hx-on:click="if (event.target === this) htmx.ajax('GET', '{% url 'missions:cerrar_modal' %}', '#modal')">
+  <div class="card w-full max-w-lg p-5">
+
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="label">
+          {% if origen %}{{ origen.tipo }}{% elif manual %}Registrada a mano{% else %}Automática{% endif %}
+          · {{ evento.fecha|date:"j \d\e F \d\e Y" }}
+        </p>
+        <h3 class="mt-1 text-h4 font-semibold text-ink">
+          {% if origen %}{{ origen.titulo }}{% else %}{{ regla.nombre|default:evento.accion_slug }}{% endif %}
+        </h3>
+        {% if origen.subtitulo %}
+          <p class="mt-1 text-caption text-ink-3">{{ origen.subtitulo }}</p>
+        {% endif %}
+      </div>
+
+      <span class="shrink-0 text-h3 font-semibold tabular
+                   {% if evento.xp_neto < 0 %}text-bad{% else %}text-ok{% endif %}">
+        {{ evento.xp_neto|stringformat:"+d" }} XP
+      </span>
+    </div>
+
+    {# --- Lo que escribiste entonces --- #}
+    {% if hay_anotacion %}
+      <div class="mt-5 space-y-3">
+        {% if manual and evento.descripcion %}
+          <div class="rounded-sm border-l-2 border-xp bg-surface-1 p-3">
+            <p class="label text-ink-3">Evidencia que anotaste</p>
+            <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ evento.descripcion }}</p>
+          </div>
+        {% endif %}
+
+        {% if origen.evidencia %}
+          <div class="rounded-sm border-l-2 border-xp bg-surface-1 p-3">
+            <p class="label text-ink-3">
+              {% if origen.tipo == "Penalización" %}Corrección exigida
+              {% elif origen.tipo == "Oportunidad" %}Próximo paso
+              {% elif origen.tipo == "Revisión semanal" %}Decisión de la semana
+              {% elif origen.tipo == "Factura" %}Notas de la factura
+              {% else %}Evidencia que anotaste{% endif %}
+            </p>
+            <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ origen.evidencia }}</p>
+          </div>
+        {% endif %}
+
+        {% if origen.notas %}
+          <div class="rounded-sm border-l-2 border-ok bg-surface-1 p-3">
+            <p class="label text-ink-3">
+              {% if origen.tipo == "Misión" %}Cuaderno
+              {% elif origen.tipo == "Oportunidad" %}Motivo de pérdida
+              {% elif origen.tipo == "Revisión semanal" %}Qué no funcionó
+              {% else %}Notas{% endif %}
+            </p>
+            <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ origen.notas }}</p>
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <p class="mt-5 rounded-sm border border-line bg-surface-1 p-3 text-body-sm text-ink-3">
+        No se anotó nada en este evento. Lo registró el sistema solo.
+      </p>
+    {% endif %}
+
+    {# --- Cómo salió la cifra --- #}
+    <dl class="mt-5 grid grid-cols-2 gap-3 text-body-sm sm:grid-cols-4">
+      <div>
+        <dt class="label">Bruta</dt>
+        <dd class="mt-0.5 tabular text-ink-2">{{ evento.xp_bruto }} XP</dd>
+      </div>
+      <div>
+        <dt class="label">Racha</dt>
+        <dd class="mt-0.5 tabular text-ink-2">×{{ evento.multiplicador_racha }}</dd>
+      </div>
+      <div>
+        <dt class="label">Neta</dt>
+        <dd class="mt-0.5 tabular text-ink">{{ evento.xp_neto }} XP</dd>
+      </div>
+      <div>
+        <dt class="label">Tope</dt>
+        <dd class="mt-0.5 text-ink-2">
+          {% if evento.tope_aplicado %}<span class="text-warn">Aplicado</span>
+          {% elif regla.tope_semanal %}{{ regla.tope_semanal }}/sem
+          {% else %}Sin tope{% endif %}
+        </dd>
+      </div>
+    </dl>
+
+    <div class="mt-5 flex flex-wrap justify-end gap-2">
+      {% if origen.url %}
+        <a href="{{ origen.url }}" class="btn">Ir a {{ origen.tipo|lower }}</a>
+      {% endif %}
+      <button type="button" class="btn-xp"
+              hx-get="{% url 'missions:cerrar_modal' %}"
+              hx-target="#modal" hx-swap="innerHTML">Cerrar</button>
+    </div>
+  </div>
+</div>

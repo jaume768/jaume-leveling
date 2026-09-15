@@ -40,6 +40,12 @@ def index(request):
     )
 
 
+def evento(request, pk):
+    """Detalle de un evento de XP: que se hizo y que se escribio entonces."""
+    registro = get_object_or_404(XPEvent, pk=pk)
+    return render(request, "progression/_modal_evento.html", services.detalle_de_evento(registro))
+
+
 @require_POST
 def resolver(request, pk):
     """Marca una penalización como resuelta y devuelve el bloque de alertas."""

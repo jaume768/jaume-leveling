@@ -106,7 +106,7 @@
         {% for item in sin_usar.acciones %}
           <li class="flex flex-wrap items-center justify-between gap-3 rounded-sm border border-line bg-surface-1 p-3">
             <span class="min-w-0 flex-1 text-body-sm text-ink">
-              {{ item.regla.descripcion|default:item.regla.accion_slug }}
+              {{ item.regla.nombre|default:item.regla.accion_slug }}
             </span>
             <span class="flex items-center gap-2">
               <span class="pill-mut">{{ item.regla.xp }} XP</span>

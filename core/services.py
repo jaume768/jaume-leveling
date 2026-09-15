@@ -425,6 +425,38 @@ def contexto_niveles() -> dict:
 CATEGORIAS_ATRIBUTOS = ("NEGOCIO", "TECNICA", "PERSONAL", "SALUD")
 
 
+# Estado de un atributo segun su valor. Los cortes son propios: el documento
+# no los define, pero separan "esto tira", "esto se sostiene" y "esto te esta
+# costando dinero", que es la lectura util de la hoja.
+CORTE_SUBIENDO = 60
+CORTE_ESTABLE = 40
+
+
+def estado_de_atributo(valor: int) -> dict:
+    """Etiqueta y color con los que se lee un atributo de un vistazo."""
+    if valor >= CORTE_SUBIENDO:
+        return {"clave": "subiendo", "etiqueta": "Subiendo", "acento": "ok"}
+    if valor >= CORTE_ESTABLE:
+        return {"clave": "estable", "etiqueta": "Estable", "acento": "warn"}
+    return {"clave": "riesgo", "etiqueta": "En riesgo", "acento": "bad"}
+
+
+def _fila_de_atributo(atributo) -> dict:
+    """Un atributo con todo lo que hace falta para pintarlo: estado y palancas."""
+    from missions.services import partir_titulo
+
+    palancas = []
+    for mision in atributo.misiones.filter(activa=True).order_by("tipo", "orden")[:4]:
+        codigo, titulo = partir_titulo(mision.titulo)
+        palancas.append({"codigo": codigo, "titulo": titulo, "pk": mision.pk})
+
+    return {
+        "atributo": atributo,
+        "estado": estado_de_atributo(atributo.valor),
+        "palancas": palancas,
+    }
+
+
 def hoja_de_personaje() -> dict:
     """Los quince atributos agrupados por categoria, con su media.
 
@@ -432,11 +464,27 @@ def hoja_de_personaje() -> dict:
     puntos fuertes y los tres mas bajos, los agujeros que te hacen facturar a
     saltos. Se devuelven aparte para poder senalarlos.
     """
-    from .models import Attribute, Profile
+    from .models import Attribute, Profile, Rank
 
-    atributos = list(Attribute.objects.all())
+    perfil = Profile.get()
+    rango = perfil.rango or rango_para_nivel(perfil.nivel)
+    siguiente = (
+        Rank.objects.filter(orden__gt=rango.orden).order_by("orden").first()
+        if rango
+        else None
+    )
+    base = {
+        "perfil": perfil,
+        "rango": rango,
+        "siguiente_rango": siguiente,
+        "jefe": desglosar_jefe(rango.jefe) if rango else None,
+    }
+
+    atributos = list(
+        Attribute.objects.prefetch_related("misiones").all()
+    )
     if not atributos:
-        return {"grupos": [], "media": 0, "fuertes": [], "agujeros": [], "perfil": Profile.get()}
+        return {**base, "grupos": [], "media": 0, "fuertes": [], "agujeros": []}
 
     por_categoria = []
     for clave in CATEGORIAS_ATRIBUTOS:
@@ -450,13 +498,14 @@ def hoja_de_personaje() -> dict:
                 "clave": clave,
                 "nombre": etiqueta,
                 "atributos": del_grupo,
+                "filas": [_fila_de_atributo(a) for a in del_grupo],
                 "media": round(sum(a.valor for a in del_grupo) / len(del_grupo)),
             }
         )
 
     ordenados = sorted(atributos, key=lambda a: -a.valor)
     return {
-        "perfil": Profile.get(),
+        **base,
         "grupos": por_categoria,
         "media": round(sum(a.valor for a in atributos) / len(atributos)),
         "fuertes": ordenados[:3],

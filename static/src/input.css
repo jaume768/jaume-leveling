@@ -313,6 +313,15 @@
   box-shadow: 0 0 12px -2px var(--color-ok);
 }
 
+@utility bar-fill-bad {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-bad) 55%, transparent),
+    var(--color-bad)
+  );
+  box-shadow: 0 0 12px -2px var(--color-bad);
+}
+
 @utility bar-fill-warn {
   background-image: linear-gradient(
     90deg,
@@ -465,4 +474,56 @@
 /* El filo lateral de cada grupo de misiones, encendido con su color. */
 @utility rail {
   box-shadow: -2px 0 12px -4px var(--acento);
+}
+
+/* El retrato del personaje: alto fijo en movil, proporcion completa en
+   escritorio, y siempre sobre fondo oscuro aunque el tema sea claro, porque
+   la ilustracion viene con su propio fondo negro. */
+/* El velo que oscurece el pie del retrato. En movil apenas se nota: la figura
+   esta recortada a medio cuerpo y un degradado fuerte solo emborronaria el
+   torso. En escritorio tapa los pies, que si llegan al borde. */
+@utility velo-retrato {
+  background-image: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--color-base) 45%, transparent) 0%,
+    transparent 38%
+  );
+
+  @media (min-width: 640px) {
+    background-image: linear-gradient(
+      to top,
+      var(--color-base) 0%,
+      color-mix(in oklab, var(--color-base) 55%, transparent) 50%,
+      transparent 100%
+    );
+  }
+}
+
+@utility retrato {
+  background-color: #070b12;
+
+  /* Movil: caja apaisada. Con object-cover la imagen se ajusta al ancho, asi
+     que de una ilustracion 2:3 solo queda visible la mitad de arriba. El
+     scale acerca todavia mas, anclado al borde superior para no cortar la
+     cabeza: de cuerpo entero pasa a medio cuerpo. */
+  aspect-ratio: 4 / 3;
+
+  & img {
+    object-position: 50% 0;
+    transform: scale(1.45);
+    transform-origin: 50% 0;
+  }
+
+  /* A partir de tableta vuelve el cuerpo entero, sin acercar. */
+  @media (min-width: 640px) {
+    aspect-ratio: 3 / 4;
+
+    & img {
+      transform: none;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    aspect-ratio: 2 / 3;
+  }
 }

@@ -311,3 +311,143 @@ class TestRegistrarAccion:
         assert respuesta.status_code == 200
         assert "+40 XP".encode() in respuesta.content
         assert XPEvent.objects.filter(accion_slug="publicacion-contenido-real").exists()
+
+
+# --- Detalle de un evento de XP ----------------------------------------------
+
+
+@pytest.mark.django_db
+class TestDetalleDeEvento:
+    def _mision(self, titulo):
+        from missions.models import Mission
+
+        return Mission.objects.get(titulo__startswith=titulo)
+
+    def test_una_mision_muestra_la_evidencia_que_anotaste(self):
+        from missions import services as misiones
+
+        mision = self._mision("D1 · ")
+        misiones.completar_mision(mision, evidencia="Email a Gruas Perelló", fecha=LUNES_S37)
+        evento = XPEvent.objects.get(objeto_relacionado=f"mission:{mision.pk}")
+
+        detalle = services.detalle_de_evento(evento)
+        assert detalle["origen"]["tipo"] == "Misión"
+        assert detalle["origen"]["evidencia"] == "Email a Gruas Perelló"
+
+    def test_una_mision_de_cuaderno_muestra_lo_apuntado(self):
+        from missions import services as misiones
+
+        mision = self._mision("D2 · ")
+        misiones.completar_mision(mision, notas="1. Llamar\n2. Escribir", fecha=LUNES_S37)
+        evento = XPEvent.objects.get(objeto_relacionado=f"mission:{mision.pk}")
+
+        assert services.detalle_de_evento(evento)["origen"]["notas"] == "1. Llamar\n2. Escribir"
+
+    def test_una_accion_manual_guarda_la_evidencia_en_la_descripcion(self):
+        evento = services.registrar_accion("peticion-referido", "Pedido a Felycampo")
+        detalle = services.detalle_de_evento(evento)
+        assert detalle["manual"] is True
+        assert detalle["origen"] is None
+        assert detalle["evento"].descripcion == "Pedido a Felycampo"
+
+    def test_una_factura_muestra_su_concepto_y_sus_notas(self, cliente):
+        from business import services as negocio
+
+        factura = Invoice.objects.create(
+            client=cliente, concepto="Tienda online", importe=Decimal("2000"),
+            fecha_emision=LUNES_S37, vencimiento=LUNES_S37, notas="Por transferencia",
+        )
+        negocio.marcar_cobrada(factura, fecha=LUNES_S37)
+        evento = XPEvent.objects.get(objeto_relacionado=f"invoice:{factura.pk}")
+
+        origen = services.detalle_de_evento(evento)["origen"]
+        assert origen["tipo"] == "Factura"
+        assert origen["subtitulo"] == "Tienda online"
+        assert origen["evidencia"] == "Por transferencia"
+
+    def test_una_penalizacion_muestra_la_correccion_exigida(self):
+        chequeo(MARTES_S38)
+        penalizacion = Penalty.objects.get(regla_slug__startswith="semana-sin-comercial")
+        evento = XPEvent.objects.get(objeto_relacionado=f"penalty:{penalizacion.pk}")
+
+        origen = services.detalle_de_evento(evento)["origen"]
+        assert origen["tipo"] == "Penalización"
+        assert "bloqueado" in origen["evidencia"]
+
+    def test_una_referencia_a_un_objeto_borrado_no_revienta(self):
+        evento = XPEvent.objects.create(
+            fecha=LUNES_S37, categoria="RESULTADO", accion_slug="prueba",
+            descripcion="huérfano", xp_bruto=10, xp_neto=10,
+            objeto_relacionado="mission:999999",
+        )
+        assert services.detalle_de_evento(evento)["origen"] is None
+
+    def test_una_referencia_con_formato_raro_no_revienta(self):
+        evento = XPEvent.objects.create(
+            fecha=LUNES_S37, categoria="RESULTADO", accion_slug="prueba",
+            xp_bruto=10, xp_neto=10, objeto_relacionado="esto-no-es-una-referencia",
+        )
+        assert services.detalle_de_evento(evento)["origen"] is None
+
+
+@pytest.mark.django_db
+class TestVistaDelEvento:
+    def test_el_modal_se_abre_con_la_anotacion(self, client):
+        from missions import services as misiones
+        from missions.models import Mission
+
+        mision = Mission.objects.get(titulo__startswith="D1 · ")
+        misiones.completar_mision(mision, evidencia="Email a Gruas Perelló", fecha=LUNES_S37)
+        evento = XPEvent.objects.get(objeto_relacionado=f"mission:{mision.pk}")
+
+        respuesta = client.get(reverse("progression:evento", args=[evento.pk]))
+        assert respuesta.status_code == 200
+        assert "Email a Gruas Perelló".encode() in respuesta.content
+        assert b"<html" not in respuesta.content
+
+    def test_un_evento_sin_anotacion_lo_dice(self, client):
+        evento = XPEvent.objects.create(
+            fecha=LUNES_S37, categoria="RESULTADO", accion_slug="prueba",
+            xp_bruto=10, xp_neto=10,
+        )
+        respuesta = client.get(reverse("progression:evento", args=[evento.pk]))
+        assert "No se anotó nada".encode() in respuesta.content
+
+    def test_un_evento_inexistente_da_404(self, client):
+        assert client.get(reverse("progression:evento", args=[999999])).status_code == 404
+
+    def test_las_filas_de_la_tabla_enlazan_al_detalle(self, client):
+        evento = services.registrar_accion("peticion-referido", "Pedido a Felycampo")
+        contenido = client.get(reverse("progression:index")).content.decode()
+        assert reverse("progression:evento", args=[evento.pk]) in contenido
+        assert 'id="modal"' in contenido
+
+
+@pytest.mark.django_db
+class TestEtiquetasDeLasAcciones:
+    """El modal debe enseñar el nombre de la regla, no su slug.
+
+    Un slug va sin tildes ni ñ por definición: "sueno-7h". Si la plantilla
+    pide un campo que no existe, Django devuelve vacío y cae al slug sin
+    avisar, que es justo lo que pasaba.
+    """
+
+    def test_el_modal_usa_los_nombres_con_tildes(self, client):
+        contenido = client.get(reverse("progression:registrar_accion")).content.decode()
+
+        assert "Sueño de 7 h o más" in contenido
+        assert "Conversación comercial real" in contenido
+        assert "Petición de referido hecha" in contenido
+
+    def test_el_modal_no_ensena_ningun_slug(self, client):
+        from progression.services import acciones_registrables
+
+        contenido = client.get(reverse("progression:registrar_accion")).content.decode()
+        for regla in acciones_registrables():
+            # El slug sigue en el value del radio, pero no como texto visible.
+            assert f">{regla.accion_slug}<" not in contenido
+            assert regla.nombre in contenido
+
+    def test_la_calibracion_tambien(self, client):
+        contenido = client.get(reverse("core:calibracion")).content.decode()
+        assert "sueno-7h" not in contenido or "Sueño de 7 h o más" in contenido

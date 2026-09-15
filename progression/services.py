@@ -467,3 +467,149 @@ def resolver_penalizacion(pk: int) -> Penalty | None:
     penalizacion.resuelta = True
     penalizacion.save(update_fields=["resuelta"])
     return penalizacion
+
+
+# --- Detalle de un evento de XP ---------------------------------------------
+#
+# Cada evento guarda en `objeto_relacionado` una referencia "tipo:pk" al hecho
+# que lo produjo. Esto la resuelve para poder enseñar lo que se escribio en su
+# momento: la evidencia de la mision, lo apuntado en el cuaderno, el motivo de
+# una penalizacion o el concepto de una factura.
+
+def _detalle_de_mision(pk: str, fecha: dt.date) -> dict | None:
+    from missions.models import Mission, MissionLog
+    from missions.services import partir_titulo
+
+    mision = Mission.objects.filter(pk=pk).first()
+    if mision is None:
+        return None
+
+    registro = MissionLog.objects.filter(mission=mision, fecha=fecha).first()
+    codigo, titulo = partir_titulo(mision.titulo)
+    return {
+        "tipo": "Misión",
+        "titulo": f"{codigo} {titulo}".strip(),
+        "subtitulo": mision.definicion_terminada,
+        "evidencia": registro.evidencia_texto if registro else "",
+        "notas": registro.notas if registro else "",
+        "url": "/misiones/",
+    }
+
+
+def _detalle_de_penalizacion(pk: str) -> dict | None:
+    penalizacion = Penalty.objects.filter(pk=pk).first()
+    if penalizacion is None:
+        return None
+    return {
+        "tipo": "Penalización",
+        "titulo": penalizacion.descripcion,
+        "subtitulo": "Resuelta" if penalizacion.resuelta else "Pendiente de corregir",
+        "evidencia": penalizacion.correccion_exigida,
+        "notas": "",
+        "url": "/progresion/",
+    }
+
+
+def _detalle_de_factura(pk: str) -> dict | None:
+    from business.models import Invoice
+
+    factura = Invoice.objects.filter(pk=pk).select_related("client").first()
+    if factura is None:
+        return None
+    return {
+        "tipo": "Factura",
+        "titulo": f"{factura.client.nombre} · {factura.importe:.0f} €",
+        "subtitulo": factura.concepto,
+        "evidencia": factura.notas,
+        "notas": "",
+        "url": "/negocio/facturas/",
+    }
+
+
+def _detalle_de_oportunidad(pk: str) -> dict | None:
+    from business.models import Deal
+
+    deal = Deal.objects.filter(pk=pk).first()
+    if deal is None:
+        return None
+    return {
+        "tipo": "Oportunidad",
+        "titulo": deal.negocio,
+        "subtitulo": deal.get_estado_display(),
+        "evidencia": deal.proximo_paso,
+        "notas": deal.motivo_perdida,
+        "url": "/negocio/pipeline/",
+    }
+
+
+def _detalle_de_proyecto(pk: str) -> dict | None:
+    from business.models import Project
+
+    proyecto = Project.objects.filter(pk=pk).select_related("client").first()
+    if proyecto is None:
+        return None
+    return {
+        "tipo": "Proyecto",
+        "titulo": f"{proyecto.nombre} · {proyecto.precio:.0f} €",
+        "subtitulo": proyecto.client.nombre,
+        "evidencia": "",
+        "notas": "",
+        "url": "/negocio/proyectos/",
+    }
+
+
+def _detalle_de_revision(pk: str) -> dict | None:
+    from review.models import WeeklyReview
+
+    revision = WeeklyReview.objects.filter(pk=pk).first()
+    if revision is None:
+        return None
+    return {
+        "tipo": "Revisión semanal",
+        "titulo": f"Semana {revision.semana_iso}/{revision.anio}",
+        "subtitulo": f"{revision.xp_semana} XP en la semana",
+        "evidencia": revision.decision,
+        "notas": revision.no_funciono,
+        "url": "/revision/",
+    }
+
+
+RESOLUTORES = {
+    "mission": _detalle_de_mision,
+    "penalty": _detalle_de_penalizacion,
+    "invoice": _detalle_de_factura,
+    "deal": _detalle_de_oportunidad,
+    "project": _detalle_de_proyecto,
+    "weeklyreview": _detalle_de_revision,
+}
+
+
+def detalle_de_evento(evento: XPEvent) -> dict:
+    """Todo lo que se puede contar de un evento, con lo que se escribio entonces.
+
+    Si el evento no apunta a ningun objeto —una accion registrada a mano—, la
+    anotacion es su propia descripcion: ahi es donde se guardo la evidencia.
+    """
+    regla = XPRule.objects.filter(accion_slug=evento.accion_slug).first()
+    contexto = {
+        "evento": evento,
+        "regla": regla,
+        "origen": None,
+        "manual": evento.fuente == XPEvent.Fuente.MANUAL,
+    }
+
+    tipo, _, pk = (evento.objeto_relacionado or "").partition(":")
+    resolutor = RESOLUTORES.get(tipo)
+    if resolutor and pk.isdigit():
+        contexto["origen"] = (
+            resolutor(pk, evento.fecha) if tipo == "mission" else resolutor(pk)
+        )
+
+    # Si no hay nada escrito en ningun sitio, la plantilla lo dice en vez de
+    # pintar una caja vacia.
+    origen = contexto["origen"] or {}
+    contexto["hay_anotacion"] = bool(
+        origen.get("evidencia") or origen.get("notas")
+        or (contexto["manual"] and evento.descripcion)
+    )
+    return contexto

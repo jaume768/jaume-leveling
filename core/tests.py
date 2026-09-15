@@ -529,3 +529,101 @@ class TestPantallaDeCalibracion:
 
         assert "Sin motivo no se guarda".encode() in respuesta.content
         assert Attribute.objects.get(slug="producto").valor == 28
+
+
+@pytest.mark.django_db
+class TestRetratoDelPersonaje:
+    def test_los_cortes_de_estado(self):
+        from core.services import estado_de_atributo
+
+        assert estado_de_atributo(72)["clave"] == "subiendo"
+        assert estado_de_atributo(60)["clave"] == "subiendo"
+        assert estado_de_atributo(59)["clave"] == "estable"
+        assert estado_de_atributo(40)["clave"] == "estable"
+        assert estado_de_atributo(39)["clave"] == "riesgo"
+        assert estado_de_atributo(0)["clave"] == "riesgo"
+
+    def test_trae_el_rango_actual_y_el_siguiente(self):
+        from core import services
+
+        hoja = services.hoja_de_personaje()
+        assert hoja["rango"].nombre == "Operador"
+        assert hoja["siguiente_rango"].nombre == "Especialista"
+
+    def test_cada_atributo_lleva_estado_y_palancas(self):
+        from core import services
+
+        filas = [f for g in services.hoja_de_personaje()["grupos"] for f in g["filas"]]
+        assert filas
+        for fila in filas:
+            assert fila["estado"]["acento"] in {"ok", "warn", "bad"}
+            for palanca in fila["palancas"]:
+                assert palanca["titulo"]
+
+    def test_las_palancas_son_las_misiones_del_atributo(self):
+        from core import services
+        from core.models import Attribute
+
+        finanzas = Attribute.objects.get(nombre="Finanzas")
+        fila = next(
+            f
+            for g in services.hoja_de_personaje()["grupos"]
+            for f in g["filas"]
+            if f["atributo"].pk == finanzas.pk
+        )
+        codigos = [p["codigo"] for p in fila["palancas"]]
+        assert "M3" in codigos
+
+    def test_la_vista_pinta_el_retrato_y_los_quince_atributos(self, client):
+        from core.models import Attribute
+
+        respuesta = client.get(reverse("core:personaje"))
+        contenido = respuesta.content.decode()
+        assert respuesta.status_code == 200
+        assert "personaje.webp" in contenido
+        assert "personaje-mini.webp" in contenido
+        assert contenido.count("Siguiente +10") >= 1
+        for atributo in Attribute.objects.all():
+            assert atributo.nombre in contenido
+
+    def test_las_clases_de_color_van_literales(self, client):
+        """Tailwind rastrea texto: una clase construida con {{ }} no se genera."""
+        contenido = client.get(reverse("core:personaje")).content.decode()
+        assert "bar-fill-{{" not in contenido
+        assert "acento-{{" not in contenido
+        assert "pill-{{" not in contenido
+
+
+class TestComentariosDeLasPlantillas:
+    """Un {# ... #} solo vale para una línea.
+
+    Si abre en una línea y cierra en otra, Django no lo trata como comentario:
+    lo imprime en la página. Ya ha pasado dos veces, así que queda vigilado.
+    """
+
+    @staticmethod
+    def _plantillas():
+        from pathlib import Path
+
+        raiz = Path(__file__).resolve().parent.parent
+        for ruta in raiz.rglob("*.html"):
+            if not any(p in ruta.parts for p in (".git", "staticfiles", ".venv")):
+                yield ruta
+
+    def test_ningun_comentario_abarca_varias_lineas(self):
+        import re
+
+        malos = []
+        for ruta in self._plantillas():
+            texto = ruta.read_text()
+            for marca in re.finditer(r"\{#", texto):
+                resto = texto[marca.start():]
+                cierre = resto.find("#}")
+                if cierre == -1 or "\n" in resto[:cierre]:
+                    linea = texto[: marca.start()].count("\n") + 1
+                    malos.append(f"{ruta.name}:{linea}")
+
+        assert not malos, (
+            "Estos comentarios se imprimen en la página; usa {% comment %} "
+            f"o una sola línea: {malos}"
+        )

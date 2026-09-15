@@ -66,7 +66,10 @@
   </section>
 
   <section>
-    <h2 class="text-h4 font-semibold text-ink">Eventos de XP</h2>
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="text-h4 font-semibold text-ink">Eventos de XP</h2>
+      <p class="text-caption text-ink-3">Toca una fila para ver lo que anotaste ese día.</p>
+    </div>
     <div class="mt-3 overflow-x-auto card">
       <table class="w-full min-w-[36rem] text-left text-body-sm">
         <thead class="label">
@@ -80,13 +83,24 @@
         </thead>
         <tbody>
           {% for e in eventos %}
-            <tr class="border-t border-line">
+            <tr class="cursor-pointer border-t border-line transition-colors hover:bg-surface-3
+                       focus-visible:bg-surface-3"
+                role="button" tabindex="0"
+                aria-label="Ver el detalle de {{ e.descripcion|default:e.accion_slug }}"
+                hx-get="{% url 'progression:evento' e.pk %}"
+                hx-target="#modal" hx-swap="innerHTML"
+                hx-trigger="click, keyup[key=='Enter']">
               <td class="px-3 py-2 whitespace-nowrap text-ink-3">{{ e.fecha|date:"d/m" }}</td>
               <td class="px-3 py-2 text-ink-2">{{ e.descripcion|default:e.accion_slug }}</td>
               <td class="px-3 py-2 text-ink-3">{{ e.xp_bruto }}</td>
               <td class="px-3 py-2 text-ink-3">×{{ e.multiplicador_racha }}</td>
-              <td class="px-3 py-2 {% if e.xp_neto < 0 %}text-bad{% else %}text-ink{% endif %}">
-                {{ e.xp_neto }}{% if e.tope_aplicado %} <span class="text-caption text-warn">tope</span>{% endif %}
+              <td class="px-3 py-2">
+                <span class="{% if e.xp_neto < 0 %}text-bad{% else %}text-ink{% endif %}">
+                  {{ e.xp_neto }}{% if e.tope_aplicado %} <span class="text-caption text-warn">tope</span>{% endif %}
+                </span>
+                <span class="ml-2 align-middle text-ink-3">
+                  {% include "_icono.html" with icono="chevron" clase="inline h-4 w-4" %}
+                </span>
               </td>
             </tr>
           {% empty %}
@@ -96,5 +110,8 @@
       </table>
     </div>
   </section>
+
+  {# Hueco del modal de detalle #}
+  <div id="modal"></div>
 </div>
 {% endblock %}
