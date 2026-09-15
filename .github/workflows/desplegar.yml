@@ -59,18 +59,49 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
+      # Sin esto, un secreto ausente se interpola como cadena vacia y el fallo
+      # aparece como un "exit code 1" sin explicacion tres pasos mas abajo.
+      - name: Comprobar que los secretos existen
+        env:
+          CLAVE: ${{ secrets.SSH_CLAVE_PRIVADA }}
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USUARIO }}
+        run: |
+          faltan=""
+          [ -n "$CLAVE" ]   || faltan="$faltan SSH_CLAVE_PRIVADA"
+          [ -n "$HOST" ]    || faltan="$faltan SSH_HOST"
+          [ -n "$USUARIO" ] || faltan="$faltan SSH_USUARIO"
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan estos secretos del repositorio:$faltan"
+            echo "Se crean en Settings > Secrets and variables > Actions."
+            echo "Si los acabas de crear, esta ejecución es anterior: usa Re-run all jobs."
+            exit 1
+          fi
+          case "$CLAVE" in
+            *"BEGIN OPENSSH PRIVATE KEY"*) ;;
+            *) echo "::error::SSH_CLAVE_PRIVADA no parece una clave privada completa."
+               echo "Tiene que incluir las líneas BEGIN y END."
+               exit 1 ;;
+          esac
+          echo "Los tres secretos están puestos."
+
       - name: Preparar la clave SSH
+        env:
+          CLAVE: ${{ secrets.SSH_CLAVE_PRIVADA }}
+          HOST: ${{ secrets.SSH_HOST }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.SSH_CLAVE_PRIVADA }}" > ~/.ssh/despliegue
+          printf '%s\n' "$CLAVE" > ~/.ssh/despliegue
           chmod 600 ~/.ssh/despliegue
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
 
       - name: Desplegar
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USUARIO }}
         run: |
           ssh -i ~/.ssh/despliegue -o IdentitiesOnly=yes -o BatchMode=yes \
-              "${{ secrets.SSH_USUARIO }}@${{ secrets.SSH_HOST }}" \
-              'cd /srv/jaume-leveling && ./deploy.sh'
+              "$USUARIO@$HOST" 'cd /srv/jaume-leveling && ./deploy.sh'
 
       - name: Comprobar que el sitio responde
         run: |
