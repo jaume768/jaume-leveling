@@ -1,0 +1,79 @@
+name: Tests y despliegue
+
+# Cada push a main pasa los tests y, solo si pasan, despliega en el servidor.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Batería de tests
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: sistema
+          POSTGRES_USER: sistema
+          POSTGRES_PASSWORD: sistema
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sistema"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DJANGO_SETTINGS_MODULE: sistema.settings.dev
+      SECRET_KEY: clave-solo-para-los-tests-de-integracion-continua
+      DATABASE_URL: postgres://sistema:sistema@localhost:5432/sistema
+      ALLOWED_HOSTS: localhost,127.0.0.1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Compilar el CSS
+        run: bin/tailwind.sh --minify
+
+      - name: Comprobar que no faltan migraciones
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Tests
+        run: pytest -q
+
+  desplegar:
+    name: Desplegar en el servidor
+    needs: tests
+    runs-on: ubuntu-latest
+    # Solo desde main, nunca desde una rama ni un pull request.
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Preparar la clave SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_CLAVE_PRIVADA }}" > ~/.ssh/despliegue
+          chmod 600 ~/.ssh/despliegue
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Desplegar
+        run: |
+          ssh -i ~/.ssh/despliegue -o IdentitiesOnly=yes -o BatchMode=yes \
+              "${{ secrets.SSH_USUARIO }}@${{ secrets.SSH_HOST }}" \
+              'cd /srv/jaume-leveling && ./deploy.sh'
+
+      - name: Comprobar que el sitio responde
+        run: |
+          codigo=$(curl -s -o /dev/null -w '%{http_code}' https://jaumeleveling.com/entrar/)
+          echo "https://jaumeleveling.com/entrar/ -> $codigo"
+          [ "$codigo" = "200" ] || exit 1
