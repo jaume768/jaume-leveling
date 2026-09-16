@@ -1,0 +1,100 @@
+<div class="mx-auto max-w-3xl space-y-6" id="recompensas">
+
+  {# --- Ganadas y sin cobrar: lo que tira --- #}
+  {% if pendientes %}
+    <section>
+      <h2 class="text-caption font-medium uppercase tracking-widest text-ok">
+        Te las has ganado <span class="tabular text-ink-3">({{ pendientes|length }})</span>
+      </h2>
+      <div class="mt-3 space-y-3">
+        {% for r in pendientes %}
+          <article class="card-acento acento-ok p-4">
+            <div class="flex items-start gap-3">
+              <span class="icon-chip mt-0.5">
+                {% include "_icono.html" with icono="rangos" clase="h-7 w-7" %}
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 class="text-body font-semibold text-ink">{{ r.titulo }}</h3>
+                  <span class="pill-ok">Desbloqueada {{ r.fecha|date:"d/m/Y" }}</span>
+                </div>
+                <p class="mt-1 text-body-sm text-ink-2">{{ r.descripcion }}</p>
+                <form hx-post="{% url 'progression:disfrutar_recompensa' r.pk %}"
+                      hx-target="#recompensas" hx-swap="outerHTML" class="mt-3">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-xp">Cobrada, ya la he disfrutado</button>
+                </form>
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+  {# --- Lo que falta --- #}
+  <section>
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="text-caption font-medium uppercase tracking-widest text-ink-2">
+        Por llegar <span class="tabular text-ink-3">({{ bloqueadas|length }})</span>
+      </h2>
+      {% if siguiente %}
+        <p class="text-caption text-ink-3">
+          La más cercana: {{ siguiente.titulo }}, a {{ faltan_niveles }} nivel{{ faltan_niveles|pluralize:"es" }}
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="mt-3 space-y-3">
+      {% for r in bloqueadas %}
+        <article class="card p-4 {% if r != siguiente %}opacity-75{% endif %}">
+          <div class="flex items-start gap-3">
+            <span class="check mt-0.5 border-line text-ink-3">
+              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+              </svg>
+            </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 class="text-body font-semibold text-ink-2">{{ r.titulo }}</h3>
+                <span class="pill-mut">{{ r.requisito }}</span>
+              </div>
+              <p class="mt-1 text-body-sm text-ink-3">{{ r.descripcion }}</p>
+
+              {% if r.es_manual %}
+                <form hx-post="{% url 'progression:desbloquear_recompensa' r.pk %}"
+                      hx-target="#recompensas" hx-swap="outerHTML" class="mt-3"
+                      hx-confirm="¿Seguro que lo has conseguido? Esto no se deshace desde aquí.">
+                  {% csrf_token %}
+                  <button type="submit" class="btn-sm">Lo he conseguido</button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+      {% empty %}
+        <p class="card p-5 text-body-sm text-ink-3">
+          No queda ninguna por llegar. Añade más desde el admin.
+        </p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# --- Historial --- #}
+  {% if disfrutadas %}
+    <section>
+      <h2 class="text-caption font-medium uppercase tracking-widest text-ink-2">
+        Disfrutadas <span class="tabular text-ink-3">({{ disfrutadas|length }})</span>
+      </h2>
+      <ul class="mt-3 divide-y divide-line card">
+        {% for r in disfrutadas %}
+          <li class="flex flex-wrap items-baseline justify-between gap-2 p-4">
+            <span class="text-body-sm text-ink-2">{{ r.titulo }}</span>
+            <span class="text-caption tabular text-ink-3">{{ r.fecha_disfrute|date:"d/m/Y" }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+</div>

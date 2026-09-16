@@ -123,6 +123,10 @@ class Reward(models.Model):
     )
     desbloqueada = models.BooleanField("desbloqueada", default=False)
     fecha = models.DateField("fecha de desbloqueo", null=True, blank=True)
+    # Desbloquearla es haberla ganado; disfrutarla es haberla cobrado. Una
+    # recompensa ganada y sin cobrar es justo lo que tira hacia delante.
+    disfrutada = models.BooleanField("disfrutada", default=False)
+    fecha_disfrute = models.DateField("fecha de disfrute", null=True, blank=True)
 
     class Meta:
         verbose_name = "recompensa"
@@ -132,6 +136,20 @@ class Reward(models.Model):
             models.Index(fields=["desbloqueada"], name="reward_desbloqueada_idx"),
             models.Index(fields=["nivel_requerido"], name="reward_nivel_idx"),
         ]
+
+    @property
+    def es_manual(self) -> bool:
+        """Sin nivel ni rango: se desbloquea a mano cuando tu decides."""
+        return self.nivel_requerido is None and self.rango_id is None
+
+    @property
+    def requisito(self) -> str:
+        """Como se lee la condicion en pantalla."""
+        if self.nivel_requerido:
+            return f"Nivel {self.nivel_requerido}"
+        if self.rango_id:
+            return f"Rango {self.rango.nombre}"
+        return "Cuando tú lo digas"
 
     def __str__(self):
         if self.nivel_requerido:

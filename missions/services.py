@@ -21,12 +21,29 @@ class EvidenciaRequerida(Exception):
     """La mision exige evidencia y no se ha aportado."""
 
 
+class EleccionYaHecha(Exception):
+    """Ya elegiste la secundaria de hoy. Una por dia: elegir es descartar."""
+
+
 class VarianteYaCompletada(Exception):
     """Otra variante del mismo grupo ya se completo hoy.
 
     La version normal y la minima son la misma mision contada de dos maneras.
     Completar las dos el mismo dia daria XP dos veces por un solo hecho.
     """
+
+
+def eleccion_del_dia(grupo: str, fecha: dt.date):
+    """La mision de ese grupo de eleccion ya cerrada ese dia, si la hay."""
+    if not grupo:
+        return None
+    return (
+        MissionLog.objects.filter(
+            mission__eleccion=grupo, fecha=fecha, completada=True
+        )
+        .select_related("mission")
+        .first()
+    )
 
 
 def hermana_completada_hoy(mission: Mission, fecha: dt.date):
@@ -218,12 +235,20 @@ def completar_mision(
     if hermana is not None:
         raise VarianteYaCompletada(hermana.mission.titulo)
 
+    # Eleccion controlada: una secundaria al dia. Elegir implica renunciar.
+    elegida = eleccion_del_dia(mission.eleccion, fecha)
+    if elegida is not None and elegida.mission_id != mission.pk:
+        raise EleccionYaHecha(elegida.mission.titulo)
+
     evidencia = (evidencia or "").strip()
     if mission.evidencia_requerida and not evidencia:
         raise EvidenciaRequerida(mission.definicion_terminada)
 
+    # Con `regla_xp` la XP entra por la tabla y hereda su tope semanal; sin
+    # ella, la mision puntua por su cuenta. Las secundarias usan lo primero
+    # para que elegir la misma ruta cinco dias no sea una mina de XP.
     evento = progression.registrar_xp(
-        slug_de_mision(mission),
+        mission.regla_xp or slug_de_mision(mission),
         xp=mission.xp,
         categoria=_categoria_de(mission),
         descripcion=mission.titulo,
@@ -420,8 +445,29 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
         .exclude(notas="")
         .values_list("mission_id", "notas")
     )
+    # Las de eleccion salen del listado normal: van en su propio bloque.
+    elecciones: dict[str, dict] = {}
+    for mision in misiones:
+        if not mision.eleccion:
+            continue
+        pool = elecciones.setdefault(
+            mision.eleccion, {"clave": mision.eleccion, "opciones": [], "elegida": None}
+        )
+        codigo, titulo = partir_titulo(mision.titulo)
+        opcion = {
+            "mision": mision,
+            "codigo": codigo,
+            "titulo": titulo,
+            "completada": mision.pk in hechas,
+        }
+        pool["opciones"].append(opcion)
+        if opcion["completada"]:
+            pool["elegida"] = opcion
+
     filas = []
     for mision in misiones:
+        if mision.eleccion:
+            continue
         if mision.grupo and mision.grupo in grupos_hechos and mision.pk not in hechas:
             continue
         codigo, titulo = partir_titulo(mision.titulo)
@@ -441,7 +487,11 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
     # Mensuales y principales son de otro plazo: llevan su propio recuento por
     # grupo y meterlas aqui haria que el panel pareciera peor de lo que va.
     del_dia = [f for f in filas if f["mision"].tipo in TIPOS_DEL_DIA]
+    # Cada grupo de eleccion cuenta como una sola casilla del dia: elegir una
+    # ruta no puede penalizar frente a quien no elige.
     hechas_dia = sum(1 for fila in del_dia if fila["completada"])
+    hechas_dia += sum(1 for pool in elecciones.values() if pool["elegida"])
+    total_dia = len(del_dia) + len(elecciones)
     return {
         "fecha": fecha,
         "dia_protegido": protegido,
@@ -449,9 +499,10 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
         "reinicio": progression.semana_de_reinicio(fecha),
         "filas": filas,
         "grupos": agrupar_filas(filas),
-        "pct": round(hechas_dia / len(del_dia) * 100) if del_dia else 0,
+        "elecciones": sorted(elecciones.values(), key=lambda p: p["clave"]),
+        "pct": round(hechas_dia / total_dia * 100) if total_dia else 0,
         "hechas": hechas_dia,
-        "total": len(del_dia),
+        "total": total_dia,
     }
 
 

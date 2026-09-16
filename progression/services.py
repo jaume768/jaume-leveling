@@ -14,7 +14,7 @@ from django.utils import timezone
 from core import services as core_services
 from core.models import Profile
 
-from .models import Categoria, Penalty, ResetWeek, XPEvent, XPRule
+from .models import Categoria, Penalty, ResetWeek, Reward, XPEvent, XPRule
 
 # Objetivo semanal del sistema (docs/sistema-v2.md, §6): 500-750 XP, techo 1.000.
 OBJETIVO_XP_SEMANAL = 750
@@ -614,3 +614,92 @@ def detalle_de_evento(evento: XPEvent) -> dict:
         or (contexto["manual"] and evento.descripcion)
     )
     return contexto
+
+
+# --- Recompensas -------------------------------------------------------------
+#
+# Una recompensa tiene tres estados: bloqueada, ganada y cobrada. Ganada y sin
+# cobrar es el estado que tira: sabes que te lo has ganado y aun no lo has
+# disfrutado. El sistema desbloquea solo las que dependen de nivel o rango;
+# las demas las marcas tu, porque solo tu sabes si has vencido al jefe.
+
+
+def revisar_recompensas(fecha: dt.date | None = None) -> list[Reward]:
+    """Desbloquea las recompensas cuyo requisito ya se cumple.
+
+    Devuelve las que se acaban de desbloquear, para poder anunciarlas.
+    """
+    from core.models import Profile
+
+    fecha = fecha or timezone.localdate()
+    perfil = Profile.get()
+    orden_actual = perfil.rango.orden if perfil.rango else 0
+    nuevas = []
+
+    for recompensa in Reward.objects.filter(desbloqueada=False).select_related("rango"):
+        alcanzada = (
+            recompensa.nivel_requerido is not None
+            and perfil.nivel >= recompensa.nivel_requerido
+        ) or (
+            recompensa.rango_id is not None
+            and orden_actual >= recompensa.rango.orden
+        )
+        if alcanzada:
+            recompensa.desbloqueada = True
+            recompensa.fecha = fecha
+            recompensa.save(update_fields=["desbloqueada", "fecha"])
+            nuevas.append(recompensa)
+    return nuevas
+
+
+def desbloquear_recompensa(pk: int, fecha: dt.date | None = None) -> Reward | None:
+    """Desbloqueo a mano, para las que no dependen de nivel ni de rango."""
+    recompensa = Reward.objects.filter(pk=pk).first()
+    if recompensa is None or recompensa.desbloqueada:
+        return recompensa
+    recompensa.desbloqueada = True
+    recompensa.fecha = fecha or timezone.localdate()
+    recompensa.save(update_fields=["desbloqueada", "fecha"])
+    return recompensa
+
+
+def disfrutar_recompensa(pk: int, fecha: dt.date | None = None) -> Reward | None:
+    """La has cobrado: cena hecha, juego comprado, figura en la estanteria."""
+    recompensa = Reward.objects.filter(pk=pk, desbloqueada=True).first()
+    if recompensa is None:
+        return None
+    recompensa.disfrutada = True
+    recompensa.fecha_disfrute = fecha or timezone.localdate()
+    recompensa.save(update_fields=["disfrutada", "fecha_disfrute"])
+    return recompensa
+
+
+def panel_de_recompensas(fecha: dt.date | None = None) -> dict:
+    """Las recompensas en sus tres estados, mas la siguiente por llegar."""
+    from core.models import Profile
+
+    fecha = fecha or timezone.localdate()
+    revisar_recompensas(fecha)
+
+    perfil = Profile.get()
+    todas = list(Reward.objects.select_related("rango").order_by("nivel_requerido", "titulo"))
+
+    pendientes = [r for r in todas if r.desbloqueada and not r.disfrutada]
+    disfrutadas = [r for r in todas if r.disfrutada]
+    bloqueadas = [r for r in todas if not r.desbloqueada]
+
+    # La siguiente por nivel: la que menos falta para caer.
+    por_nivel = [
+        r for r in bloqueadas
+        if r.nivel_requerido and r.nivel_requerido > perfil.nivel
+    ]
+    siguiente = min(por_nivel, key=lambda r: r.nivel_requerido) if por_nivel else None
+
+    return {
+        "perfil": perfil,
+        "pendientes": pendientes,
+        "bloqueadas": bloqueadas,
+        "disfrutadas": disfrutadas,
+        "siguiente": siguiente,
+        "faltan_niveles": (siguiente.nivel_requerido - perfil.nivel) if siguiente else None,
+    }

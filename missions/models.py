@@ -69,6 +69,22 @@ class Mission(models.Model):
         related_name="misiones_hasta",
         help_text="Vacio = no se retira nunca.",
     )
+    # Eleccion controlada: las misiones que comparten valor forman un grupo del
+    # que se elige UNA cada dia. Mismo objetivo estrategico, distinta ruta.
+    eleccion = models.SlugField(
+        "grupo de elección",
+        max_length=60,
+        blank=True,
+        help_text="Vacío = obligatoria. Con valor, entra en ese grupo de «elige una».",
+    )
+    # Si se rellena, la XP se concede bajo esa regla de la tabla y hereda su
+    # tope semanal. Sin ella, la mision puntua por su cuenta y sin tope.
+    regla_xp = models.SlugField(
+        "regla de XP",
+        max_length=60,
+        blank=True,
+        help_text="Slug de una XPRule. Deja el tope semanal de esa regla en pie.",
+    )
     motivo = models.TextField("por que", blank=True)
     evidencia_requerida = models.BooleanField("requiere evidencia", default=False)
     pide_notas = models.BooleanField(

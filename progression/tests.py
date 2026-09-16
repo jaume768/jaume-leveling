@@ -517,3 +517,150 @@ class TestDiasProtegidos:
 
         chequeo(self.MIERCOLES + dt.timedelta(days=1))
         assert Penalty.objects.count() > 0
+
+
+# --- Recompensas -------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestRecompensas:
+    """Tres estados: bloqueada, ganada y cobrada."""
+
+    def _perfil_en_nivel(self, nivel):
+        from core import services as core_services
+
+        perfil = Profile.get()
+        perfil.nivel = nivel
+        perfil.xp_total = core_services.xp_acumulada_hasta_nivel(nivel)
+        perfil.rango = core_services.rango_para_nivel(nivel)
+        perfil.save()
+        return perfil
+
+    def test_estan_sembradas_y_todas_bloqueadas(self):
+        from progression.models import Reward
+
+        assert Reward.objects.count() >= 5
+        assert not Reward.objects.filter(desbloqueada=True).exists()
+
+    def test_subir_de_nivel_desbloquea_la_suya(self):
+        from progression.models import Reward
+
+        premio = Reward.objects.get(nivel_requerido=50)
+        assert premio.desbloqueada is False
+
+        self._perfil_en_nivel(50)
+        nuevas = services.revisar_recompensas()
+
+        premio.refresh_from_db()
+        assert premio.desbloqueada is True
+        assert premio.fecha is not None
+        assert premio in nuevas
+
+    def test_no_se_desbloquea_antes_de_tiempo(self):
+        from progression.models import Reward
+
+        self._perfil_en_nivel(49)
+        services.revisar_recompensas()
+        assert Reward.objects.get(nivel_requerido=50).desbloqueada is False
+
+    def test_ascender_de_rango_desbloquea_la_del_rango(self):
+        from core.models import Rank
+        from progression.models import Reward
+
+        especialista = Rank.objects.get(orden=3)
+        premio = Reward.objects.get(rango=especialista)
+
+        self._perfil_en_nivel(especialista.nivel_min)
+        services.revisar_recompensas()
+
+        premio.refresh_from_db()
+        assert premio.desbloqueada is True
+
+    def test_revisar_dos_veces_no_la_desbloquea_dos_veces(self):
+        self._perfil_en_nivel(50)
+        primera = services.revisar_recompensas()
+        segunda = services.revisar_recompensas()
+        assert primera and not segunda
+
+    def test_las_manuales_no_se_desbloquean_solas(self):
+        from progression.models import Reward
+
+        self._perfil_en_nivel(60)
+        services.revisar_recompensas()
+        manuales = [r for r in Reward.objects.all() if r.es_manual]
+        assert manuales
+        assert all(not r.desbloqueada for r in manuales)
+
+    def test_una_manual_se_desbloquea_a_mano(self):
+        from progression.models import Reward
+
+        manual = next(r for r in Reward.objects.all() if r.es_manual)
+        services.desbloquear_recompensa(manual.pk)
+        manual.refresh_from_db()
+        assert manual.desbloqueada is True
+
+    def test_solo_se_disfruta_lo_desbloqueado(self):
+        from progression.models import Reward
+
+        premio = Reward.objects.get(nivel_requerido=50)
+        assert services.disfrutar_recompensa(premio.pk) is None
+
+        self._perfil_en_nivel(50)
+        services.revisar_recompensas()
+        assert services.disfrutar_recompensa(premio.pk) is not None
+
+        premio.refresh_from_db()
+        assert premio.disfrutada is True
+        assert premio.fecha_disfrute is not None
+
+    def test_el_panel_separa_los_tres_estados(self):
+        self._perfil_en_nivel(50)
+        panel = services.panel_de_recompensas()
+
+        assert len(panel["pendientes"]) == 1
+        assert panel["disfrutadas"] == []
+        assert panel["bloqueadas"]
+
+        services.disfrutar_recompensa(panel["pendientes"][0].pk)
+        panel = services.panel_de_recompensas()
+        assert panel["pendientes"] == []
+        assert len(panel["disfrutadas"]) == 1
+
+    def test_dice_cual_es_la_siguiente_y_cuanto_falta(self):
+        panel = services.panel_de_recompensas()
+        assert panel["siguiente"].nivel_requerido == 50
+        assert panel["faltan_niveles"] == 5
+
+
+@pytest.mark.django_db
+class TestPantallaDeRecompensas:
+    def test_la_pantalla_carga(self, client):
+        respuesta = client.get(reverse("progression:recompensas"))
+        assert respuesta.status_code == 200
+        assert "Un juego de Switch sin culpa".encode() in respuesta.content
+
+    def test_esta_en_el_menu(self, client):
+        contenido = client.get(reverse("core:index")).content.decode()
+        assert reverse("progression:recompensas") in contenido
+
+    def test_desbloquear_a_mano_por_htmx(self, client):
+        from progression.models import Reward
+
+        manual = next(r for r in Reward.objects.all() if r.es_manual)
+        respuesta = client.post(
+            reverse("progression:desbloquear_recompensa", args=[manual.pk])
+        )
+        assert respuesta.status_code == 200
+        assert b'id="recompensas"' in respuesta.content
+        assert b"<html" not in respuesta.content
+        manual.refresh_from_db()
+        assert manual.desbloqueada is True
+
+    def test_disfrutar_por_htmx(self, client):
+        from progression.models import Reward
+
+        manual = next(r for r in Reward.objects.all() if r.es_manual)
+        services.desbloquear_recompensa(manual.pk)
+        client.post(reverse("progression:disfrutar_recompensa", args=[manual.pk]))
+        manual.refresh_from_db()
+        assert manual.disfrutada is True

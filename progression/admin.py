@@ -50,9 +50,10 @@ class PenaltyAdmin(admin.ModelAdmin):
 
 @admin.register(Reward)
 class RewardAdmin(admin.ModelAdmin):
-    list_display = ("titulo", "nivel_requerido", "rango", "desbloqueada", "fecha")
-    list_editable = ("desbloqueada",)
-    list_filter = ("desbloqueada", "rango")
+    list_display = ("titulo", "nivel_requerido", "rango", "desbloqueada", "fecha",
+                    "disfrutada", "fecha_disfrute")
+    list_editable = ("desbloqueada", "disfrutada")
+    list_filter = ("desbloqueada", "disfrutada", "rango")
     search_fields = ("titulo", "descripcion")
     date_hierarchy = "fecha"
     autocomplete_fields = ("rango",)

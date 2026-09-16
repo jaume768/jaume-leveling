@@ -10,6 +10,7 @@ class MissionAdmin(admin.ModelAdmin):
         "slug",
         "grupo",
         "cuenta_para_racha",
+        "eleccion",
         "tipo",
         "xp",
         "tiempo_estimado_min",
@@ -22,7 +23,7 @@ class MissionAdmin(admin.ModelAdmin):
     list_editable = ("activa", "orden")
     list_filter = (
         "tipo", "activa", "es_minima", "cuenta_para_racha", "evidencia_requerida",
-        "attribute", "grupo",
+        "attribute", "grupo", "eleccion",
     )
     search_fields = ("titulo", "slug", "grupo", "descripcion", "definicion_terminada", "motivo")
     autocomplete_fields = ("attribute",)
@@ -31,7 +32,7 @@ class MissionAdmin(admin.ModelAdmin):
         (
             "Identidad",
             {
-                "fields": ("titulo", "slug", "grupo", "tipo", "orden", "activa", "es_minima"),
+                "fields": ("titulo", "slug", "grupo", "eleccion", "tipo", "orden", "activa", "es_minima"),
                 "description": (
                     "El slug es la identidad: lo referencia el código. El título y "
                     "el orden son presentación y se pueden cambiar sin miedo. "
@@ -45,7 +46,7 @@ class MissionAdmin(admin.ModelAdmin):
         ),
         (
             "Puntuacion",
-            {"fields": ("xp", "attribute", "evidencia_requerida", "cuenta_para_racha")},
+            {"fields": ("xp", "regla_xp", "attribute", "evidencia_requerida", "cuenta_para_racha")},
         ),
         ("Por que", {"fields": ("motivo",)}),
     )

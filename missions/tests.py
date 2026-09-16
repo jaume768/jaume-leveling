@@ -368,14 +368,19 @@ class TestEscaladoPorRango:
         assert "Multiplicador" in self._principales_visibles()
 
     def test_las_diarias_no_dependen_del_rango(self):
+        """Las mismas diarias en todos los rangos, sean las que sean."""
+        por_rango = {}
         for orden in (2, 3, 4):
             self._perfil_en(orden)
-            diarias = {
-                m.titulo
+            por_rango[orden] = {
+                m.slug
                 for m in services.misiones_de_hoy(LUNES)
                 if m.tipo == Mission.Tipo.DIARIA
             }
-            assert len(diarias) == 2, f"rango {orden}: {diarias}"
+
+        assert por_rango[2] == por_rango[3] == por_rango[4], por_rango
+        # Las obligatorias siempre están.
+        assert {"accion-comercial", "cierre-del-dia"} <= por_rango[2]
 
     def test_una_principal_cerrada_no_vuelve_nunca(self):
         self._perfil_en(2)
@@ -418,8 +423,21 @@ def test_el_marcador_del_panel_solo_cuenta_el_ritmo_del_dia():
     """Mensuales y principales no deben hundir el porcentaje del dia."""
     panel = services.panel_de_misiones(LUNES)
 
-    # 2 diarias + 6 semanales, aunque en pantalla haya cuatro grupos.
-    assert panel["total"] == 8
+    # Diarias obligatorias + semanales, más una casilla por grupo de elección.
+    del_ritmo = [
+        f for f in panel["filas"]
+        if f["mision"].tipo in (Mission.Tipo.DIARIA, Mission.Tipo.SEMANAL)
+    ]
+    assert panel["total"] == len(del_ritmo) + len(panel["elecciones"])
+
+    # Ni mensuales ni principales entran en el marcador, aunque se pinten.
+    otros = [
+        f for f in panel["filas"]
+        if f["mision"].tipo in (Mission.Tipo.MENSUAL, Mission.Tipo.PRINCIPAL)
+    ]
+    assert otros, "el panel debería seguir mostrando mensuales y principales"
+    assert panel["total"] < len(panel["filas"]) + len(panel["elecciones"])
+
     titulos = [g["titulo"] for g in panel["grupos"]]
     assert titulos == ["Diarias", "Semanales", "Mensuales", "Principales"]
 
@@ -791,3 +809,90 @@ class TestPantallaDeMisiones:
         respuesta = client.get(reverse("missions:index"), {"tipo": "INVENTADO"})
         assert respuesta.status_code == 200
         assert respuesta.context["tipo_activo"] == ""
+
+
+# --- Elección controlada -----------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestEleccionControlada:
+    """Una obligatoria y una elegida: misma dirección, tú pones la ruta."""
+
+    @pytest.fixture
+    def opciones(self, db):
+        return list(
+            Mission.objects.filter(eleccion="secundaria-diaria").order_by("orden")
+        )
+
+    def test_hay_un_grupo_con_varias_rutas(self, opciones):
+        assert len(opciones) >= 3
+        assert {m.eleccion for m in opciones} == {"secundaria-diaria"}
+
+    def test_las_secundarias_salen_en_su_propio_bloque(self, opciones):
+        panel = services.panel_de_misiones(LUNES)
+        assert len(panel["elecciones"]) == 1
+        pool = panel["elecciones"][0]
+        assert len(pool["opciones"]) == len(opciones)
+        assert pool["elegida"] is None
+        # Y no se mezclan con las obligatorias.
+        slugs_en_filas = {f["mision"].slug for f in panel["filas"]}
+        assert not slugs_en_filas & {m.slug for m in opciones}
+
+    def test_elegir_una_marca_el_grupo(self, opciones):
+        services.completar_mision(opciones[0], evidencia="hecho", fecha=LUNES)
+        pool = services.panel_de_misiones(LUNES)["elecciones"][0]
+        assert pool["elegida"]["mision"].pk == opciones[0].pk
+
+    def test_no_se_pueden_elegir_dos_el_mismo_dia(self, opciones):
+        services.completar_mision(opciones[0], evidencia="hecho", fecha=LUNES)
+        antes = Profile.get().xp_total
+
+        with pytest.raises(services.EleccionYaHecha):
+            services.completar_mision(opciones[1], evidencia="otra", fecha=LUNES)
+
+        assert Profile.get().xp_total == antes
+
+    def test_al_dia_siguiente_se_vuelve_a_elegir(self, opciones):
+        services.completar_mision(opciones[0], evidencia="hecho", fecha=LUNES)
+        martes = LUNES + dt.timedelta(days=1)
+        registro = services.completar_mision(opciones[1], evidencia="otra", fecha=martes)
+        assert registro.completada
+
+    def test_el_grupo_cuenta_como_una_sola_casilla(self, opciones):
+        """Elegir no puede penalizar el marcador frente a no elegir."""
+        panel = services.panel_de_misiones(LUNES)
+        sin_elegir = panel["total"]
+
+        services.completar_mision(opciones[0], evidencia="hecho", fecha=LUNES)
+        panel = services.panel_de_misiones(LUNES)
+
+        assert panel["total"] == sin_elegir
+        assert panel["hechas"] == 1
+
+    def test_la_xp_pasa_por_la_tabla_y_hereda_su_tope(self, opciones):
+        """Elegir la misma ruta toda la semana deja de rentar por sí solo."""
+        referido = Mission.objects.get(slug="secundaria-referido")
+        assert referido.regla_xp == "peticion-referido"
+
+        concedidos = []
+        for i in range(4):
+            MissionLog.objects.filter(mission=referido).delete()
+            registro = services.completar_mision(
+                referido, evidencia=f"petición {i}", fecha=LUNES + dt.timedelta(days=i)
+            )
+            concedidos.append(registro.xp_otorgado)
+
+        # La regla peticion-referido tiene tope de 150 XP por semana.
+        assert sum(concedidos) == 150
+        assert concedidos[-1] == 0
+
+    def test_una_mision_sin_regla_puntua_por_su_cuenta(self, d1):
+        assert d1.regla_xp == ""
+        registro = services.completar_mision(d1, evidencia="contacto", fecha=LUNES)
+        assert registro.xp_otorgado == d1.xp
+
+    def test_el_panel_pinta_las_rutas(self, client, hoy_es_lunes):
+        contenido = client.get(reverse("core:index")).content.decode()
+        assert "Elige una" in contenido
+        assert "Pedir un referido" in contenido
+        assert "la misma dirección" in contenido

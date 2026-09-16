@@ -76,3 +76,28 @@ def registrar_accion(request):
             return render(request, "progression/_accion_hecha.html", contexto)
 
     return render(request, "progression/_modal_accion.html", contexto)
+
+
+def recompensas(request):
+    """Lo que te llevas por llegar: ganadas, por llegar y ya disfrutadas."""
+    plantilla = (
+        "progression/_recompensas_lista.html" if request.htmx
+        else "progression/recompensas.html"
+    )
+    return render(request, plantilla, services.panel_de_recompensas())
+
+
+@require_POST
+def desbloquear_recompensa(request, pk):
+    """Desbloqueo a mano de las que no dependen de nivel ni de rango."""
+    services.desbloquear_recompensa(pk)
+    return render(request, "progression/_recompensas_lista.html",
+                  services.panel_de_recompensas())
+
+
+@require_POST
+def disfrutar_recompensa(request, pk):
+    """La has cobrado de verdad."""
+    services.disfrutar_recompensa(pk)
+    return render(request, "progression/_recompensas_lista.html",
+                  services.panel_de_recompensas())
