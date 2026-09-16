@@ -13,7 +13,7 @@ from django.db import migrations
 # (titulo, descripcion, nivel, orden_de_rango)
 RECOMPENSAS = [
     (
-        "Un juego de Switch sin culpa",
+        "Un juego de Steam sin culpa",
         "Lo compras y lo juegas sin dar cuentas a nadie. Te lo has ganado por "
         "nivel, que es la única métrica que no admite excusas.",
         50,

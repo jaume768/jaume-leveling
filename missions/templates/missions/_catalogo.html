@@ -1,5 +1,29 @@
 <div id="catalogo">
 
+  {% if dia_protegido %}
+    <div class="rounded-md border border-ok/40 bg-ok/8 p-4">
+      <p class="label text-ok">Día protegido</p>
+      <p class="mt-1 text-body-sm text-ink-2">
+        Hoy es {{ dia_nombre }}. Las diarias no se listan porque hoy no tocan:
+        ni dan XP, ni rompen la racha, ni pueden penalizar.
+      </p>
+      <a href="{% url 'missions:index' %}?tipo=DIARIA"
+         hx-get="{% url 'missions:index' %}?tipo=DIARIA"
+         hx-target="#catalogo" hx-swap="outerHTML"
+         class="mt-2 inline-block text-caption text-ok underline underline-offset-4">
+        Verlas igualmente
+      </a>
+    </div>
+  {% endif %}
+
+  <p class="{% if dia_protegido %}mt-4 {% endif %}text-body-sm text-ink-3">
+    En un día normal haces <strong class="text-ink">{{ carga_diaria }}</strong>:
+    {{ obligatorias }} obligatoria{{ obligatorias|pluralize }} y
+    {{ grupos_eleccion }} elegida{{ grupos_eleccion|pluralize }} de entre varias rutas.
+    Las diarias no se acumulan: cada mañana vuelven a empezar.
+  </p>
+
+  <div class="mt-4">
   {# --- Filtros por periodicidad --- #}
   <div class="flex flex-wrap gap-1.5 text-caption">
     <a href="{% url 'missions:index' %}"
@@ -17,6 +41,7 @@
         {{ pestana.etiqueta }} <span class="tabular text-ink-3">{{ pestana.total }}</span>
       </a>
     {% endfor %}
+  </div>
   </div>
 
   {# --- Grupos, en orden de periodicidad --- #}
@@ -82,6 +107,9 @@
                 </span>
 
                 <span class="mt-2 flex flex-wrap items-center gap-1.5">
+                  {% if fila.papel %}
+                    <span class="{% if fila.papel.acento == 'ok' %}pill-ok{% elif fila.papel.acento == 'warn' %}pill-warn{% else %}pill-xp{% endif %}">{{ fila.papel.etiqueta }}</span>
+                  {% endif %}
                   <span class="pill-xp">{{ fila.mision.xp }} XP</span>
                   {% if fila.mision.tiempo_estimado_min %}
                     <span class="pill-mut">{{ fila.mision.tiempo_estimado_min }} min</span>
@@ -91,7 +119,6 @@
                   {% endif %}
                   {% if fila.mision.evidencia_requerida %}<span class="pill-bad">Evidencia</span>{% endif %}
                   {% if fila.mision.pide_notas %}<span class="pill-mut">Cuaderno</span>{% endif %}
-                  {% if fila.mision.es_minima %}<span class="pill-warn">Versión mínima</span>{% endif %}
                   {% if fila.mision.cuenta_para_racha %}<span class="pill-warn">Racha</span>{% endif %}
                   {% if not fila.disponible %}<span class="pill-mut">{{ fila.motivo }}</span>{% endif %}
                 </span>

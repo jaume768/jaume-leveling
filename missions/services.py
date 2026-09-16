@@ -598,7 +598,26 @@ def catalogo_de_misiones(fecha: dt.date | None = None, tipo: str = "") -> dict:
             }
         )
 
+    # Papel de cada diaria: obligatoria, una de las rutas a elegir, o la
+    # version minima de otra. Sin esto, ocho diarias en el catalogo parecen
+    # ocho cosas que hacer, cuando en un dia real haces tres.
+    for fila in filas:
+        mision = fila["mision"]
+        if mision.es_minima:
+            fila["papel"] = {"etiqueta": "Versión mínima", "acento": "warn"}
+        elif mision.eleccion:
+            fila["papel"] = {"etiqueta": "Elige una", "acento": "xp"}
+        elif mision.tipo == Mission.Tipo.DIARIA:
+            fila["papel"] = {"etiqueta": "Obligatoria", "acento": "ok"}
+        else:
+            fila["papel"] = None
+
     grupos = agrupar_filas(filas)
+
+    # Los dias protegidos no tienen diarias: no se listan, y se dice por que.
+    protegido = progression.es_dia_protegido(fecha)
+    if protegido and not tipo:
+        grupos = [g for g in grupos if g["tipo"] != Mission.Tipo.DIARIA]
     # El recuento de cada pestaña se calcula sobre el catalogo entero, no sobre
     # lo filtrado: si no, al filtrar las demas pestañas marcarian cero.
     totales = dict(
@@ -607,9 +626,22 @@ def catalogo_de_misiones(fecha: dt.date | None = None, tipo: str = "") -> dict:
         .annotate(n=models.Count("pk"))
     )
 
+    # La carga real de un dia normal: las obligatorias, mas una por cada
+    # grupo de eleccion. Las versiones minimas no suman: sustituyen.
+    diarias = Mission.objects.filter(tipo=Mission.Tipo.DIARIA, activa=True)
+    obligatorias = diarias.filter(es_minima=False, eleccion="").count()
+    grupos_eleccion = len(
+        set(diarias.exclude(eleccion="").values_list("eleccion", flat=True))
+    )
+
     return {
         "grupos": grupos,
         "tipo_activo": tipo,
+        "dia_protegido": protegido,
+        "dia_nombre": "miércoles" if fecha.weekday() == progression.MIERCOLES else "domingo",
+        "carga_diaria": obligatorias + grupos_eleccion,
+        "obligatorias": obligatorias,
+        "grupos_eleccion": grupos_eleccion,
         "pestanas": [
             {"clave": clave, "etiqueta": etiqueta, "total": totales.get(clave, 0)}
             for clave, etiqueta, _sub, _acento in GRUPOS

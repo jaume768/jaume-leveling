@@ -785,8 +785,12 @@ class TestCatalogoDeMisiones:
 
 @pytest.mark.django_db
 class TestPantallaDeMisiones:
-    def test_la_pantalla_carga_con_los_grupos_en_orden(self, client):
-        """Se buscan los subtítulos: son únicos de cada cabecera de grupo."""
+    def test_la_pantalla_carga_con_los_grupos_en_orden(self, client, hoy_es_lunes):
+        """Se buscan los subtítulos: son únicos de cada cabecera de grupo.
+
+        Con la fecha congelada en lunes: en día protegido las diarias no se
+        listan y el primer subtítulo no existiría.
+        """
         contenido = client.get(reverse("missions:index")).content.decode()
         posiciones = [
             contenido.index("Haz lo esencial"),
@@ -896,3 +900,62 @@ class TestEleccionControlada:
         assert "Elige una" in contenido
         assert "Pedir un referido" in contenido
         assert "la misma dirección" in contenido
+
+
+@pytest.mark.django_db
+class TestCatalogoYCalendario:
+    """El catálogo no puede ofrecer diarias un día de descanso."""
+
+    MIERCOLES = dt.date(2026, 9, 16)
+    DOMINGO = dt.date(2026, 9, 20)
+
+    def test_un_dia_normal_lista_las_diarias(self):
+        catalogo = services.catalogo_de_misiones(LUNES)
+        assert catalogo["dia_protegido"] is False
+        assert "DIARIA" in [g["tipo"] for g in catalogo["grupos"]]
+
+    @pytest.mark.parametrize("dia", [MIERCOLES, DOMINGO])
+    def test_los_dias_protegidos_no_listan_diarias(self, dia):
+        catalogo = services.catalogo_de_misiones(dia)
+        assert catalogo["dia_protegido"] is True
+        assert "DIARIA" not in [g["tipo"] for g in catalogo["grupos"]]
+        # Las demás siguen ahí: el día protegido no borra el catálogo.
+        assert {"SEMANAL", "MENSUAL", "PRINCIPAL"} <= {g["tipo"] for g in catalogo["grupos"]}
+
+    def test_se_pueden_ver_igualmente_si_se_piden(self):
+        catalogo = services.catalogo_de_misiones(self.MIERCOLES, tipo="DIARIA")
+        assert [g["tipo"] for g in catalogo["grupos"]] == ["DIARIA"]
+
+    def test_la_carga_diaria_real_son_tres(self):
+        """Ocho diarias en el catálogo, pero en un día haces tres."""
+        catalogo = services.catalogo_de_misiones(LUNES)
+        diarias = next(g for g in catalogo["grupos"] if g["tipo"] == "DIARIA")
+
+        assert diarias["total"] == 8
+        assert catalogo["carga_diaria"] == 3
+        assert catalogo["obligatorias"] == 2
+        assert catalogo["grupos_eleccion"] == 1
+
+    def test_cada_diaria_dice_su_papel(self):
+        catalogo = services.catalogo_de_misiones(LUNES)
+        diarias = next(g for g in catalogo["grupos"] if g["tipo"] == "DIARIA")
+        papeles = [f["papel"]["etiqueta"] for f in diarias["filas"]]
+
+        assert papeles.count("Obligatoria") == 2
+        assert papeles.count("Elige una") == 4
+        assert papeles.count("Versión mínima") == 2
+
+    def test_las_semanales_no_llevan_papel(self):
+        catalogo = services.catalogo_de_misiones(LUNES)
+        semanales = next(g for g in catalogo["grupos"] if g["tipo"] == "SEMANAL")
+        assert all(f["papel"] is None for f in semanales["filas"])
+
+    def test_la_pantalla_avisa_del_dia_protegido(self, client, monkeypatch):
+        from django.utils import timezone
+
+        monkeypatch.setattr(timezone, "localdate", lambda *a, **k: self.MIERCOLES)
+        contenido = client.get(reverse("missions:index")).content.decode()
+
+        assert "Día protegido" in contenido
+        assert "Hoy es miércoles" in contenido
+        assert "En un día normal haces" in contenido

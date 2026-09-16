@@ -637,7 +637,7 @@ class TestPantallaDeRecompensas:
     def test_la_pantalla_carga(self, client):
         respuesta = client.get(reverse("progression:recompensas"))
         assert respuesta.status_code == 200
-        assert "Un juego de Switch sin culpa".encode() in respuesta.content
+        assert "Un juego de Steam sin culpa".encode() in respuesta.content
 
     def test_esta_en_el_menu(self, client):
         contenido = client.get(reverse("core:index")).content.decode()
