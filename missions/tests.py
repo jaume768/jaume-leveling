@@ -17,6 +17,21 @@ MIERCOLES = dt.date(2026, 9, 9)
 DOMINGO = dt.date(2026, 9, 13)
 
 
+
+@pytest.fixture
+def hoy_es_lunes(monkeypatch):
+    """Congela «hoy» en el lunes 7 de septiembre de 2026.
+
+    Las vistas preguntan la fecha al reloj. En miércoles y domingo el panel
+    no ofrece misiones —son días protegidos—, así que cualquier test que
+    pase por una vista fallaría solo esos días.
+    """
+    from django.utils import timezone
+
+    monkeypatch.setattr(timezone, "localdate", lambda *a, **k: LUNES)
+    return LUNES
+
+
 @pytest.fixture
 def d1(db):
     return Mission.objects.get(titulo__startswith="D1 · ")
@@ -149,7 +164,7 @@ class TestPanelHTMX:
         assert b"<html" not in respuesta.content
         assert services.esta_completada(d2)
 
-    def test_si_falta_evidencia_el_fragmento_lleva_el_error(self, client, d1):
+    def test_si_falta_evidencia_el_fragmento_lleva_el_error(self, client, d1, hoy_es_lunes):
         respuesta = client.post(reverse("missions:completar", args=[d1.pk]))
         assert respuesta.status_code == 200
         assert "evidencia".encode() in respuesta.content
@@ -160,7 +175,7 @@ class TestPanelHTMX:
         assert respuesta.status_code == 200
         assert b"<form" in respuesta.content
 
-    def test_el_dia_minimo_reduce_la_lista(self, client):
+    def test_el_dia_minimo_reduce_la_lista(self, client, hoy_es_lunes):
         respuesta = client.get(reverse("missions:bloque"), {"minimo": "1"})
         assert b"D&#x27;a m" in respuesta.content or "Día mínimo".encode() in respuesta.content
 
@@ -529,13 +544,13 @@ class TestCuadernoHTMX:
         assert services.esta_completada(d2)
         assert services.notas_de(d2) == "1. Llamar\n2. Escribir"
 
-    def test_el_panel_pinta_lo_apuntado(self, client, d2):
+    def test_el_panel_pinta_lo_apuntado(self, client, d2, hoy_es_lunes):
         services.guardar_notas(d2, "1. Llamar a Gruas")
         contenido = client.get(reverse("core:index")).content.decode()
         assert "Apuntado hoy" in contenido
         assert "1. Llamar a Gruas" in contenido
 
-    def test_la_casilla_del_cierre_abre_el_cuaderno(self, client, d2):
+    def test_la_casilla_del_cierre_abre_el_cuaderno(self, client, d2, hoy_es_lunes):
         contenido = client.get(reverse("core:index")).content.decode()
         assert reverse("missions:notas", args=[d2.pk]) in contenido
 
@@ -653,7 +668,7 @@ class TestVariantesDelMismoGrupo:
         assert "accion-comercial-minima" in ofrecidas
         assert "accion-comercial" not in ofrecidas
 
-    def test_la_vista_avisa_en_vez_de_reventar(self, client, d1, d1_minima):
+    def test_la_vista_avisa_en_vez_de_reventar(self, client, d1, d1_minima, hoy_es_lunes):
         services.completar_mision(d1_minima, evidencia="tres líneas")
         respuesta = client.post(
             reverse("missions:completar", args=[d1.pk]), {"evidencia": "contacto"}

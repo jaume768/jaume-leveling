@@ -83,7 +83,7 @@ class Mission(models.Model):
         "que se apunta",
         max_length=120,
         blank=True,
-        help_text="Rotulo del cuaderno, p. ej. 'Las dos tareas de manana'.",
+        help_text="Rótulo del cuaderno, p. ej. 'Las dos tareas de mañana'.",
     )
     activa = models.BooleanField("activa", default=True)
     orden = models.PositiveSmallIntegerField("orden", default=0)

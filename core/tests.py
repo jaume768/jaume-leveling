@@ -757,3 +757,56 @@ class TestEmblemasDeRango:
 
         for orden in range(1, 7):
             assert finders.find(f"img/rangos/rango-{orden}.webp"), orden
+
+
+@pytest.mark.django_db
+class TestOrtografiaDeLosDatos:
+    """Los textos sembrados se leen en pantalla: deben ir con tildes y eñes.
+
+    Las migraciones de datos se escribieron en ASCII y el repaso posterior
+    dejó palabras a medias. Esto vigila que no vuelva a colarse ninguna.
+    """
+
+    CAMPOS = {
+        "titulo", "nombre", "descripcion", "definicion_terminada", "motivo",
+        "etiqueta_notas", "texto", "aplicacion", "principio", "objetivo",
+        "criterio_ascenso", "jefe", "evidencia", "siguiente_hito", "contenido",
+        "correccion_exigida",
+    }
+
+    def _textos_visibles(self):
+        from django.apps import apps
+
+        for modelo in apps.get_models():
+            campos = [f.name for f in modelo._meta.fields if f.name in self.CAMPOS]
+            if not campos:
+                continue
+            for obj in modelo.objects.all():
+                for campo in campos:
+                    yield modelo.__name__, obj.pk, campo, str(getattr(obj, campo, "") or "")
+
+    def test_ninguna_palabra_en_cion_singular_sin_tilde(self):
+        """En castellano -ción y -sión en singular siempre llevan tilde."""
+        import re
+
+        patron = re.compile(r"\b\w+(?:cion|sion)\b", re.IGNORECASE)
+        fallos = [
+            f"{m}[{pk}].{campo}: {patron.search(texto).group(0)}"
+            for m, pk, campo, texto in self._textos_visibles()
+            if patron.search(texto)
+        ]
+        assert not fallos, f"Les falta la tilde: {fallos}"
+
+    def test_ninguna_ene_comida(self):
+        import re
+
+        patron = re.compile(
+            r"\b(manana|ano|anos|pequen[oa]|senal|senor|sueno|disen[oa]|nino|espanol)\b",
+            re.IGNORECASE,
+        )
+        fallos = [
+            f"{m}[{pk}].{campo}: {patron.search(texto).group(0)}"
+            for m, pk, campo, texto in self._textos_visibles()
+            if patron.search(texto)
+        ]
+        assert not fallos, f"Les falta la eñe: {fallos}"

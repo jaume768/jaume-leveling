@@ -37,21 +37,21 @@ MISIONES = [
         "titulo": "D2 · Cierre del día",
         "tipo": "DIARIA",
         "orden": 2,
-        "descripcion": "5 min, 2 tareas para manana.",
+        "descripcion": "5 min, 2 tareas para mañana.",
         "definicion_terminada": "Anotadas",
         "tiempo_estimado_min": 5,
         "xp": 15,
-        "motivo": "Ataca tu atributo más bajo: organizacion.",
+        "motivo": "Ataca tu atributo más bajo: organización.",
     },
     {
-        "titulo": "D2 mínima · Dos tareas para manana",
+        "titulo": "D2 mínima · Dos tareas para mañana",
         "tipo": "DIARIA",
         "orden": 2,
         "es_minima": True,
         "definicion_terminada": "Anotadas",
         "tiempo_estimado_min": 2,
         "xp": 10,  # INVENTADO: el documento no puntua la version mínima.
-        "motivo": "Que manana no empiece en blanco.",
+        "motivo": "Que mañana no empiece en blanco.",
     },
     # --- Semanales ---
     {
@@ -91,7 +91,7 @@ MISIONES = [
         "definicion_terminada": "Panel actualizado + 3 objetivos",
         "tiempo_estimado_min": 40,
         "xp": 60,
-        "motivo": "8 revisiones seguidas es lo que mueve organizacion.",
+        "motivo": "8 revisiones seguidas es lo que mueve organización.",
     },
     {
         "titulo": "S5 · 4 entrenos",
@@ -125,7 +125,7 @@ MISIONES = [
         "motivo": "Sin propuestas no hay cierres.",
     },
     {
-        "titulo": "M2 · 1 cierre o renovacion",
+        "titulo": "M2 · 1 cierre o renovación",
         "tipo": "MENSUAL",
         "orden": 2,
         "definicion_terminada": "Contrato firmado o renovado",
