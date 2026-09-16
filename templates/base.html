@@ -35,7 +35,7 @@
                 md:static md:z-auto md:translate-x-0"
          :class="abierto ? 'translate-x-0' : '-translate-x-full'">
 
-    <a href="{% url 'core:index' %}" class="flex items-center gap-3 px-2">
+    <a href="{% url 'core:index' %}" class="flex shrink-0 items-center gap-3 px-2">
       <span class="text-xp">{% include "_icono.html" with icono="marca" clase="h-9 w-9" %}</span>
       <span>
         <span class="block text-h4 font-semibold tracking-tight text-ink">Sistema</span>
@@ -43,7 +43,7 @@
       </span>
     </a>
 
-    <nav class="mt-8 flex-1 space-y-1">
+    <nav class="-mr-2 mt-8 min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-2">
       {% for entrada in navegacion %}
         <a href="{{ entrada.url }}"
            class="{% if entrada.activa %}nav-item-on{% else %}nav-item{% endif %}"
@@ -55,7 +55,7 @@
       {% endfor %}
     </nav>
 
-    <div class="relative mt-6 overflow-hidden rounded-md border-t border-line/60 px-2 pb-24 pt-5">
+    <div class="relative mt-4 shrink-0 overflow-hidden rounded-md border-t border-line/60 px-2 pb-20 pt-4">
       <span class="pointer-events-none absolute inset-x-0 bottom-0 -z-10 block h-28 bg-cover bg-bottom
                    opacity-70"
             style="background-image: url('{% static 'img/cumbres-mini.svg' %}')" aria-hidden="true"></span>

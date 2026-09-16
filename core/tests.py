@@ -810,3 +810,33 @@ class TestOrtografiaDeLosDatos:
             if patron.search(texto)
         ]
         assert not fallos, f"Les falta la eñe: {fallos}"
+
+
+class TestBarraLateral:
+    """El menú tiene que poder desplazarse: hay doce entradas.
+
+    En una pantalla de móvil no caben todas, y sin `min-h-0` un hijo flex no
+    baja de su altura de contenido, así que `overflow-y-auto` no llega a
+    activarse y las últimas quedan cortadas sin forma de alcanzarlas.
+    """
+
+    @staticmethod
+    def _base():
+        from pathlib import Path
+
+        return Path(__file__).resolve().parent.parent / "templates" / "base.html"
+
+    def test_el_menu_puede_desplazarse(self):
+        import re
+
+        nav = re.search(r'<nav class="([^"]+)"', self._base().read_text()).group(1)
+        assert "overflow-y-auto" in nav, "el menú no podría desplazarse"
+        assert "min-h-0" in nav, "sin min-h-0 el overflow no se activa en un hijo flex"
+        assert "flex-1" in nav
+
+    def test_la_marca_y_el_pie_no_se_encogen(self):
+        """Si se encogieran, el scroll del menú no serviría de nada."""
+        contenido = self._base().read_text()
+        aside = contenido[contenido.index("<aside"):contenido.index("</aside>")]
+        # La marca, el bloque de la cita y el pie llevan shrink-0.
+        assert aside.count("shrink-0") >= 2
