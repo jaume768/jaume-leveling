@@ -281,6 +281,26 @@ class TestVistas:
         deal.refresh_from_db()
         assert deal.estado != Deal.Estado.PERDIDO
 
+    def test_edicion_en_linea_pide_el_motivo_en_la_propia_fila(self, client):
+        deal = _deal()
+        respuesta = client.get(reverse("business:deal_editar", args=[deal.pk]))
+        assert b'name="motivo_perdida"' in respuesta.content
+        assert b'name="rechazado_por_precio"' in respuesta.content
+
+    def test_se_marca_como_perdido_con_motivo_en_linea(self, client):
+        deal = _deal()
+        client.post(
+            reverse("business:deal_guardar", args=[deal.pk]),
+            {
+                "estado": Deal.Estado.PERDIDO, "proximo_paso": "", "fecha_proximo_paso": "",
+                "motivo_perdida": "Se va con su sobrino", "rechazado_por_precio": "on",
+            },
+        )
+        deal.refresh_from_db()
+        assert deal.estado == Deal.Estado.PERDIDO
+        assert deal.motivo_perdida == "Se va con su sobrino"
+        assert deal.rechazado_por_precio
+
     def test_cobrar_por_htmx_devuelve_el_bloque_con_totales(self, client, cliente):
         factura = _factura(cliente, "1000")
         respuesta = client.post(reverse("business:factura_cobrar", args=[factura.pk]))

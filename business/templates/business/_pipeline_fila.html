@@ -13,12 +13,21 @@
       <form hx-post="{% url 'business:deal_guardar' fila.deal.pk %}"
             hx-target="#deal-{{ fila.deal.pk }}"
             hx-swap="outerHTML"
+            x-data="{ estado: '{{ form.estado.value|default_if_none:''|escapejs }}' }"
             class="space-y-2">
         {% csrf_token %}
         <div class="grid gap-2 sm:grid-cols-3">
           <div>{{ form.estado }}{% for e in form.estado.errors %}<p class="mt-1 text-caption text-bad">{{ e }}</p>{% endfor %}</div>
           <div>{{ form.proximo_paso }}</div>
           <div>{{ form.fecha_proximo_paso }}</div>
+        </div>
+        <div x-show="estado === 'PERDIDO'" class="space-y-2">
+          <label class="block text-caption text-ink-3" for="{{ form.motivo_perdida.id_for_label }}">Motivo de pérdida</label>
+          {{ form.motivo_perdida }}
+          {% for e in form.motivo_perdida.errors %}<p class="text-caption text-bad">{{ e }}</p>{% endfor %}
+          <label class="flex items-center gap-2 text-caption text-ink-2">
+            {{ form.rechazado_por_precio }} Lo rechacé yo por precio bajo (+150 XP)
+          </label>
         </div>
         <div class="flex justify-end gap-2">
           <button type="button" class="btn-sm"

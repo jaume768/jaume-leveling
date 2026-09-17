@@ -14,30 +14,41 @@ CLASES_INPUT = (
 
 
 class DealFilaForm(forms.ModelForm):
-    """Edicion en linea del pipeline: estado y proximo paso."""
+    """Edicion en linea del pipeline: estado, proximo paso y, si se pierde, el motivo."""
 
     class Meta:
         model = Deal
-        fields = ["estado", "proximo_paso", "fecha_proximo_paso", "rechazado_por_precio"]
+        fields = [
+            "estado", "proximo_paso", "fecha_proximo_paso",
+            "motivo_perdida", "rechazado_por_precio",
+        ]
         widgets = {
-            "estado": forms.Select(attrs={"class": CLASES_INPUT}),
+            "estado": forms.Select(attrs={"class": CLASES_INPUT, "x-model": "estado"}),
             "proximo_paso": forms.TextInput(
                 attrs={"class": CLASES_INPUT, "placeholder": "Qué toca hacer"}
             ),
             "fecha_proximo_paso": forms.DateInput(
                 attrs={"class": CLASES_INPUT, "type": "date"}, format="%Y-%m-%d"
             ),
+            "motivo_perdida": forms.Textarea(
+                attrs={"class": CLASES_INPUT, "rows": 2, "placeholder": "Por qué se ha perdido"}
+            ),
+            "rechazado_por_precio": forms.CheckboxInput(
+                attrs={"class": "h-4 w-4 rounded border-slate-600 bg-slate-950"}
+            ),
         }
 
     def clean(self):
         datos = super().clean()
         estado = datos.get("estado")
-        if estado == Deal.Estado.PERDIDO and not self.instance.motivo_perdida:
+        motivo = (datos.get("motivo_perdida") or "").strip()
+        if estado == Deal.Estado.PERDIDO and not motivo:
             # Un "no" explicado vale mas que diez conversaciones agradables.
             self.add_error(
-                "estado",
-                "Anota antes el motivo de pérdida: un “no” sin explicar no enseña nada.",
+                "motivo_perdida",
+                "Anota el motivo de pérdida: un “no” sin explicar no enseña nada.",
             )
+        datos["motivo_perdida"] = motivo
         return datos
 
 
