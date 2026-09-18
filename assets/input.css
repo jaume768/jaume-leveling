@@ -594,3 +594,58 @@
     position: relative;
   }
 }
+
+/* --- Prosa ----------------------------------------------------------------
+   Respuestas del consejero: llegan en markdown y se convierten a HTML con el
+   filtro `markdown`. Aqui se les da ritmo de lectura, porque Tailwind no
+   estiliza etiquetas sueltas. */
+@utility prosa {
+  @apply text-body text-ink-2;
+
+  & > *:first-child { margin-top: 0; }
+  & > *:last-child { margin-bottom: 0; }
+
+  & p { @apply my-3 leading-relaxed; }
+
+  & h2 { @apply mt-6 mb-2 text-h3 font-semibold text-ink; }
+  & h3 { @apply mt-5 mb-2 text-h4 font-semibold text-ink; }
+  & h4 { @apply mt-4 mb-1 text-body font-semibold text-ink; }
+
+  & ul, & ol { @apply my-3 space-y-1 pl-5; }
+  & ul { @apply list-disc; }
+  & ol { @apply list-decimal; }
+  & li { @apply leading-relaxed; }
+  & li::marker { color: var(--color-xp); }
+
+  & strong { @apply font-semibold text-ink; }
+  & em { @apply italic; }
+
+  & a { @apply text-xp underline underline-offset-4; }
+
+  & code {
+    @apply rounded-sm bg-surface-3 px-1 py-0.5 text-body-sm text-ink;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  & pre {
+    @apply my-3 overflow-x-auto rounded-sm border border-line bg-surface-1 p-3 text-body-sm;
+  }
+
+  & pre code { @apply bg-transparent p-0 text-ink-2; }
+
+  & blockquote {
+    @apply my-3 border-l-2 border-xp/50 pl-3 text-ink-3 italic;
+  }
+
+  & hr { @apply my-5 border-line; }
+}
+
+/* Version compacta para el historial. */
+@utility prosa-sm {
+  @apply prosa text-body-sm;
+
+  & h2 { @apply mt-4 text-h4; }
+  & h3, & h4 { @apply mt-3 text-body; }
+  & p { @apply my-2; }
+  & ul, & ol { @apply my-2; }
+}

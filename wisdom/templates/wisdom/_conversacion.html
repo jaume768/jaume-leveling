@@ -1,3 +1,4 @@
+{% load wisdom_extras %}
 <div id="conversacion" class="space-y-4">
   {% if error %}
     <div class="rounded-md border border-warn/35 bg-warn/10 p-4">
@@ -11,9 +12,7 @@
     <article class="card p-5">
       <p class="label">Tu pregunta</p>
       <p class="mt-1 whitespace-pre-line text-body-sm text-ink-3">{{ sesion.pregunta }}</p>
-      <div class="mt-4 border-t border-line pt-4">
-        <p class="whitespace-pre-line text-ink">{{ sesion.respuesta }}</p>
-      </div>
+      <div class="prosa mt-4 border-t border-line pt-4">{{ sesion.respuesta|markdown }}</div>
       <p class="mt-4 text-caption text-ink-3">
         {{ sesion.modelo }} · {{ sesion.tokens_in }} tokens de entrada ·
         {{ sesion.tokens_out }} de salida · {{ sesion.coste_estimado|floatformat:4 }} €
@@ -22,17 +21,31 @@
   {% endif %}
 
   {% if historial %}
-    <details class="card p-4">
-      <summary class="cursor-pointer text-body-sm text-ink-3">Consultas anteriores ({{ historial|length }})</summary>
-      <ul class="mt-3 space-y-3">
+    <section class="card p-4">
+      <p class="label">Consultas anteriores ({{ historial|length }})</p>
+      <ul class="mt-3 space-y-2">
         {% for anterior in historial %}
-          <li class="border-t border-line pt-3">
-            <p class="text-caption text-ink-3">{{ anterior.fecha|date:"d/m/Y H:i" }} · {{ anterior.coste_estimado|floatformat:4 }} €</p>
-            <p class="mt-1 text-body-sm text-ink-3">{{ anterior.pregunta|truncatechars:120 }}</p>
-            <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ anterior.respuesta|truncatechars:400 }}</p>
+          <li>
+            <details class="card-quiet p-3">
+              <summary class="cursor-pointer marker:text-ink-3">
+                <span class="text-caption text-ink-3">
+                  {{ anterior.fecha|date:"d/m/Y H:i" }} · {{ anterior.coste_estimado|floatformat:4 }} €
+                </span>
+                <span class="mt-1 block text-body-sm text-ink-2">{{ anterior.pregunta|truncatechars:160 }}</span>
+              </summary>
+
+              {% if anterior.pregunta|length > 160 %}
+                <div class="mt-3 border-t border-line pt-3">
+                  <p class="label">Tu pregunta</p>
+                  <p class="mt-1 whitespace-pre-line text-body-sm text-ink-3">{{ anterior.pregunta }}</p>
+                </div>
+              {% endif %}
+
+              <div class="prosa-sm mt-3 border-t border-line pt-3">{{ anterior.respuesta|markdown }}</div>
+            </details>
           </li>
         {% endfor %}
       </ul>
-    </details>
+    </section>
   {% endif %}
 </div>
