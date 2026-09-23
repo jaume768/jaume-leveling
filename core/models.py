@@ -108,7 +108,7 @@ class Attribute(models.Model):
 
     class Categoria(models.TextChoices):
         NEGOCIO = "NEGOCIO", "Negocio"
-        TECNICA = "TECNICA", "Tecnica"
+        TECNICA = "TECNICA", "Técnica"
         PERSONAL = "PERSONAL", "Personal"
         SALUD = "SALUD", "Salud"
 

@@ -427,6 +427,14 @@ def contexto_niveles() -> dict:
 # Orden en que se pintan las categorias de atributos.
 CATEGORIAS_ATRIBUTOS = ("NEGOCIO", "TECNICA", "PERSONAL", "SALUD")
 
+# Icono de cada pestana de categoria.
+ICONOS_CATEGORIA = {
+    "NEGOCIO": "negocio",
+    "TECNICA": "ajustes",
+    "PERSONAL": "usuario",
+    "SALUD": "fuego",
+}
+
 
 # Estado de un atributo segun su valor. Los cortes son propios: el documento
 # no los define, pero separan "esto tira", "esto se sostiene" y "esto te esta
@@ -444,6 +452,62 @@ def estado_de_atributo(valor: int) -> dict:
     return {"clave": "riesgo", "etiqueta": "En riesgo", "acento": "bad"}
 
 
+# Icono con el que se reconoce cada atributo de un vistazo en la lista.
+ICONOS_ATRIBUTO = {
+    "finanzas": "euro",
+    "gestion-proyectos": "rangos",
+    "ventas": "embudo",
+    "marca-portfolio": "maximas",
+    "marketing": "progresion",
+    "red-profesional": "usuario",
+    "producto": "carpeta",
+    "organizacion": "revision",
+    "tecnica": "ajustes",
+    "ia-automatizacion": "rayo",
+    "comunicacion": "consejo",
+    "disciplina": "diana",
+    "salud-fisica": "fuego",
+    "energia-descanso": "reloj",
+    "relaciones": "misiones",
+}
+ICONO_ATRIBUTO_POR_DEFECTO = "diana"
+
+
+# --- Chispa: la historia reciente de un atributo en miniatura ----------------
+#
+# Una polilinea de pocos puntos al lado del numero. No lleva ejes ni escala:
+# solo dice si la linea sube, se mantiene o cae.
+
+CHISPA_ANCHO = 72
+CHISPA_ALTO = 24
+CHISPA_MUESTRAS = 8
+
+
+def chispa_de_atributo(atributo, registros) -> str:
+    """Puntos de la polilinea, o cadena vacia si no hay historia que pintar.
+
+    Los registros llegan del mas nuevo al mas viejo (el orden del modelo); se
+    invierten para que el tiempo corra de izquierda a derecha y se remata con
+    el valor de hoy, que es el ultimo punto de la serie.
+    """
+    serie = [r.valor for r in reversed(list(registros)[: CHISPA_MUESTRAS - 1])]
+    serie.append(atributo.valor)
+    if len(serie) < 2:
+        return ""
+
+    minimo, maximo = min(serie), max(serie)
+    recorrido = maximo - minimo
+    paso = CHISPA_ANCHO / (len(serie) - 1)
+    puntos = []
+    for i, valor in enumerate(serie):
+        # Sin recorrido la linea es plana: se pinta a media altura.
+        alto = 0.5 if recorrido == 0 else (valor - minimo) / recorrido
+        x = round(i * paso, 1)
+        y = round(CHISPA_ALTO - 2 - alto * (CHISPA_ALTO - 4), 1)
+        puntos.append(f"{x},{y}")
+    return " ".join(puntos)
+
+
 def _fila_de_atributo(atributo) -> dict:
     """Un atributo con todo lo que hace falta para pintarlo: estado y palancas."""
     from missions.services import partir_titulo
@@ -457,6 +521,94 @@ def _fila_de_atributo(atributo) -> dict:
         "atributo": atributo,
         "estado": estado_de_atributo(atributo.valor),
         "palancas": palancas,
+        "icono": ICONOS_ATRIBUTO.get(atributo.slug, ICONO_ATRIBUTO_POR_DEFECTO),
+        "chispa": chispa_de_atributo(atributo, atributo.registros.all()),
+    }
+
+
+# --- Mapa de atributos: el radar de quince radios ----------------------------
+#
+# Un poligono de un vertice por atributo, donde la longitud del radio es el
+# valor. Las coordenadas se calculan aqui, en una funcion pura, para que la
+# plantilla no haga mas que pintar numeros ya resueltos.
+
+RADAR_ANCHO = 660
+RADAR_ALTO = 400
+RADAR_CENTRO_X = 330
+RADAR_CENTRO_Y = 202
+RADAR_RADIO = 124           # el radio del valor 100
+RADAR_RADIO_ETIQUETA = 150  # donde arranca el nombre del atributo
+RADAR_ANILLOS = (25, 50, 75, 100)
+
+
+def _punto_radar(indice: int, total: int, radio: float) -> tuple:
+    """Coordenada del radio numero `indice`, empezando arriba y en reloj."""
+    import math
+
+    angulo = -math.pi / 2 + indice * 2 * math.pi / total
+    return (
+        round(RADAR_CENTRO_X + radio * math.cos(angulo), 1),
+        round(RADAR_CENTRO_Y + radio * math.sin(angulo), 1),
+    )
+
+
+def _poligono_radar(total: int, porcentaje: float) -> str:
+    puntos = (_punto_radar(i, total, RADAR_RADIO * porcentaje / 100) for i in range(total))
+    return " ".join(f"{x},{y}" for x, y in puntos)
+
+
+def radar_de_atributos(atributos) -> dict:
+    """Anillos, ejes, poligono y etiquetas del mapa de atributos.
+
+    Devuelve un diccionario vacio si no hay radios suficientes para que un
+    poligono signifique algo.
+    """
+    import math
+
+    total = len(atributos)
+    if total < 3:
+        return {}
+
+    vertices = []
+    etiquetas = []
+    ejes = []
+    for i, atributo in enumerate(atributos):
+        x, y = _punto_radar(i, total, RADAR_RADIO * atributo.valor / 100)
+        vertices.append(
+            {"x": x, "y": y, "estado": estado_de_atributo(atributo.valor)}
+        )
+        ejes.append(dict(zip(("x", "y"), _punto_radar(i, total, RADAR_RADIO))))
+
+        ex, ey = _punto_radar(i, total, RADAR_RADIO_ETIQUETA)
+        angulo = -math.pi / 2 + i * 2 * math.pi / total
+        coseno = math.cos(angulo)
+        if coseno > 0.2:
+            ancla = "start"
+        elif coseno < -0.2:
+            ancla = "end"
+        else:
+            ancla = "middle"
+
+        etiquetas.append(
+            {
+                "atributo": atributo,
+                "x": ex,
+                "y": ey,
+                "ancla": ancla,
+                "estado": estado_de_atributo(atributo.valor),
+            }
+        )
+
+    return {
+        "ancho": RADAR_ANCHO,
+        "alto": RADAR_ALTO,
+        "anillos": [_poligono_radar(total, p) for p in RADAR_ANILLOS],
+        "ejes": ejes,
+        "centro_x": RADAR_CENTRO_X,
+        "centro_y": RADAR_CENTRO_Y,
+        "vertices": vertices,
+        "poligono": " ".join(f"{v['x']},{v['y']}" for v in vertices),
+        "etiquetas": etiquetas,
     }
 
 
@@ -484,10 +636,17 @@ def hoja_de_personaje() -> dict:
     }
 
     atributos = list(
-        Attribute.objects.prefetch_related("misiones").all()
+        Attribute.objects.prefetch_related("misiones", "registros").all()
     )
     if not atributos:
-        return {**base, "grupos": [], "media": 0, "fuertes": [], "agujeros": []}
+        return {
+            **base,
+            "grupos": [],
+            "media": 0,
+            "fuertes": [],
+            "agujeros": [],
+            "radar": {},
+        }
 
     por_categoria = []
     for clave in CATEGORIAS_ATRIBUTOS:
@@ -500,6 +659,7 @@ def hoja_de_personaje() -> dict:
             {
                 "clave": clave,
                 "nombre": etiqueta,
+                "icono": ICONOS_CATEGORIA.get(clave, "diana"),
                 "atributos": del_grupo,
                 "filas": [_fila_de_atributo(a) for a in del_grupo],
                 "media": round(sum(a.valor for a in del_grupo) / len(del_grupo)),
@@ -507,12 +667,16 @@ def hoja_de_personaje() -> dict:
         )
 
     ordenados = sorted(atributos, key=lambda a: -a.valor)
+    # El radar sigue el orden de las categorias: asi cada mitad del poligono es
+    # una parte de ti, y un hundimiento se lee como "este lado esta flojo".
+    en_orden = [a for grupo in por_categoria for a in grupo["atributos"]]
     return {
         **base,
         "grupos": por_categoria,
         "media": round(sum(a.valor for a in atributos) / len(atributos)),
         "fuertes": ordenados[:3],
         "agujeros": list(reversed(ordenados[-3:])),
+        "radar": radar_de_atributos(en_orden),
     }
 
 

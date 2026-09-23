@@ -1,15 +1,16 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static l10n %}
 
 {% block title %}Personaje{% endblock %}
 {% block encabezado %}Hoja de personaje{% endblock %}
 {% block subtitulo %}Quince atributos. Cada uno sube con hechos, no con intenciones.{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 gap-6 xl:grid-cols-[22rem_1fr]">
+<div x-data="{ grupo: '{{ grupos.0.clave }}', cabecera: true }"
+     class="grid grid-cols-1 gap-6 lg:grid-cols-[21rem_1fr]">
 
-  {# ================= Columna izquierda: el personaje ================= #}
-  <div class="space-y-4">
+  {# ================= Escritorio: la columna del personaje ================= #}
+  <div class="hidden space-y-4 lg:block">
 
     <section class="retrato relative overflow-hidden rounded-md border border-line">
       {# El retrato manda. El texto se apoya en el pie, que es donde el velo lo sostiene: arriba está la cara. #}
@@ -66,18 +67,60 @@
           <p class="mt-3 text-body-sm text-ink-2">{{ siguiente_rango.objetivo }}</p>
         {% endif %}
         <a href="{% url 'core:niveles' %}"
-           class="mt-3 inline-block text-caption text-xp underline underline-offset-4">
+           class="mt-3 inline-flex items-center gap-1 text-caption text-xp underline underline-offset-4">
           Ver todos los rangos
+          {% include "_icono.html" with icono="flecha" clase="h-3.5 w-3.5" %}
         </a>
       </section>
     {% endif %}
   </div>
 
-  {# ================= Columna derecha: los números ================= #}
-  <div class="entra space-y-6">
+  {# ================= La hoja ================= #}
+  <div class="entra space-y-4 lg:space-y-6">
 
-    {# --- Progreso general --- #}
-    <section class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_20rem]">
+    {# --- Móvil: el retrato apaisado con el rango encima, plegable --- #}
+    <section class="relative overflow-hidden rounded-md border border-line bg-surface-2 lg:hidden">
+      <div x-show="cabecera" class="pointer-events-none absolute inset-0">
+        <img src="{% static 'img/personaje-mini.webp' %}" alt="" aria-hidden="true"
+             class="h-full w-full object-cover object-[78%_12%]">
+        <span class="velo-hero absolute inset-0 block"></span>
+      </div>
+
+      <button type="button" class="btn-icono absolute right-3 top-3 z-10"
+              @click="cabecera = !cabecera"
+              :aria-expanded="cabecera ? 'true' : 'false'"
+              aria-label="Plegar o desplegar la cabecera">
+        <span class="block transition-transform" :class="cabecera ? '-rotate-90' : 'rotate-90'">
+          {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
+        </span>
+      </button>
+
+      <div class="relative p-4">
+        <p x-show="cabecera" class="max-w-[58%] font-serif text-h4 leading-snug text-ink">
+          Un mejor yo construye una mejor realidad.
+        </p>
+
+        <div class="mt-4 flex items-center gap-3">
+          <span class="pedestal">
+            {% include "core/_emblema.html" with rango=rango clase="h-14 w-14" %}
+          </span>
+          <div class="min-w-0 flex-1 pr-10">
+            <p class="truncate text-h4 font-bold uppercase tracking-tight text-xp
+                      [text-shadow:0_0_20px_var(--color-xp)]">
+              {{ rango.nombre|default:"Sin rango" }}
+              <span class="font-semibold normal-case tracking-normal text-ink">· Nivel {{ perfil.nivel }}</span>
+            </p>
+            <div class="bar mt-2 max-w-56"><div class="bar-fill" style="width: {{ media }}%"></div></div>
+            <p class="mt-1 text-h4 font-bold tabular text-ink">
+              {{ media }} <span class="text-body-sm font-normal text-ink-3">/ 100</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# --- Escritorio: progreso general y la máxima --- #}
+    <section class="hidden gap-4 lg:grid lg:grid-cols-[1fr_20rem]">
       <div class="card acento-xp p-5">
         <p class="label">Progreso general</p>
         <div class="mt-2 flex flex-wrap items-end justify-between gap-3">
@@ -98,124 +141,263 @@
         </span>
         <p class="mt-2 font-serif text-h4 leading-snug text-ink">
           Un mejor yo construye una mejor realidad.
-        </p>      </div>
-    </section>
-
-    {# --- Extremos: lo que tira y lo que frena --- #}
-    <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div class="card-acento acento-ok p-4">
-        <p class="flex items-center gap-2">
-          <span class="icon-chip">{% include "_icono.html" with icono="progresion" clase="h-6 w-6" %}</span>
-          <span class="label text-ok">Tus puntos fuertes</span>
-        </p>
-        <ul class="mt-4 space-y-2">
-          {% for a in fuertes %}
-            <li class="flex items-baseline justify-between gap-3">
-              <span class="min-w-0 truncate text-body-sm text-ink-2">{{ a.nombre }}</span>
-              <span class="shrink-0 text-h4 font-semibold tabular text-ok">{{ a.valor }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-      </div>
-
-      <div class="card-acento acento-bad p-4">
-        <p class="flex items-center gap-2">
-          <span class="icon-chip">{% include "_icono.html" with icono="aviso" clase="h-6 w-6" %}</span>
-          <span class="label text-bad">Tus agujeros</span>
-        </p>
-        <ul class="mt-4 space-y-2">
-          {% for a in agujeros %}
-            <li class="flex items-baseline justify-between gap-3">
-              <span class="min-w-0 truncate text-body-sm text-ink-2">{{ a.nombre }}</span>
-              <span class="shrink-0 text-h4 font-semibold tabular text-bad">{{ a.valor }}</span>
-            </li>
-          {% endfor %}
-        </ul>
-        <p class="mt-3 text-caption leading-4 text-ink-3">
-          Son los que te hacen facturar a saltos. Empieza por el más bajo.
         </p>
       </div>
     </section>
 
-    {# --- Atributos, grupo por grupo --- #}
-    {% for grupo in grupos %}
-      <section>
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 class="text-caption font-medium uppercase tracking-widest text-ink-2">
-            {{ grupo.nombre }}
-          </h2>
-          <p class="label">Media del grupo: <span class="tabular text-ink-2">{{ grupo.media }}</span></p>
+    {# --- El mapa de atributos y los dos extremos --- #}
+    <section class="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_21rem]">
+
+      {% if radar %}
+        <div class="card p-4 lg:p-5">
+          <div class="flex items-center justify-between gap-3">
+            <p class="flex items-center gap-2">
+              <span class="icon-chip acento-xp text-xp">
+                {% include "_icono.html" with icono="progresion" clase="h-6 w-6" %}
+              </span>
+              <span class="text-h4 font-semibold text-ink lg:text-body">Mapa de atributos</span>
+            </p>
+            <a href="{% url 'core:calibracion' %}" class="btn-icono" title="Calibrar los atributos"
+               aria-label="Calibrar los atributos">
+              {% include "_icono.html" with icono="ajustes" clase="h-4 w-4" %}
+            </a>
+          </div>
+
+          {% localize off %}
+            <svg class="radar mt-2" viewBox="0 0 {{ radar.ancho }} {{ radar.alto }}"
+                 role="img" aria-label="Los quince atributos, cada radio uno">
+              <defs>
+                <radialGradient id="relleno-radar" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="var(--color-xp)" stop-opacity="0.55"/>
+                  <stop offset="100%" stop-color="var(--color-xp)" stop-opacity="0.12"/>
+                </radialGradient>
+              </defs>
+
+              {# La telaraña: cuatro anillos y un eje por atributo. #}
+              <g class="text-line" stroke="currentColor" stroke-width="1" fill="none" opacity="0.75">
+                {% for anillo in radar.anillos %}
+                  <polygon points="{{ anillo }}"/>
+                {% endfor %}
+                {% for eje in radar.ejes %}
+                  <line x1="{{ radar.centro_x }}" y1="{{ radar.centro_y }}"
+                        x2="{{ eje.x }}" y2="{{ eje.y }}"/>
+                {% endfor %}
+              </g>
+
+              <polygon points="{{ radar.poligono }}" fill="url(#relleno-radar)"
+                       stroke="var(--color-xp)" stroke-width="2.5" stroke-linejoin="round"/>
+
+              {% for v in radar.vertices %}
+                <circle cx="{{ v.x }}" cy="{{ v.y }}" r="4.5"
+                        class="{% if v.estado.acento == 'ok' %}fill-ok{% elif v.estado.acento == 'warn' %}fill-warn{% else %}fill-bad{% endif %}"/>
+              {% endfor %}
+
+              {% comment %}
+                El nombre y el valor van en una sola linea: con quince radios,
+                dos lineas por etiqueta se pisarian arriba y abajo.
+              {% endcomment %}
+              {% for e in radar.etiquetas %}
+                <text x="{{ e.x }}" y="{{ e.y }}" text-anchor="{{ e.ancla }}"
+                      dominant-baseline="middle" class="fill-ink-2"
+                      style="font-size: 14px">{{ e.atributo.nombre }} <tspan
+                      style="font-size: 16px; font-weight: 700"
+                      class="{% if e.estado.acento == 'ok' %}fill-ok{% elif e.estado.acento == 'warn' %}fill-warn{% else %}fill-bad{% endif %}">{{ e.atributo.valor }}</tspan></text>
+              {% endfor %}
+            </svg>
+          {% endlocalize %}
+
+          <p class="mt-1 text-center text-caption text-ink-3 lg:hidden">
+            Cada radio es un atributo. Lo hundido es lo que te cuesta dinero.
+          </p>
+        </div>
+      {% endif %}
+
+      {# Los dos extremos: lo que tira y lo que frena. #}
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-1 lg:gap-4">
+        <div class="card-acento acento-ok p-3 lg:p-4">
+          <p class="flex items-center gap-2">
+            <span class="icon-chip text-ok">{% include "_icono.html" with icono="progresion" clase="h-5 w-5" %}</span>
+            <span class="label text-ok">Tus puntos fuertes</span>
+          </p>
+
+          {# Móvil: tres fichas. Escritorio: tres filas con el nombre entero. #}
+          <div class="mt-3 grid grid-cols-3 gap-2 lg:hidden">
+            {% for a in fuertes %}
+              <div class="rounded-sm border border-ok/25 bg-ok/8 px-1.5 py-2 text-center">
+                <p class="text-[11px] leading-tight text-ink-2">{{ a.nombre }}</p>
+                <p class="text-h4 font-bold tabular text-ok">{{ a.valor }}</p>
+              </div>
+            {% endfor %}
+          </div>
+          <ul class="mt-4 hidden space-y-2 lg:block">
+            {% for a in fuertes %}
+              <li class="flex items-baseline justify-between gap-3">
+                <span class="min-w-0 truncate text-body-sm text-ink-2">{{ a.nombre }}</span>
+                <span class="shrink-0 text-h4 font-semibold tabular text-ok">{{ a.valor }}</span>
+              </li>
+            {% endfor %}
+          </ul>
         </div>
 
-        <div class="mt-3 space-y-3">
-          {% for fila in grupo.filas %}
-            <article x-data="{ factores: false }"
-                     class="card p-4 {% if fila.estado.acento == 'ok' %}acento-ok{% elif fila.estado.acento == 'warn' %}acento-warn{% else %}acento-bad{% endif %}">
-              <div class="flex items-start gap-3">
-                <span class="icon-chip mt-0.5">
-                  {% include "_icono.html" with icono="rangos" clase="h-7 w-7" %}
-                </span>
+        <div class="card-acento acento-bad p-3 lg:p-4">
+          <p class="flex items-center gap-2">
+            <span class="icon-chip text-bad">{% include "_icono.html" with icono="aviso" clase="h-5 w-5" %}</span>
+            <span class="label text-bad">Tus agujeros</span>
+          </p>
 
-                <div class="min-w-0 flex-1">
-                  <div class="flex flex-wrap items-baseline justify-between gap-2">
-                    <h3 class="text-body font-semibold text-ink">{{ fila.atributo.nombre }}</h3>
-                    <p class="flex items-center gap-2">
-                      <span class="text-h3 font-bold tabular text-ink">{{ fila.atributo.valor }}</span>
-                      <span class="text-caption text-ink-3">/ 100</span>
-                      <span class="uppercase tracking-wider {% if fila.estado.acento == 'ok' %}pill-ok{% elif fila.estado.acento == 'warn' %}pill-warn{% else %}pill-bad{% endif %}">
-                        {{ fila.estado.etiqueta }}
+          <div class="mt-3 grid grid-cols-3 gap-2 lg:hidden">
+            {% for a in agujeros %}
+              <div class="rounded-sm border border-bad/25 bg-bad/8 px-1.5 py-2 text-center">
+                <p class="text-[11px] leading-tight text-ink-2">{{ a.nombre }}</p>
+                <p class="text-h4 font-bold tabular text-bad">{{ a.valor }}</p>
+              </div>
+            {% endfor %}
+          </div>
+          <ul class="mt-4 hidden space-y-2 lg:block">
+            {% for a in agujeros %}
+              <li class="flex items-baseline justify-between gap-3">
+                <span class="min-w-0 truncate text-body-sm text-ink-2">{{ a.nombre }}</span>
+                <span class="shrink-0 text-h4 font-semibold tabular text-bad">{{ a.valor }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <p class="mt-3 hidden text-caption leading-4 text-ink-3 lg:block">
+            Son los que te hacen facturar a saltos. Empieza por el más bajo.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    {# --- Pestañas de categoría --- #}
+    {% if grupos %}
+      <section>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {% for g in grupos %}
+            <button type="button" class="pestana" @click="grupo = '{{ g.clave }}'"
+                    :class="grupo === '{{ g.clave }}' ? 'pestana-on' : ''"
+                    :aria-pressed="grupo === '{{ g.clave }}' ? 'true' : 'false'">
+              {% include "_icono.html" with icono=g.icono clase="h-5 w-5" %}
+              <span class="truncate">{{ g.nombre }} · <span class="tabular">{{ g.media }}</span></span>
+            </button>
+          {% endfor %}
+        </div>
+
+        {# --- Los atributos de la categoría elegida --- #}
+        {% for g in grupos %}
+          <div x-show="grupo === '{{ g.clave }}'" class="mt-3 space-y-2 lg:mt-4 lg:space-y-3">
+            {% for fila in g.filas %}
+              <article x-data="{ abierto: false, factores: false }"
+                       class="overflow-hidden rounded-md border border-line bg-surface-2
+                              {% if fila.estado.acento == 'ok' %}acento-ok{% elif fila.estado.acento == 'warn' %}acento-warn{% else %}acento-bad{% endif %}">
+
+                <button type="button" class="flex w-full items-center gap-2.5 px-3 pt-3 text-left lg:gap-3 lg:px-4 lg:py-4"
+                        @click="abierto = !abierto"
+                        :aria-expanded="abierto ? 'true' : 'false'">
+                  <span class="icon-chip shrink-0 {% if fila.estado.acento == 'ok' %}text-ok{% elif fila.estado.acento == 'warn' %}text-warn{% else %}text-bad{% endif %}">
+                    {% include "_icono.html" with icono=fila.icono clase="h-6 w-6" %}
+                  </span>
+
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-body font-semibold text-ink">{{ fila.atributo.nombre }}</span>
+                    {% if fila.atributo.evidencia %}
+                      <span class="mt-0.5 hidden truncate text-caption text-ink-3 xl:block">
+                        {{ fila.atributo.evidencia }}
                       </span>
-                    </p>
-                  </div>
+                    {% endif %}
+                  </span>
 
-                  {% if fila.atributo.evidencia %}
-                    <p class="mt-0.5 text-caption text-ink-3">{{ fila.atributo.evidencia }}</p>
+                  {# Escritorio: la barra va en la propia fila. En móvil, debajo. #}
+                  <span class="bar hidden w-36 shrink-0 lg:block xl:w-48">
+                    <span class="bar-fill block {% if fila.estado.acento == 'ok' %}bar-fill-ok{% elif fila.estado.acento == 'warn' %}bar-fill-warn{% else %}bar-fill-bad{% endif %}"
+                          style="width: {{ fila.atributo.valor }}%"></span>
+                  </span>
+
+                  <span class="shrink-0 whitespace-nowrap">
+                    <span class="text-h4 font-bold tabular text-ink">{{ fila.atributo.valor }}</span>
+                    <span class="text-caption text-ink-3">/ 100</span>
+                  </span>
+
+                  {% if fila.chispa %}
+                    {% localize off %}
+                      <svg class="h-5 w-10 shrink-0 lg:h-6 lg:w-16" viewBox="0 0 72 24"
+                           preserveAspectRatio="none" fill="none" aria-hidden="true">
+                        <polyline points="{{ fila.chispa }}" stroke="currentColor" stroke-width="2"
+                                  stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"
+                                  class="{% if fila.estado.acento == 'ok' %}text-ok{% elif fila.estado.acento == 'warn' %}text-warn{% else %}text-bad{% endif %}"/>
+                      </svg>
+                    {% endlocalize %}
                   {% endif %}
 
-                  <div class="bar mt-3">
+                  <span class="hidden shrink-0 uppercase tracking-wider sm:inline-flex
+                               {% if fila.estado.acento == 'ok' %}pill-ok{% elif fila.estado.acento == 'warn' %}pill-warn{% else %}pill-bad{% endif %}">
+                    {{ fila.estado.etiqueta }}
+                  </span>
+
+                  <span class="block shrink-0 text-ink-3 transition-transform"
+                        :class="abierto ? 'rotate-90' : ''">
+                    {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
+                  </span>
+                </button>
+
+                {# Móvil: la barra, a lo ancho de la ficha. #}
+                <div class="px-3 pb-3 pt-2 lg:hidden">
+                  <div class="bar">
                     <div class="bar-fill {% if fila.estado.acento == 'ok' %}bar-fill-ok{% elif fila.estado.acento == 'warn' %}bar-fill-warn{% else %}bar-fill-bad{% endif %}"
                          style="width: {{ fila.atributo.valor }}%"></div>
                   </div>
                 </div>
-              </div>
 
-              {% if fila.atributo.siguiente_hito %}
-                <div class="mt-4 rounded-sm border-l-2 border-xp bg-surface-1 p-3">
-                  <div class="flex flex-wrap items-start justify-between gap-2">
-                    <div class="min-w-0">
-                      <p class="label text-xp">Siguiente +10</p>
-                      <p class="mt-1 text-body-sm text-ink-2">{{ fila.atributo.siguiente_hito }}</p>
-                    </div>
-                    {% if fila.palancas %}
-                      <button type="button" class="btn-sm shrink-0"
-                              @click="factores = !factores"
-                              :aria-expanded="factores ? 'true' : 'false'">
-                        <span x-text="factores ? 'Ocultar' : 'Ver factores'">Ver factores</span>
-                      </button>
+                {% if fila.atributo.siguiente_hito %}
+                  <div x-show="abierto" x-cloak class="px-3 pb-3 lg:px-4 lg:pb-4">
+                    {% if fila.atributo.evidencia %}
+                      <p class="mb-2 text-caption text-ink-3 xl:hidden">{{ fila.atributo.evidencia }}</p>
                     {% endif %}
-                  </div>
 
-                  {% if fila.palancas %}
-                    <div class="mt-3 flex flex-wrap gap-1.5" x-show="factores" x-cloak>
-                      {% for palanca in fila.palancas %}
-                        <span class="pill-mut">
-                          {% if palanca.codigo %}<strong class="text-ink-2">{{ palanca.codigo }}</strong> · {% endif %}
-                          {{ palanca.titulo }}
-                        </span>
-                      {% endfor %}
+                    <div class="rounded-sm border-l-2 border-xp bg-surface-1 p-3">
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="min-w-0 text-body-sm text-ink-2">
+                          <span class="font-semibold text-xp">Siguiente +10:</span>
+                          {{ fila.atributo.siguiente_hito }}
+                        </p>
+                        {% if fila.palancas %}
+                          <button type="button" class="btn-sm shrink-0"
+                                  @click.stop="factores = !factores"
+                                  :aria-expanded="factores ? 'true' : 'false'">
+                            <span x-text="factores ? 'Ocultar' : 'Ver factores'">Ver factores</span>
+                            {% include "_icono.html" with icono="chevron" clase="h-3.5 w-3.5" %}
+                          </button>
+                        {% endif %}
+                      </div>
+
+                      {% if fila.palancas %}
+                        <div class="mt-3 flex flex-wrap gap-1.5" x-show="factores" x-cloak>
+                          {% for palanca in fila.palancas %}
+                            <span class="pill-mut">
+                              {% if palanca.codigo %}<strong class="text-ink-2">{{ palanca.codigo }}</strong> · {% endif %}
+                              {{ palanca.titulo }}
+                            </span>
+                          {% endfor %}
+                        </div>
+                      {% endif %}
                     </div>
-                  {% endif %}
-                </div>
-              {% endif %}
-            </article>
-          {% endfor %}
-        </div>
+                  </div>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+        {% endfor %}
+
+        <p class="mt-3 flex items-center justify-center gap-1.5 text-caption text-ink-3 lg:hidden">
+          <span class="rotate-90 inline-block">{% include "_icono.html" with icono="chevron" clase="h-3.5 w-3.5" %}</span>
+          Toca un atributo para ver qué mueve su siguiente +10
+        </p>
       </section>
-    {% empty %}
+    {% else %}
       <p class="card p-5 text-body-sm text-ink-3">
         No hay atributos cargados todavía.
       </p>
-    {% endfor %}
+    {% endif %}
   </div>
 </div>
 {% endblock %}

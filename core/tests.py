@@ -586,6 +586,60 @@ class TestRetratoDelPersonaje:
         for atributo in Attribute.objects.all():
             assert atributo.nombre in contenido
 
+    def test_el_radar_tiene_un_radio_por_atributo_dentro_del_lienzo(self):
+        from core import services
+
+        radar = services.hoja_de_personaje()["radar"]
+
+        assert len(radar["vertices"]) == 15
+        assert len(radar["etiquetas"]) == 15
+        assert len(radar["poligono"].split()) == 15
+        for e in radar["etiquetas"]:
+            assert 0 <= e["x"] <= radar["ancho"]
+            assert 0 <= e["y"] <= radar["alto"]
+            assert e["ancla"] in {"start", "middle", "end"}
+        # El primer radio apunta arriba: su nombre va centrado sobre el vertice.
+        assert radar["etiquetas"][0]["ancla"] == "middle"
+
+    def test_las_etiquetas_del_radar_no_se_pisan(self):
+        """Quince nombres alrededor de un circulo pequeno caben por poco."""
+        from core import services
+
+        radar = services.hoja_de_personaje()["radar"]
+        for lado in ("start", "end"):
+            alturas = sorted(e["y"] for e in radar["etiquetas"] if e["ancla"] == lado)
+            separaciones = [b - a for a, b in zip(alturas, alturas[1:])]
+            assert min(separaciones) >= 20, separaciones
+
+    def test_la_chispa_calla_cuando_no_hay_historia(self):
+        from core import services
+        from core.models import Attribute
+
+        finanzas = Attribute.objects.get(slug="finanzas")
+        assert services.chispa_de_atributo(finanzas, []) == ""
+
+    def test_la_chispa_pinta_la_historia_mas_el_valor_de_hoy(self):
+        import datetime as dt
+
+        from core import services
+        from core.models import Attribute, AttributeLog
+
+        finanzas = Attribute.objects.get(slug="finanzas")
+        hoy = dt.date.today()
+        registros = [
+            AttributeLog(attribute=finanzas, fecha=hoy - dt.timedelta(days=d), valor=v)
+            for d, v in ((1, 50), (2, 40))  # del mas nuevo al mas viejo
+        ]
+
+        puntos = services.chispa_de_atributo(finanzas, registros).split()
+
+        assert len(puntos) == 3
+        # El tiempo corre de izquierda a derecha y el ultimo punto es hoy.
+        assert float(puntos[0].split(",")[0]) == 0
+        assert float(puntos[-1].split(",")[0]) == services.CHISPA_ANCHO
+        # 40 es el minimo de la serie: se pinta abajo del todo.
+        assert float(puntos[0].split(",")[1]) > float(puntos[-1].split(",")[1])
+
     def test_las_clases_de_color_van_literales(self, client):
         """Tailwind rastrea texto: una clase construida con {{ }} no se genera."""
         contenido = client.get(reverse("core:personaje")).content.decode()
