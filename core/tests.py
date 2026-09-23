@@ -840,3 +840,48 @@ class TestBarraLateral:
         aside = contenido[contenido.index("<aside"):contenido.index("</aside>")]
         # La marca, el bloque de la cita y el pie llevan shrink-0.
         assert aside.count("shrink-0") >= 2
+
+
+# --- App instalable -----------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestAppInstalable:
+    """Manifiesto, worker y assetlinks se piden sin sesion: no pueden ir al login."""
+
+    @pytest.mark.parametrize(
+        "ruta, tipo",
+        [
+            ("/manifest.webmanifest", "application/manifest+json"),
+            ("/sw.js", "application/javascript"),
+            ("/sin-conexion/", "text/html"),
+            ("/.well-known/assetlinks.json", "application/json"),
+        ],
+    )
+    def test_responden_sin_sesion(self, ruta, tipo):
+        from django.test import Client as ClienteHttp
+
+        respuesta = ClienteHttp().get(ruta)
+        assert respuesta.status_code == 200
+        assert respuesta["Content-Type"].startswith(tipo)
+
+    def test_el_manifiesto_es_json_valido(self, client):
+        import json
+
+        datos = json.loads(client.get("/manifest.webmanifest").content)
+        assert datos["display"] == "standalone"
+        assert {i["sizes"] for i in datos["icons"]} >= {"192x192", "512x512"}
+
+    def test_assetlinks_vacio_sin_huella(self, client, settings):
+        settings.ANDROID_SHA256 = []
+        assert client.get("/.well-known/assetlinks.json").json() == []
+
+    def test_assetlinks_con_huella(self, client, settings):
+        settings.ANDROID_PACKAGE = "com.jaumeleveling.app"
+        settings.ANDROID_SHA256 = ["AA:BB"]
+        destino = client.get("/.well-known/assetlinks.json").json()[0]["target"]
+        assert destino["package_name"] == "com.jaumeleveling.app"
+        assert destino["sha256_cert_fingerprints"] == ["AA:BB"]
+
+    def test_las_paginas_enlazan_el_manifiesto(self, client):
+        assert b'rel="manifest"' in client.get(reverse("core:index")).content

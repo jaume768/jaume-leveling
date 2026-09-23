@@ -126,3 +126,9 @@ LOGOUT_REDIRECT_URL = "/entrar/"
 # SDK de Anthropic (revision asistida, redaccion comercial, calibracion).
 ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY")
 ANTHROPIC_MODEL = env("ANTHROPIC_MODEL")
+
+# App de Android (APK con Bubblewrap). La huella SHA-256 del certificado con el
+# que se firma el APK va en assetlinks.json: sin ella la app se abre con la
+# barra de direccion de Chrome arriba. Vacia, el fichero sale vacio.
+ANDROID_PACKAGE = env("ANDROID_PACKAGE", default="com.jaumeleveling.app")
+ANDROID_SHA256 = env.list("ANDROID_SHA256", default=[])

@@ -1,0 +1,22 @@
+{% load static %}{
+  "name": "Jaume Leveling",
+  "short_name": "Leveling",
+  "description": "Progreso con propósito: misiones, XP y negocio en una sola herramienta.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "es",
+  "background_color": "#060e24",
+  "theme_color": "#060e24",
+  "icons": [
+    {"src": "{% static 'img/app/icono-192.png' %}", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "{% static 'img/app/icono-512.png' %}", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "{% static 'img/app/icono-maskable-512.png' %}", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Misiones de hoy", "url": "/misiones/", "icons": [{"src": "{% static 'img/app/icono-192.png' %}", "sizes": "192x192"}]},
+    {"name": "Pipeline", "url": "/negocio/pipeline/", "icons": [{"src": "{% static 'img/app/icono-192.png' %}", "sizes": "192x192"}]}
+  ]
+}

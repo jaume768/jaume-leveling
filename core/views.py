@@ -1,3 +1,6 @@
+from django.conf import settings
+from django.contrib.auth.decorators import login_not_required
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
@@ -72,3 +75,50 @@ def captura(request):
             return render(request, "core/_captura_hecha.html", contexto)
 
     return render(request, "core/_modal_captura.html", contexto)
+
+
+# --- App instalable (PWA y APK) ----------------------------------------------
+#
+# Las cuatro rutas son publicas: el navegador las pide antes de que haya sesion.
+
+
+@login_not_required
+def manifiesto(request):
+    """Lo que Android lee para instalar la web como app."""
+    return render(
+        request, "core/manifest.webmanifest", content_type="application/manifest+json"
+    )
+
+
+@login_not_required
+def service_worker(request):
+    """Desde la raiz, para que su alcance cubra toda la aplicacion."""
+    respuesta = render(request, "core/sw.js", content_type="application/javascript")
+    # Nunca en cache: si no, un cambio del worker tardaria dias en llegar.
+    respuesta["Cache-Control"] = "no-cache"
+    return respuesta
+
+
+@login_not_required
+def sin_conexion(request):
+    """Pantalla que el service worker ensena cuando no hay red."""
+    return render(request, "core/sin_conexion.html")
+
+
+@login_not_required
+def assetlinks(request):
+    """Prueba de que el APK y el dominio son del mismo dueno.
+
+    Con ella la app se abre a pantalla completa; sin ella, con barra de Chrome.
+    """
+    enlaces = [
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": settings.ANDROID_PACKAGE,
+                "sha256_cert_fingerprints": settings.ANDROID_SHA256,
+            },
+        }
+    ] if settings.ANDROID_SHA256 else []
+    return JsonResponse(enlaces, safe=False)

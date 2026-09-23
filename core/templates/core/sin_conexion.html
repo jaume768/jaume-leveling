@@ -1,0 +1,21 @@
+{% load static %}
+<!doctype html>
+<html lang="es" class="h-full" data-tema="oscuro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#060e24">
+  <title>Sin conexión · Sistema</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+</head>
+<body class="flex h-full items-center justify-center bg-base p-6 text-center text-ink-2 antialiased">
+  <main class="max-w-sm">
+    <img src="{% static 'img/app/icono-192.png' %}" alt="" width="96" height="96" class="mx-auto rounded-xl">
+    <h1 class="mt-6 text-h2 font-semibold text-ink">Sin conexión</h1>
+    <p class="mt-2 text-body text-ink-3">
+      El sistema necesita red para darte cifras de verdad. En cuanto vuelva, recarga.
+    </p>
+    <button type="button" class="btn-xp mt-6" onclick="location.reload()">Reintentar</button>
+  </main>
+</body>
+</html>
