@@ -503,6 +503,7 @@ def panel_de_misiones(fecha: dt.date | None = None, minimo: bool = False) -> dic
         "pct": round(hechas_dia / total_dia * 100) if total_dia else 0,
         "hechas": hechas_dia,
         "total": total_dia,
+        "pendientes": total_dia - hechas_dia,
     }
 
 

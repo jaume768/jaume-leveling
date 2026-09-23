@@ -14,8 +14,12 @@ def index(request):
         tipo = ""
 
     contexto = services.catalogo_de_misiones(tipo=tipo)
-    plantilla = "missions/_catalogo.html" if request.htmx else "missions/index.html"
-    return render(request, plantilla, contexto)
+    if request.htmx:
+        return render(request, "missions/_catalogo.html", contexto)
+    # La pagina completa abre con las de hoy, marcables: es donde lleva el
+    # "Ir a misiones" del panel cuando no caben en su caja.
+    contexto["misiones"] = services.panel_de_misiones(minimo=request.GET.get("minimo") == "1")
+    return render(request, "missions/index.html", contexto)
 
 
 def _fragmento(request, error: str = "", mision=None):

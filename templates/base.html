@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#070b12">
+  <meta name="theme-color" content="#060e24">
   <style>[x-cloak]{display:none!important}</style>
   <script>
     /* Unico JavaScript propio de la aplicacion. Va aqui, antes de pintar nada,
@@ -83,8 +83,8 @@
   {# ------------------------------------------------------------------ #}
   <div class="flex min-w-0 flex-1 flex-col">
 
-    <header class="sticky top-0 z-10 flex items-center gap-4 border-b border-line
-                   bg-base/90 px-4 py-4 backdrop-blur md:px-10 md:py-6">
+    <header class="sticky top-0 z-10 flex items-center gap-4 bg-base/85 px-4 py-4
+                   backdrop-blur md:px-10 md:py-6">
       <button type="button" class="btn px-2 py-2 md:hidden" @click="abierto = true"
               aria-label="Abrir el menú">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -130,9 +130,9 @@
 
         {% if user.is_authenticated %}
           <a href="{% url 'core:personaje' %}" title="{{ user.username }}"
-             class="flex h-9 w-9 items-center justify-center rounded-full border border-xp/40
-                    bg-xp/15 text-body-sm font-semibold uppercase text-xp transition-colors
-                    hover:bg-xp/25">
+             class="flex h-11 w-11 items-center justify-center rounded-full border-2 border-xp/50
+                    bg-xp/15 text-body font-semibold uppercase text-xp transition-colors
+                    shadow-[0_0_18px_-6px_var(--color-xp)] hover:bg-xp/25">
             {{ user.username|first }}
           </a>
         {% endif %}
@@ -147,18 +147,26 @@
   {# ------------------------------------------------------------------ #}
   {# Barra inferior de movil                                             #}
   {# ------------------------------------------------------------------ #}
-  <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-line
-              bg-surface-1/95 backdrop-blur md:hidden">
-    {% for entrada in navegacion %}
-      {% if entrada.movil %}
-        <a href="{{ entrada.url }}"
-           class="flex flex-col items-center gap-1 py-2.5 text-caption
-                  {% if entrada.activa %}text-xp{% else %}text-ink-3{% endif %}"
-           {% if entrada.activa %}aria-current="page"{% endif %}>
-          {% include "_icono.html" with icono=entrada.icono clase="h-6 w-6" %}
-          {{ entrada.etiqueta }}
-        </a>
+  <nav class="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 items-end rounded-t-xl border-t
+              border-line bg-surface-1/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+    {% for entrada in navegacion_movil %}
+      {# La captura rapida ocupa el centro, entre las dos mitades del menu. #}
+      {% if forloop.counter == 3 and user.is_authenticated %}
+        <div class="flex justify-center">
+          <button type="button" class="fab-central -mt-7 mb-3" aria-label="Captura rápida"
+                  hx-get="{% url 'core:captura' %}"
+                  hx-target="#modal" hx-swap="innerHTML">
+            {% include "_icono.html" with icono="suma" clase="h-8 w-8" %}
+          </button>
+        </div>
       {% endif %}
+      <a href="{{ entrada.url }}"
+         class="flex flex-col items-center gap-1 pb-3 pt-3 text-caption
+                {% if entrada.activa %}text-xp{% else %}text-ink-3{% endif %}"
+         {% if entrada.activa %}aria-current="page"{% endif %}>
+        {% include "_icono.html" with icono=entrada.icono clase="h-6 w-6" %}
+        {{ entrada.etiqueta }}
+      </a>
     {% endfor %}
   </nav>
 

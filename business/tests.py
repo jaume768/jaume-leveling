@@ -322,8 +322,8 @@ class TestVistas:
 
     def test_el_dashboard_muestra_la_tarifa_efectiva(self, client):
         respuesta = client.get(reverse("core:index"))
-        assert "Métrica maestra".encode() in respuesta.content
         assert "Tarifa efectiva".encode() in respuesta.content
+        assert "Objetivo:".encode() in respuesta.content
 
 
 # --- XP por hechos comerciales -----------------------------------------------
@@ -505,3 +505,54 @@ class TestConfirmacionDeCobro:
 
     def test_el_cobro_no_acepta_peticiones_get(self, client, factura):
         assert client.get(reverse("business:factura_cobrar", args=[factura.pk])).status_code == 405
+
+
+# --- Panel: embudo del pipeline y grafica de la tarifa ------------------------
+
+
+@pytest.mark.django_db
+class TestPanelComercial:
+    def test_el_embudo_cuenta_solo_las_abiertas_por_etapa(self):
+        _deal(estado=Deal.Estado.CONTACTADO)
+        _deal(estado=Deal.Estado.CONTACTADO)
+        _deal(estado=Deal.Estado.CONVERSANDO)
+        _deal(estado=Deal.Estado.PROPUESTA)
+        _deal(estado=Deal.Estado.GANADO)
+        _deal(estado=Deal.Estado.PERDIDO)
+
+        embudo = {e["estado"]: e for e in services.embudo_pipeline()}
+        assert [e["total"] for e in embudo.values()] == [2, 1, 1]
+        assert embudo[Deal.Estado.CONTACTADO]["pct"] == 50
+
+    def test_el_embudo_vacio_no_divide_por_cero(self, db):
+        assert all(e["total"] == 0 and e["pct"] == 0 for e in services.embudo_pipeline())
+
+    def test_la_grafica_compara_con_los_90_dias_anteriores(self, cliente):
+        from core.services import grafica_tarifa
+
+        hoy = timezone.localdate()
+        # Periodo anterior: 40 EUR/h. Periodo actual: 50 EUR/h.
+        Project.objects.create(
+            client=cliente, nombre="Antes", precio=Decimal("2000"),
+            horas_reales=Decimal("50"), estado=Project.Estado.ENTREGADO,
+            fecha_entrega=hoy - dt.timedelta(days=100),
+        )
+        Project.objects.create(
+            client=cliente, nombre="Ahora", precio=Decimal("2500"),
+            horas_reales=Decimal("50"), estado=Project.Estado.ENTREGADO,
+            fecha_entrega=hoy - dt.timedelta(days=5),
+        )
+        grafica = grafica_tarifa(hoy, Decimal("40"))
+        assert grafica["variacion"] == 25
+        assert grafica["linea"]
+        # La escala llega a 60 (40 x 1,5) y el objetivo cae en sus dos tercios.
+        assert [m["valor"] for m in grafica["marcas"]] == [60, 40, 20]
+        assert grafica["objetivo_pct"] == 67
+
+    def test_sin_entregas_la_grafica_no_inventa_datos(self, db):
+        from core.services import grafica_tarifa
+
+        grafica = grafica_tarifa(timezone.localdate(), Decimal("40"))
+        assert grafica["linea"] == ""
+        assert grafica["variacion"] is None
+        assert grafica["barra_pct"] == 0

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 240" preserveAspectRatio="xMaxYMax slice" role="img" aria-hidden="true">
+  <defs>
+    <radialGradient id="halo" cx="0.64" cy="0.28" r="0.5">
+      <stop offset="0%" stop-color="#ffb13b" stop-opacity="0.55"/>
+      <stop offset="45%" stop-color="#d9771c" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#d9771c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="luz" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd27a"/>
+      <stop offset="45%" stop-color="#e08a22"/>
+      <stop offset="100%" stop-color="#6b3a12"/>
+    </linearGradient>
+    <linearGradient id="sombra" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a2233"/>
+      <stop offset="100%" stop-color="#0d0f1c"/>
+    </linearGradient>
+    <linearGradient id="lejos" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a3140"/>
+      <stop offset="100%" stop-color="#15141f"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="520" height="240" fill="url(#halo)"/>
+
+  <!-- Cordillera lejana -->
+  <path d="M0 200 L60 150 L110 178 L170 128 L230 170 L270 150 L300 165 L360 120 L420 160 L470 132 L520 158 L520 240 L0 240 Z"
+        fill="url(#lejos)" opacity="0.8"/>
+
+  <!-- Cumbre principal: cara en sombra y cara encendida -->
+  <path d="M190 240 L270 150 L300 118 L333 70 L356 104 L390 136 L430 170 L520 240 Z" fill="url(#sombra)"/>
+  <path d="M333 70 L322 100 L308 118 L296 150 L278 182 L262 240 L190 240 L270 150 L300 118 Z" fill="url(#luz)" opacity="0.95"/>
+  <path d="M333 70 L341 96 L336 122 L346 150 L338 190 L350 240 L300 240 L312 190 L306 150 L318 120 L322 100 Z" fill="#f5b04a" opacity="0.35"/>
+
+  <!-- Colinas cercanas -->
+  <path d="M0 240 L0 214 L70 190 L140 214 L200 196 L260 222 L320 204 L390 226 L450 206 L520 222 L520 240 Z" fill="#0b0e19"/>
+
+  <!-- Bandera -->
+  <path d="M333 70 V44" stroke="#ffe3a8" stroke-width="1.6"/>
+  <path d="M333 44 L350 49 L333 55 Z" fill="#ffc15a"/>
+  <circle cx="333" cy="52" r="16" fill="#ffc15a" opacity="0.18"/>
+</svg>

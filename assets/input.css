@@ -36,6 +36,7 @@
   --color-ink: #f8fafc;         /* texto principal */
   --color-ink-2: #c7d2e1;       /* texto secundario */
   --color-ink-3: #8b9bb4;       /* texto terciario */
+  --color-violeta: #9b6bff;     /* segunda serie: propuestas, anillo de nivel */
 
   /* Sombras. Antes no habia ninguna y por eso todo se veia plano. */
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 8px 24px -12px rgb(0 0 0 / 0.55);
@@ -77,23 +78,26 @@
 :root,
 [data-tema="oscuro"] {
   color-scheme: dark;
-  --color-base: #070b12;
-  --color-surface-1: #0e1421;
-  --color-surface-2: #141b2b;
-  --color-surface-3: #1e2839;
-  --color-line: #2a3650;
-  --color-xp: #4d8dff;
+  /* Azul noche, no gris: las superficies tiran a marino, como el cielo
+     antes del amanecer, y los bordes son azul apagado en vez de gris. */
+  --color-base: #060e24;
+  --color-surface-1: #0a1531;
+  --color-surface-2: #0c1938;
+  --color-surface-3: #16264a;
+  --color-line: #213358;
+  --color-xp: #3d8bff;
   --color-ok: #2ee68a;
-  --color-warn: #fbbf24;
+  --color-warn: #f5b536;
   --color-bad: #fb5c72;
-  --color-ink: #f8fafc;
-  --color-ink-2: #c7d2e1;
-  --color-ink-3: #8b9bb4;
+  --color-ink: #f4f7fc;
+  --color-ink-2: #c5d0e3;
+  --color-ink-3: #8898b5;
+  --color-violeta: #9b6bff;
 
   /* Halo del fondo: el degradado que da profundidad a toda la aplicacion. */
-  --halo-1: rgb(77 141 255 / 0.10);
-  --halo-2: rgb(139 92 246 / 0.07);
-  --velo-tarjeta: rgb(255 255 255 / 0.025);
+  --halo-1: rgb(61 139 255 / 0.12);
+  --halo-2: rgb(80 70 220 / 0.08);
+  --velo-tarjeta: rgb(90 150 255 / 0.05);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 8px 24px -12px rgb(0 0 0 / 0.55);
   --shadow-alto: 0 2px 4px rgb(0 0 0 / 0.35), 0 18px 40px -16px rgb(0 0 0 / 0.65);
 }
@@ -112,6 +116,7 @@
   --color-ink: #0b1220;
   --color-ink-2: #44506a;
   --color-ink-3: #616f89;
+  --color-violeta: #7c3aed;
 
   --halo-1: rgb(37 99 235 / 0.07);
   --halo-2: rgb(139 92 246 / 0.05);
@@ -336,6 +341,15 @@
   box-shadow: 0 0 12px -2px var(--color-warn);
 }
 
+@utility bar-fill-violeta {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-violeta) 55%, transparent),
+    var(--color-violeta)
+  );
+  box-shadow: 0 0 12px -2px var(--color-violeta);
+}
+
 /* Cifra grande con degradado: el numero que manda en cada tarjeta. */
 @utility metric-vivo {
   @apply metric;
@@ -371,6 +385,13 @@
   line-height: var(--text-caption--line-height);
 }
 
+@utility btn-warn-sm {
+  @apply btn-warn;
+  padding: 0.25rem 0.5rem;
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+}
+
 @utility btn-xp {
   @apply btn border-transparent bg-xp text-white hover:bg-xp/85 hover:text-white;
   box-shadow: 0 6px 20px -10px var(--color-xp);
@@ -385,15 +406,23 @@
 
 /* --- Navegacion --- */
 @utility nav-item {
-  @apply flex items-center gap-3 rounded-sm px-3 py-2.5 text-body-sm font-medium
-         text-ink-3 transition-colors hover:bg-surface-3 hover:text-ink-2;
+  @apply flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5
+         text-body font-medium text-ink-3 transition-colors
+         hover:bg-surface-3 hover:text-ink-2;
 }
 
 @utility nav-item-on {
-  @apply nav-item bg-xp/12 text-xp hover:bg-xp/16 hover:text-xp;
-  /* Filo encendido a la izquierda y halo: es lo que hace que "salte". */
-  box-shadow: inset 2px 0 0 0 var(--color-xp), 0 8px 22px -14px var(--color-xp);
+  @apply nav-item text-ink hover:text-ink;
+  /* Caja azul encendida, con el filo y el halo: es lo que hace que "salte". */
+  border-color: color-mix(in oklab, var(--color-xp) 55%, transparent);
+  background-image: linear-gradient(100deg,
+    color-mix(in oklab, var(--color-xp) 32%, transparent),
+    color-mix(in oklab, var(--color-xp) 14%, transparent));
+  box-shadow: 0 8px 24px -12px var(--color-xp), inset 0 1px 0 rgb(255 255 255 / 0.06);
+
+  & svg { color: var(--color-xp); }
 }
+[data-tema="claro"] .nav-item-on { color: var(--color-xp); }
 
 /* --- Casilla de mision --- */
 @utility check {
@@ -536,11 +565,11 @@
   }
 }
 
-/* Boton flotante de captura rapida. Se aparta de la barra inferior en movil y
-   baja a la esquina en escritorio, donde esa barra no existe. */
+/* Boton flotante de captura rapida. Solo en escritorio: en movil la captura
+   vive en el centro de la barra inferior (.fab-central). */
 @utility fab {
-  @apply fixed right-4 z-30 flex items-center justify-center rounded-full
-         border border-xp/40 bg-xp text-white transition-transform;
+  @apply fixed right-4 z-30 hidden items-center justify-center rounded-full
+         border border-xp/40 bg-xp text-white transition-transform md:flex;
   bottom: 5.5rem;
   width: 3.5rem;
   height: 3.5rem;
@@ -648,4 +677,117 @@
   & h3, & h4 { @apply mt-3 text-body; }
   & p { @apply my-2; }
   & ul, & ol { @apply my-2; }
+}
+
+/* ---------------------------------------------------------------------------
+   Panel. Piezas propias de la pantalla principal: la tarjeta que manda, las
+   casillas cuadradas de "Hoy", los anillos y las escenas con ilustracion.
+   --------------------------------------------------------------------------- */
+
+/* La tarjeta que preside: borde encendido y un resplandor azul por dentro. */
+@utility card-foco {
+  @apply card;
+  border-color: color-mix(in oklab, var(--color-xp) 38%, var(--color-line));
+  background-image:
+    radial-gradient(70% 90% at 12% 0%, color-mix(in oklab, var(--color-xp) 14%, transparent), transparent 70%),
+    linear-gradient(170deg, var(--velo-tarjeta), transparent 55%);
+  box-shadow: var(--shadow-card), 0 0 40px -18px var(--color-xp),
+              inset 0 1px 0 rgb(255 255 255 / 0.04);
+}
+
+/* Cifra que brilla: la tarifa, el nivel. Solo en oscuro; en claro, limpia. */
+@utility brillo {
+  text-shadow: 0 0 28px color-mix(in oklab, var(--acento, var(--color-xp)) 55%, transparent);
+}
+[data-tema="claro"] .brillo { text-shadow: none; }
+
+@utility label-acento {
+  @apply text-caption font-semibold uppercase tracking-[0.14em];
+  color: var(--acento, var(--color-xp));
+}
+
+/* Casilla cuadrada de "Hoy" y del jefe. */
+@utility casilla {
+  @apply inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px]
+         border-2 transition-colors;
+  border-color: color-mix(in oklab, var(--color-ink-3) 70%, transparent);
+}
+
+@utility casilla-todo {
+  @apply casilla hover:border-xp hover:bg-xp/10;
+}
+
+@utility casilla-done {
+  @apply casilla border-ok bg-ok;
+  color: var(--color-base);
+}
+
+/* Fila de "Hoy": caja propia, titulo grande y chevron al final. */
+@utility fila-hoy {
+  @apply flex items-center gap-4 rounded-md border border-line px-4 py-3.5
+         transition-[background-color,border-color] duration-150;
+  background-color: color-mix(in oklab, var(--color-surface-1) 70%, transparent);
+
+  &:hover {
+    @apply bg-surface-3;
+    border-color: color-mix(in oklab, var(--color-xp) 35%, var(--color-line));
+  }
+}
+
+/* Anillo de progreso. El trazo lleva pathLength=100, asi que el porcentaje
+   se escribe directamente en stroke-dasharray. */
+@utility anillo {
+  transform: rotate(-90deg);
+  & circle { fill: none; stroke-linecap: round; }
+  & .anillo-fondo { stroke: var(--color-surface-3); }
+  & .anillo-valor {
+    stroke: url(#degradado-anillo);
+    filter: drop-shadow(0 0 6px color-mix(in oklab, var(--color-xp) 60%, transparent));
+  }
+}
+
+/* Jefe: tinte ambar desde la izquierda y la cumbre encendida a la derecha. */
+@utility escena-jefe {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: var(--color-surface-2);
+  background-image:
+    linear-gradient(95deg,
+      color-mix(in oklab, var(--color-warn) 12%, var(--color-surface-2)) 0%,
+      color-mix(in oklab, var(--color-surface-2) 92%, transparent) 45%,
+      transparent 75%),
+    url("../img/cumbre-dorada.svg");
+  background-repeat: no-repeat;
+  background-position: left top, right bottom;
+  background-size: 100% 100%, auto 100%;
+  border: 1px solid color-mix(in oklab, var(--color-warn) 55%, transparent);
+  border-left-width: 4px;
+  border-left-color: var(--color-warn);
+  box-shadow: var(--shadow-card), 0 0 36px -20px var(--color-warn);
+}
+[data-tema="claro"] .escena-jefe {
+  background-image:
+    linear-gradient(95deg,
+      color-mix(in oklab, var(--color-warn) 10%, var(--color-surface-2)) 0%,
+      var(--color-surface-2) 55%,
+      color-mix(in oklab, var(--color-surface-2) 55%, transparent) 100%),
+    url("../img/cumbre-dorada.svg");
+}
+
+/* Carrusel de cifras en movil: se desliza con el dedo y encaja en cada tarjeta. */
+@utility carrusel {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+  & > * { scroll-snap-align: start; }
+}
+
+/* Boton central de la barra inferior de movil. */
+@utility fab-central {
+  @apply flex h-16 w-16 items-center justify-center rounded-full bg-xp text-white
+         transition-transform active:scale-95;
+  box-shadow: 0 0 0 6px var(--color-base),
+              0 0 0 7px color-mix(in oklab, var(--color-xp) 35%, transparent),
+              0 10px 30px -6px var(--color-xp);
 }

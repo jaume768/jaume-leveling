@@ -1,174 +1,383 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block title %}Panel{% endblock %}
 
 {% block cabecera %}
-  <h1 class="text-h2 font-semibold tracking-tight text-ink md:text-display">
+  <h1 class="truncate text-h2 font-bold tracking-tight text-ink md:text-[2rem] md:leading-10">
     Buenas{% if rango %}, {{ rango.nombre }}{% endif %}.
   </h1>
-  <p class="mt-1 text-body-sm capitalize text-ink-3">{{ hoy|date:"l, j \d\e F \d\e Y" }}</p>
+  <p class="mt-0.5 text-body text-ink-3 first-letter:uppercase">{{ hoy|date:"l, j \d\e F" }}<span class="hidden sm:inline"> de {{ hoy|date:"Y" }}</span></p>
 {% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
+{# Degradado de los anillos de progreso: se define una vez y lo usan todos. #}
+<svg class="absolute h-0 w-0" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="degradado-anillo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="var(--color-violeta)"/>
+      <stop offset="100%" stop-color="var(--color-xp)"/>
+    </linearGradient>
+  </defs>
+</svg>
 
-  {# ================= Columna izquierda: estado ================= #}
-  <div class="entra space-y-6">
+<div class="space-y-5">
+{% include "core/_alertas.html" %}
 
-    {# --- Nivel y progreso --- #}
-    <section class="card-viva escena-cumbres acento-xp p-5">
-      <a href="{% url 'core:niveles' %}" class="flex items-start gap-4"
-         title="Ver rangos y niveles">
-        <span class="pedestal">
-          {% include "core/_emblema.html" with rango=rango clase="h-20 w-20" %}
-        </span>
+{% comment %}
+  Rejilla del panel. En escritorio grande, dos columnas: a la izquierda la
+  tarifa, el jefe y las tres cifras; a la derecha el rango, hoy y el pipeline.
+  Por debajo, las columnas se deshacen (display: contents) y el orden lo pone
+  order-*, para que en movil quede como la pantalla de bolsillo: tarifa,
+  cifras, jefe, hoy.
+{% endcomment %}
+<div class="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1.38fr)_minmax(0,1fr)] xl:items-start">
 
-        <div class="min-w-0 flex-1">
-          <p class="label">Rango actual</p>
-          <p class="text-h4 font-bold uppercase tracking-wide text-xp
-                    [text-shadow:0_0_18px_color-mix(in_oklab,var(--color-xp)_55%,transparent)]">
-            {% if rango %}{{ rango.nombre }}{% else %}Sin rango{% endif %}
+  {# ================= Columna izquierda ================= #}
+  <div class="contents xl:flex xl:flex-col xl:gap-5">
+
+    {# --- Tarifa efectiva: la metrica maestra preside --- #}
+    <section class="card-foco order-1 p-5 md:p-6 xl:order-none">
+      <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div>
+          <p class="flex items-center gap-3">
+            <span class="icon-chip acento-xp">{% include "_icono.html" with icono="progresion" clase="h-7 w-7" %}</span>
+            <span class="label-acento acento-xp">Tarifa efectiva<span class="hidden sm:inline"> · últimos 90 días</span></span>
           </p>
-
-          <div class="mt-1 flex flex-wrap items-baseline justify-between gap-2">
-            <p class="metric-vivo">Nivel {{ perfil.nivel }}</p>
-            <p class="text-body-sm tabular text-ink-3">
-              {{ perfil.xp_en_nivel }} / {{ perfil.xp_en_nivel|add:perfil.xp_para_siguiente_nivel }} XP
-            </p>
-          </div>
+          <p class="brillo acento-xp mt-3 flex items-baseline gap-3 tabular">
+            <span class="text-[3.5rem] font-extrabold leading-none tracking-tight text-ink sm:text-[4rem] md:text-[4.5rem]">
+              {% if hay_horas %}{{ tarifa_efectiva|floatformat:0 }}{% else %}—{% endif %}
+            </span>
+            <span class="text-[1.875rem] font-normal leading-none text-ink-2 sm:text-[2.25rem]">€/h</span>
+          </p>
         </div>
 
-        <span class="mt-1 shrink-0 text-ink-3">
-          {% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}
-        </span>
-      </a>
-
-      <div class="bar mt-4">
-        <div class="bar-fill" style="width: {{ perfil.progreso_nivel_pct }}%"></div>
+        <div class="min-w-[8.5rem] flex-1 pt-7 sm:max-w-56 sm:pt-8">
+          <p class="text-right text-body-sm text-ink-2 sm:text-body">
+            Objetivo: <strong class="font-semibold text-ink">{{ objetivo_tarifa|floatformat:0 }} €/h</strong>
+          </p>
+          <div class="relative mt-3">
+            <div class="bar h-2 bg-surface-3">
+              <div class="bar-fill" style="width: {{ grafica_tarifa.barra_pct }}%"></div>
+            </div>
+            <span class="absolute -top-1 h-4 w-0.5 rounded-full bg-ink/80"
+                  style="left: {{ grafica_tarifa.objetivo_pct }}%" title="Objetivo"></span>
+          </div>
+        </div>
       </div>
-      <p class="mt-2 text-right text-caption tabular text-ink-3">
-        Faltan {{ perfil.xp_para_siguiente_nivel }} XP para el nivel {{ perfil.nivel|add:1 }}
-      </p>
+
+      <div class="mt-4 flex flex-wrap items-center gap-2 text-body text-ink-2">
+        {% if grafica_tarifa.variacion is not None %}
+          {% if grafica_tarifa.variacion >= 0 %}
+            <span class="text-ok">{% include "_icono.html" with icono="sube" clase="h-5 w-5" %}</span>
+            <strong class="font-semibold text-ok">+{{ grafica_tarifa.variacion }}%</strong>
+          {% else %}
+            <span class="text-bad">{% include "_icono.html" with icono="baja" clase="h-5 w-5" %}</span>
+            <strong class="font-semibold text-bad">−{{ grafica_tarifa.variacion_abs }}%</strong>
+          {% endif %}
+          respecto al período anterior
+        {% elif hay_horas %}
+          <span class="text-ink-3">Sin período anterior con el que comparar.</span>
+        {% else %}
+          <span class="text-ink-3">Sin proyectos entregados con horas en los últimos 90 días.</span>
+          <a href="{% url 'business:proyectos' %}" class="text-body-sm text-xp underline underline-offset-4">Registrar horas</a>
+        {% endif %}
+      </div>
+
+      {# --- Grafica: 13 semanas, una muestra por semana --- #}
+      {# Sin localizar: las coordenadas llevan punto decimal, no coma. #}
+      {% localize off %}
+      <div class="relative mt-3 pr-9">
+        <svg viewBox="0 0 {{ grafica_tarifa.ancho }} {{ grafica_tarifa.alto }}" preserveAspectRatio="none"
+             class="block h-24 w-full overflow-visible md:h-28" role="img"
+             aria-label="Evolución de la tarifa efectiva en los últimos 90 días">
+          <defs>
+            <linearGradient id="relleno-tarifa" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--color-xp)" stop-opacity="0.35"/>
+              <stop offset="100%" stop-color="var(--color-xp)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          {% for marca in grafica_tarifa.marcas %}
+            <line x1="0" x2="{{ grafica_tarifa.ancho }}" y1="{{ marca.top }}%" y2="{{ marca.top }}%"
+                  stroke="var(--color-line)" stroke-dasharray="3 5" vector-effect="non-scaling-stroke"/>
+          {% endfor %}
+          {% if grafica_tarifa.linea %}
+            <path d="{{ grafica_tarifa.area }}" fill="url(#relleno-tarifa)"/>
+            <polyline points="{{ grafica_tarifa.linea }}" fill="none" stroke="var(--color-xp)"
+                      stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"
+                      vector-effect="non-scaling-stroke"
+                      style="filter: drop-shadow(0 0 6px var(--color-xp))"/>
+          {% endif %}
+        </svg>
+        {% if grafica_tarifa.ultimo %}
+          <span class="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-xp
+                       shadow-[0_0_10px_2px_var(--color-xp)]"
+                style="left: calc((100% - 2.25rem) * {{ grafica_tarifa.ultimo.0 }} / {{ grafica_tarifa.ancho }});
+                       top: calc(100% * {{ grafica_tarifa.ultimo.1 }} / {{ grafica_tarifa.alto }})"></span>
+        {% endif %}
+        {% for marca in grafica_tarifa.marcas %}
+          <span class="absolute right-0 -translate-y-1/2 text-caption tabular text-ink-3"
+                style="top: {{ marca.top }}%">{{ marca.valor }}</span>
+        {% endfor %}
+        {% if not grafica_tarifa.linea %}
+          <p class="absolute inset-0 flex items-center justify-center text-caption text-ink-3">
+            La gráfica aparece con dos semanas de datos.
+          </p>
+        {% endif %}
+      </div>
+      {% endlocalize %}
+
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <p class="text-caption text-ink-3 sm:text-body-sm">Últimos 90 días</p>
+        <p class="text-[0.6875rem] font-medium uppercase tracking-[0.12em] text-ink-3 sm:text-caption sm:tracking-[0.2em]">Mejor trabajo. Más libertad.</p>
+      </div>
     </section>
 
     {# --- Jefe de rango --- #}
     {% if jefe %}
-      <section class="card-acento late acento-warn border-l-4 border-l-warn">
-        <a href="{% url 'core:niveles' %}" class="flex items-start gap-4" title="Ver los jefes de rango">
-          <span class="icon-chip-lg">
-            {% include "_icono.html" with icono="diana" clase="h-10 w-10" %}
+      <section class="escena-jefe late acento-warn order-3 rounded-md p-5 xl:order-none">
+        <div class="flex items-start gap-4">
+          <span class="icon-chip-lg acento-warn">
+            {% include "_icono.html" with icono="diana" clase="h-11 w-11" %}
           </span>
 
           <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-baseline justify-between gap-2">
-              <p class="text-caption font-medium uppercase tracking-widest text-warn">Jefe activo</p>
-              {% if jefe.plazo %}
-                <p class="label">Plazo: {{ jefe.plazo }}</p>
-              {% endif %}
+            <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+              <div class="min-w-0">
+                <p class="label-acento acento-warn">Jefe activo</p>
+                <h2 class="mt-1 text-h3 font-semibold text-ink">{{ jefe.nombre }}</h2>
+              </div>
+              <a href="{% url 'core:niveles' %}"
+                 class="flex items-center gap-2 rounded-sm bg-base/40 px-2 py-1 text-body-sm text-ink
+                        backdrop-blur-sm hover:text-warn"
+                 title="Ver los jefes de rango">
+                {% if jefe.plazo %}
+                  {% include "_icono.html" with icono="arena" clase="h-4 w-4" %}
+                  Plazo: {{ jefe.plazo }}
+                {% else %}
+                  Ver jefes
+                {% endif %}
+                <span class="text-warn">{% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}</span>
+              </a>
             </div>
-            <h2 class="mt-1 text-h4 font-semibold text-ink">{{ jefe.nombre }}</h2>
             {% if jefe.prueba %}
-              <p class="mt-1 text-body-sm text-ink-2">{{ jefe.prueba }}</p>
+              <p class="mt-1 max-w-xl text-body-sm text-ink-2">{{ jefe.prueba }}</p>
             {% endif %}
           </div>
+        </div>
 
-          <span class="mt-1 shrink-0 text-warn">
-            {% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}
-          </span>
-        </a>
+        {% if requisitos_jefe %}
+          <ul class="mt-4 space-y-2.5 sm:max-w-[58%]">
+            {% for req in requisitos_jefe %}
+              <li class="flex items-center gap-3 text-body {% if req.cumplido %}text-ink-3{% else %}text-ink{% endif %}">
+                {% if req.cumplido %}
+                  <span class="casilla-done h-5 w-5" aria-label="Cumplido">
+                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="m5 12.5 5 5L19 7"/>
+                    </svg>
+                  </span>
+                {% else %}
+                  <span class="casilla h-5 w-5" aria-label="Pendiente"></span>
+                {% endif %}
+                <span class="min-w-0 {% if req.cumplido %}line-through{% endif %}">{{ req.texto }}</span>
+                {% if req.medible and not req.cumplido and req.pct %}
+                  <span class="shrink-0 text-caption tabular text-warn">{{ req.pct }}%</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
       </section>
     {% endif %}
 
-    {# --- Métrica maestra --- #}
-    <section class="card acento-xp p-5">
-      <div class="flex flex-wrap items-baseline justify-between gap-2">
-        <p class="label">Métrica maestra · 90 días</p>
-        <p class="label">Objetivo ≥ 40 €/h</p>
-      </div>
+    {# --- Cifras: en movil, carrusel con el rango delante; en escritorio, tres tarjetas --- #}
+    <div class="order-2 xl:order-none"
+         x-data="{ i: 0, total: 0 }"
+         x-init="total = $refs.pista.children.length">
+      <div x-ref="pista"
+           class="carrusel -mx-4 flex scroll-px-4 gap-3 overflow-x-auto px-4 pb-1
+                  md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0 md:pb-0"
+           @scroll.debounce.60ms="i = Math.round($el.scrollLeft / Math.max(1, $el.scrollWidth - $el.clientWidth) * (total - 1))">
 
-      <div class="mt-2 flex items-center gap-3">
-        <span class="icon-chip">{% include "_icono.html" with icono="progresion" clase="h-7 w-7" %}</span>
-        <h2 class="text-h3 font-semibold text-ink">Tarifa efectiva</h2>
-      </div>
-
-      <div class="mt-3 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p class="metric">
-            {% if hay_horas %}{{ tarifa_efectiva|floatformat:0 }}{% else %}—{% endif %}
-            <span class="text-h3 font-normal text-ink-3">€/h</span>
-          </p>
-          <p class="mt-1 text-body-sm text-ink-3">
-            {% if hay_horas %}Precio ÷ horas de lo entregado en 90 días. Es la única que no se puede engañar.
-            {% else %}Sin proyectos entregados con horas en los últimos 90 días.{% endif %}
-          </p>
-        </div>
-
-        <a href="{% url 'business:index' %}" class="btn">
-          {% include "_icono.html" with icono="reloj" clase="h-4 w-4" %}
-          Registrar horas
+        {# Rango, solo en movil: en escritorio tiene su propia tarjeta a la derecha. #}
+        <a href="{% url 'core:niveles' %}" class="card-viva flex w-[60%] shrink-0 items-center gap-2 p-3.5 md:hidden">
+          <span class="pedestal">{% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}</span>
+          <span class="min-w-0 flex-1">
+            <span class="flex items-center justify-between">
+              <span class="label-acento acento-xp">{% if rango %}{{ rango.nombre }}{% else %}Sin rango{% endif %}</span>
+              <span class="text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}</span>
+            </span>
+            <span class="mt-1 block text-h2 font-bold text-ink">Nivel {{ perfil.nivel }}</span>
+            <span class="mt-2 flex items-center gap-2">
+              <svg class="anillo h-11 w-11 shrink-0" viewBox="0 0 36 36" aria-hidden="true">
+                <circle class="anillo-fondo" cx="18" cy="18" r="15" stroke-width="3.5"/>
+                {% if perfil.progreso_nivel_pct %}
+                  <circle class="anillo-valor" cx="18" cy="18" r="15" stroke-width="3.5" pathLength="100"
+                          stroke-dasharray="{{ perfil.progreso_nivel_pct }} 100"/>
+                {% endif %}
+              </svg>
+              <span class="text-caption tabular text-ink-3">
+                <strong class="font-semibold text-xp">{{ perfil.xp_en_nivel }}</strong>
+                / {{ perfil.xp_en_nivel|add:perfil.xp_para_siguiente_nivel }} XP
+              </span>
+            </span>
+          </span>
         </a>
+
+        {# Racha comercial #}
+        <a href="{% url 'progression:index' %}" class="card-viva acento-warn block w-[40%] shrink-0 p-4 md:w-auto">
+          <span class="flex items-center gap-2.5">
+            <span class="icon-chip">{% include "_icono.html" with icono="fuego" clase="h-6 w-6" %}</span>
+            <span class="label-acento flex-1 truncate">Racha</span>
+            <span class="text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}</span>
+          </span>
+          <span class="mt-3 block text-[2rem] font-bold leading-none tabular text-ink md:text-[2.25rem]">
+            {{ racha }} <span class="text-h3 font-normal text-ink-2">día{{ racha|pluralize }}</span>
+          </span>
+          <span class="mt-2 block text-h3 font-semibold tabular text-ink">×{{ multiplicador|floatformat:2 }}</span>
+          <span class="mt-2 block text-body-sm text-ink-3">
+            {% if racha >= 15 %}Tope alcanzado.
+            {% elif racha >= 5 %}A los 15 días sube a ×1,25.
+            {% else %}A los 5 días sube a ×1,10.{% endif %}
+          </span>
+        </a>
+
+        {# XP de la semana #}
+        <a href="{% url 'progression:index' %}" class="card-viva acento-xp block w-[40%] shrink-0 p-4 md:w-auto">
+          <span class="flex items-center gap-2.5">
+            <span class="icon-chip">{% include "_icono.html" with icono="progresion" clase="h-6 w-6" %}</span>
+            <span class="label-acento flex-1 truncate">XP de la semana</span>
+            <span class="text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}</span>
+          </span>
+          <span class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <svg class="anillo h-16 w-16 shrink-0" viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="anillo-fondo" cx="18" cy="18" r="15" stroke-width="3.5"/>
+              {% if xp_semana_pct %}
+                <circle class="anillo-valor" cx="18" cy="18" r="15" stroke-width="3.5" pathLength="100"
+                        stroke-dasharray="{{ xp_semana_pct }} 100"/>
+              {% endif %}
+            </svg>
+            <span>
+              <span class="block text-h2 font-bold tabular text-ink">
+                {{ xp_semana }} <span class="text-body font-normal text-ink-3">/ {{ objetivo_xp_semanal }}</span>
+              </span>
+              <span class="block text-body-sm tabular text-ink-3">{{ xp_semana_pct }}% completado</span>
+            </span>
+          </span>
+        </a>
+
+        {# Recurrente activo #}
+        <div class="card acento-ok w-[40%] shrink-0 p-4 md:w-auto">
+          <a href="{% url 'business:clientes' %}" class="flex items-center gap-2.5">
+            <span class="icon-chip">{% include "_icono.html" with icono="euro" clase="h-6 w-6" %}</span>
+            <span class="label-acento flex-1 truncate">Recurrente</span>
+            <span class="text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}</span>
+          </a>
+          <p class="mt-3 text-[2rem] font-bold leading-none tabular text-ink md:text-[2.25rem]">
+            {{ recurrente|floatformat:0 }} <span class="text-h3 font-normal text-ink-2">€/mes</span>
+          </p>
+          <p class="mt-2 text-body-sm tabular text-ink-3">Objetivo: {{ objetivo_recurrente|floatformat:0 }} €/mes</p>
+          {% if recurrente %}
+            <div class="bar mt-3"><div class="bar-fill bar-fill-ok" style="width: {{ recurrente_pct }}%"></div></div>
+            <p class="mt-1.5 text-right text-caption tabular text-ink-3">{{ recurrente_pct }}%</p>
+          {% else %}
+            <a href="{% url 'business:pipeline' %}"
+               class="mt-3 flex items-center justify-between gap-2 rounded-sm border border-line bg-surface-1
+                      px-3 py-2 text-caption font-medium text-ink-2 transition-colors hover:border-ok/50 hover:text-ink">
+              <span class="truncate">Conseguir primer contrato</span>
+              {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
+            </a>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Puntos del carrusel, solo en movil #}
+      <div class="mt-3 flex justify-center gap-2 md:hidden" aria-hidden="true">
+        <template x-for="n in total" :key="n">
+          <span class="h-2 w-2 rounded-full transition-colors"
+                :class="n - 1 === i ? 'bg-xp shadow-[0_0_8px_var(--color-xp)]' : 'bg-surface-3'"></span>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  {# ================= Columna derecha ================= #}
+  <div class="contents xl:flex xl:flex-col xl:gap-5">
+
+    {# --- Rango y nivel (escritorio y tableta) --- #}
+    <a href="{% url 'core:niveles' %}" title="Ver rangos y niveles"
+       class="card-viva escena-cumbres order-4 hidden p-5 md:block xl:order-none">
+      <div class="flex items-center gap-5">
+        <span class="pedestal">
+          {% include "core/_emblema.html" with rango=rango clase="h-28 w-28" %}
+        </span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start justify-between gap-2">
+            <p class="label">Rango actual</p>
+            <span class="text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}</span>
+          </div>
+          <p class="brillo acento-xp text-h3 font-bold uppercase tracking-wide text-xp">
+            {% if rango %}{{ rango.nombre }}{% else %}Sin rango{% endif %}
+          </p>
+          <div class="flex flex-wrap items-baseline justify-between gap-x-3">
+            <p class="text-[2.75rem] font-bold leading-tight tracking-tight text-ink">Nivel {{ perfil.nivel }}</p>
+            <p class="text-body tabular text-ink-2">
+              {{ perfil.xp_en_nivel }} / {{ perfil.xp_en_nivel|add:perfil.xp_para_siguiente_nivel }} XP
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="bar mt-3 h-2 bg-surface-3">
+        <div class="bar-fill" style="width: {{ perfil.progreso_nivel_pct }}%"></div>
+      </div>
+      <p class="mt-2 text-right text-body-sm tabular text-ink-3">
+        Faltan {{ perfil.xp_para_siguiente_nivel }} XP para el nivel {{ perfil.nivel|add:1 }}
+      </p>
+    </a>
+
+    {# --- Hoy: dos filas y, si hay más, el botón a misiones --- #}
+    <div class="compacto order-5 xl:order-none">
+      {% include "missions/_bloque.html" %}
+    </div>
+
+    {# --- Pipeline --- #}
+    <section class="card order-6 p-5 xl:order-none">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <a href="{% url 'business:pipeline' %}" class="flex items-center gap-3 hover:text-ink">
+          <span class="icon-chip acento-xp">{% include "_icono.html" with icono="embudo" clase="h-6 w-6" %}</span>
+          <span class="label-acento acento-xp">Pipeline de clientes</span>
+        </a>
+        <p class="hidden text-caption font-medium uppercase tracking-[0.16em] text-ink-3 sm:block">
+          Del interés a la libertad
+        </p>
+      </div>
+
+      <div class="mt-4 grid grid-cols-3 divide-x divide-line">
+        {% for etapa in embudo %}
+          <a href="{% url 'business:pipeline' %}?estado={{ etapa.estado }}"
+             class="group block px-2.5 first:pl-0 last:pr-0 sm:px-4">
+            <p class="truncate text-body-sm text-ink-2 group-hover:text-ink">{{ etapa.etiqueta }}</p>
+            <p class="mt-1 text-h2 font-bold tabular text-ink">{{ etapa.total }}</p>
+            <div class="bar mt-2 bg-surface-3">
+              <div class="bar-fill {% if forloop.counter == 2 %}bar-fill-violeta{% elif forloop.counter == 3 %}bar-fill-ok{% endif %}"
+                   style="width: {{ etapa.pct }}%"></div>
+            </div>
+            <p class="mt-2 text-caption text-ink-3">{{ etapa.detalle }}</p>
+          </a>
+        {% endfor %}
       </div>
     </section>
 
-    {# --- Tres cifras --- #}
-    <section class="grid grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-4">
-      <div class="card acento-warn p-4">
-        <p class="flex items-center gap-3">
-          <span class="icon-chip">{% include "_icono.html" with icono="fuego" clase="h-6 w-6" %}</span>
-          <span class="label">Racha comercial</span>
-        </p>
-        <p class="mt-3 text-h2 font-semibold tabular text-ink">
-          {{ racha }} <span class="text-body font-normal text-ink-3">días</span>
-        </p>
-        <p class="mt-1 text-h4 font-semibold tabular text-ink-2">×{{ multiplicador|floatformat:2 }}</p>
-        <p class="mt-2 text-caption text-ink-3">
-          {% if racha >= 15 %}Tope alcanzado.
-          {% elif racha >= 5 %}A los 15 días sube a ×1,25.
-          {% else %}A los 5 días sube a ×1,10.{% endif %}
-        </p>
-      </div>
-
-      <div class="card acento-xp p-4">
-        <p class="flex items-center gap-3">
-          <span class="icon-chip">{% include "_icono.html" with icono="progresion" clase="h-6 w-6" %}</span>
-          <span class="label">XP de la semana</span>
-        </p>
-        <p class="mt-3 text-h2 font-semibold tabular text-ink">
-          {{ xp_semana }} <span class="text-body font-normal text-ink-3">/ {{ objetivo_xp_semanal }}</span>
-        </p>
-        <div class="bar mt-4"><div class="bar-fill" style="width: {{ xp_semana_pct }}%"></div></div>
-        <p class="mt-2 text-right text-caption tabular text-ink-3">{{ xp_semana_pct }}%</p>
-
-        <button type="button" class="btn mt-3 w-full px-2 py-1.5 text-caption"
-                hx-get="{% url 'progression:registrar_accion' %}"
-                hx-target="#modal" hx-swap="innerHTML">
-          Registrar acción
-        </button>
-      </div>
-
-      <div class="card acento-ok p-4">
-        <p class="flex items-center gap-3">
-          <span class="icon-chip">{% include "_icono.html" with icono="euro" clase="h-6 w-6" %}</span>
-          <span class="label">Recurrente activo</span>
-        </p>
-        <p class="mt-3 text-h2 font-semibold tabular text-ink">
-          {{ recurrente|floatformat:0 }} <span class="text-body font-normal text-ink-3">€/mes</span>
-        </p>
-        <p class="mt-1 text-caption tabular text-ink-3">Objetivo: {{ objetivo_recurrente }} €/mes</p>
-        <div class="bar mt-2"><div class="bar-fill bar-fill-ok" style="width: {{ recurrente_pct }}%"></div></div>
-        <p class="mt-2 text-right text-caption tabular text-ink-3">{{ recurrente_pct }}%</p>
-      </div>
-    </section>
-
-      {# --- Recompensas: lo ganado y sin cobrar tira más que cualquier barra --- #}
+    {# --- Recompensas: lo ganado y sin cobrar tira más que cualquier barra --- #}
     {% if recompensas.pendientes %}
-      <section class="card-acento acento-ok p-5">
+      <section class="card-acento acento-ok order-7 xl:order-none">
         <div class="flex items-start gap-4">
           <span class="icon-chip-lg">
-            {% include "_icono.html" with icono="rangos" clase="h-10 w-10" %}
+            {% include "_icono.html" with icono="rangos" clase="h-9 w-9" %}
           </span>
           <div class="min-w-0 flex-1">
-            <p class="label text-ok">Te lo has ganado</p>
+            <p class="label-acento">Te lo has ganado</p>
             {% for r in recompensas.pendientes %}
               <h2 class="mt-1 text-h4 font-semibold text-ink">{{ r.titulo }}</h2>
               <p class="mt-1 text-body-sm text-ink-2">{{ r.descripcion }}</p>
@@ -178,73 +387,60 @@
         </div>
       </section>
     {% elif recompensas.siguiente %}
-      <section class="card p-4">
-        <p class="flex items-center gap-3">
-          <span class="icon-chip acento-ink">
-            {% include "_icono.html" with icono="rangos" clase="h-6 w-6" %}
-          </span>
-          <span class="label">Siguiente recompensa</span>
-        </p>
-        <p class="mt-3 text-body-sm text-ink-2">
+      <a href="{% url 'progression:recompensas' %}"
+         class="card-viva order-7 flex items-center gap-3 px-5 py-4 xl:order-none">
+        <span class="icon-chip acento-ink">{% include "_icono.html" with icono="rangos" clase="h-6 w-6" %}</span>
+        <span class="min-w-0 flex-1 text-body-sm text-ink-2">
+          <span class="label mr-1">Siguiente recompensa</span>
           <strong class="text-ink">{{ recompensas.siguiente.titulo }}</strong>
           · a {{ recompensas.faltan_niveles }} nivel{{ recompensas.faltan_niveles|pluralize:"es" }}
+        </span>
+        <span class="text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}</span>
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+{# --- Máxima: a todo el ancho, sobre el atardecer --- #}
+{% if consejo.maxima %}
+  <section class="escena-atardecer rounded-md border p-5 md:p-7
+                  {% if consejo.contextual %}border-warn/40{% else %}border-line{% endif %}">
+    <div class="flex flex-col gap-5 md:flex-row md:items-center">
+      <div class="min-w-0 flex-1">
+        <p class="flex items-center gap-3">
+          <span class="icon-chip acento-warn">{% include "_icono.html" with icono="comillas" clase="h-8 w-8" %}</span>
+          <span class="label-acento acento-warn">
+            {% if consejo.contextual %}Máxima para lo que está pasando{% else %}Máxima del día{% endif %}
+            {% if consejo.maxima.libro %} · {{ consejo.maxima.libro }}{% endif %}
+          </span>
         </p>
-        <a href="{% url 'progression:recompensas' %}"
-           class="mt-2 inline-block text-caption text-ink-3 underline underline-offset-4 hover:text-ink-2">
-          Ver todas
+
+        {% if consejo.motivo %}
+          <p class="mt-2 text-body-sm text-warn/90">{{ consejo.motivo }}</p>
+        {% endif %}
+
+        <p class="mt-4 max-w-4xl font-serif text-h2 leading-snug text-ink md:text-[2rem] md:leading-[2.6rem]">
+          {{ consejo.maxima.texto }}
+        </p>
+
+        {% if consejo.maxima.aplicacion %}
+          <p class="mt-3 max-w-2xl text-body-sm text-ink-2">{{ consejo.maxima.aplicacion }}</p>
+        {% endif %}
+
+        <a href="{% url 'wisdom:maximas' %}"
+           class="mt-4 inline-flex items-center gap-2 text-body-sm text-ink-2 underline underline-offset-4 hover:text-ink">
+          Ver todas las máximas
+          {% include "_icono.html" with icono="flecha" clase="h-4 w-4" %}
         </a>
-      </section>
-    {% endif %}
+      </div>
 
-  {% include "core/_alertas.html" %}
-
-    {# --- Máxima --- #}
-    {% if consejo.maxima %}
-      <section class="escena-atardecer rounded-md border p-5
-                      {% if consejo.contextual %}border-warn/35{% else %}border-line{% endif %}">
-        <div class="flex flex-col gap-5 md:flex-row md:items-center">
-          <div class="min-w-0 flex-1">
-            <div class="flex items-start gap-3">
-              <span class="icon-chip {% if consejo.contextual %}acento-warn{% else %}acento-ink{% endif %}">
-                {% include "_icono.html" with icono="comillas" clase="h-8 w-8" %}
-              </span>
-              <p class="text-caption font-medium uppercase tracking-widest
-                        {% if consejo.contextual %}text-warn{% else %}text-ink-3{% endif %}">
-                {% if consejo.contextual %}Máxima para lo que está pasando{% else %}Máxima del día{% endif %}
-                {% if consejo.maxima.libro %} · {{ consejo.maxima.libro }}{% endif %}
-              </p>
-            </div>
-
-            {% if consejo.motivo %}
-              <p class="mt-2 text-body-sm text-warn/90">{{ consejo.motivo }}</p>
-            {% endif %}
-
-            <p class="mt-3 font-serif text-h2 leading-snug text-ink">{{ consejo.maxima.texto }}</p>
-
-            {% if consejo.maxima.aplicacion %}
-              <p class="mt-2 text-body-sm text-ink-2">{{ consejo.maxima.aplicacion }}</p>
-            {% endif %}
-
-            <a href="{% url 'wisdom:maximas' %}"
-               class="mt-3 inline-block text-caption text-ink-3 underline underline-offset-4 hover:text-ink-2">
-              Ver todas
-            </a>
-          </div>
-
-          <p class="shrink-0 border-t border-line pt-4 text-caption font-medium uppercase
-                    leading-5 tracking-widest text-ink-3
-                    md:w-28 md:border-l md:border-t-0 md:pl-5 md:pt-0">
-            Disciplina<br>genera<br>libertad.
-          </p>
-        </div>
-      </section>
-    {% endif %}
-  </div>
-
-  {# ================= Columna derecha: misiones ================= #}
-  <div class="space-y-6">
-    {% include "missions/_bloque.html" %}
-  </div>
-
+      <p class="shrink-0 border-t border-line pt-4 text-caption font-medium uppercase
+                leading-6 tracking-[0.2em] text-ink-2
+                md:w-36 md:self-start md:border-l md:border-t-0 md:pl-5 md:pt-0">
+        Disciplina<br>genera<br>libertad.
+      </p>
+    </div>
+  </section>
+{% endif %}
 </div>
 {% endblock %}

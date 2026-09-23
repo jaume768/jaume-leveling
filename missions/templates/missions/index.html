@@ -7,7 +7,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="mx-auto max-w-4xl">
-  {% include "missions/_catalogo.html" %}
+<div class="mx-auto max-w-4xl space-y-10">
+  {% include "missions/_bloque.html" %}
+
+  <div>
+    <h2 class="mb-4 text-caption font-medium uppercase tracking-[0.16em] text-ink-3">Catálogo completo</h2>
+    {% include "missions/_catalogo.html" %}
+  </div>
 </div>
 {% endblock %}

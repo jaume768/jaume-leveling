@@ -717,6 +717,79 @@ def contexto_calibracion(fecha=None) -> dict:
     }
 
 
+# --- Grafica de la tarifa efectiva ------------------------------------------
+#
+# Una muestra por semana de la ventana de 90 dias: cada punto es la tarifa
+# efectiva que habia ese dia, medida igual que la cifra grande del panel.
+
+MUESTRAS_TARIFA = 13
+# Lienzo del SVG. Las coordenadas se calculan aqui para que la plantilla solo
+# pinte; el SVG se estira al ancho de la tarjeta.
+ANCHO_GRAFICA = 600
+ALTO_GRAFICA = 120
+
+
+def grafica_tarifa(fecha, objetivo) -> dict:
+    """Serie, escala y variacion de la tarifa efectiva para el panel.
+
+    Los puntos sin proyectos entregados en su ventana se saltan: no hay dato,
+    y un cero pintaria una caida que no ha ocurrido.
+    """
+    import datetime as dt
+
+    from business import services as business
+
+    fechas = [
+        fecha - dt.timedelta(weeks=MUESTRAS_TARIFA - 1 - i) for i in range(MUESTRAS_TARIFA)
+    ]
+    valores = [business.tarifa_efectiva_mes(f) for f in fechas]
+    con_dato = [(i, float(v)) for i, v in enumerate(valores) if v is not None]
+
+    # Techo de la escala en multiplos de 20, nunca por debajo de objetivo x 1,5.
+    maximo = max([float(objetivo) * 1.5] + [v for _, v in con_dato])
+    techo = int(-(-maximo // 20) * 20)
+    marcas = [
+        {"valor": v, "top": round((1 - v / techo) * 100, 1)}
+        for v in (techo, round(techo * 2 / 3), round(techo / 3))
+    ]
+
+    puntos = [
+        (
+            round(i / (MUESTRAS_TARIFA - 1) * ANCHO_GRAFICA, 1),
+            round((1 - v / techo) * ALTO_GRAFICA, 1),
+        )
+        for i, v in con_dato
+    ]
+    linea = " ".join(f"{x},{y}" for x, y in puntos)
+    area = ""
+    if len(puntos) >= 2:
+        area = (
+            f"M{puntos[0][0]},{ALTO_GRAFICA} L"
+            + " L".join(f"{x},{y}" for x, y in puntos)
+            + f" L{puntos[-1][0]},{ALTO_GRAFICA} Z"
+        )
+
+    actual = valores[-1]
+    anterior = business.tarifa_efectiva_mes(fecha - dt.timedelta(days=business.VENTANA_TARIFA_DIAS))
+    variacion = None
+    if actual is not None and anterior:
+        variacion = round((float(actual) - float(anterior)) / float(anterior) * 100)
+
+    return {
+        "linea": linea if len(puntos) >= 2 else "",
+        "area": area,
+        "ultimo": puntos[-1] if puntos else None,
+        "marcas": marcas,
+        "ancho": ANCHO_GRAFICA,
+        "alto": ALTO_GRAFICA,
+        "variacion": variacion,
+        "variacion_abs": abs(variacion) if variacion is not None else None,
+        # Barra del objetivo: la escala llega al techo de la grafica.
+        "barra_pct": porcentaje(actual or 0, techo),
+        "objetivo_pct": porcentaje(objetivo, techo),
+    }
+
+
 def contexto_panel(fecha=None, minimo: bool = False) -> dict:
     """Todo lo que pinta el panel principal, en una sola llamada."""
     from django.utils import timezone
@@ -737,6 +810,7 @@ def contexto_panel(fecha=None, minimo: bool = False) -> dict:
     # El objetivo de recurrente sube con el rango: lo manda business, que es
     # donde vive el umbral. Aqui no se duplica la cifra.
     objetivo_recurrente = business.objetivo_recurrente(rango)
+    objetivo_tarifa = review.OBJETIVOS["m7_tarifa_efectiva"]
     contexto.update(
         {
             "hoy": fecha,
@@ -753,6 +827,11 @@ def contexto_panel(fecha=None, minimo: bool = False) -> dict:
             "recurrente_pct": porcentaje(recurrente, objetivo_recurrente),
             "tarifa_efectiva": tarifa,
             "hay_horas": tarifa is not None,
+            "objetivo_tarifa": objetivo_tarifa,
+            "grafica_tarifa": grafica_tarifa(fecha, objetivo_tarifa),
+            # El jefe se vence con los mismos numeros que cierran el rango.
+            "requisitos_jefe": requisitos_de_ascenso(rango, fecha) if rango else [],
+            "embudo": business.embudo_pipeline(),
         }
     )
     return contexto

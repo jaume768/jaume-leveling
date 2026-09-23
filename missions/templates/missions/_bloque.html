@@ -1,42 +1,33 @@
-{# Bloque de misiones del panel. Se devuelve entero en cada respuesta HTMX. #}
-<section id="bloque-misiones" class="card p-5">
+{% comment %}
+  Bloque "Hoy": las misiones del dia. Se devuelve entero en cada respuesta HTMX.
+  Vive en dos sitios: en la pagina de misiones, completo, y en el panel dentro
+  de un contenedor .compacto, donde solo se ven las pendientes, sin grupos ni
+  notas, y con altura para dos filas. Si no caben, aparece "Ir a misiones".
+  Todo lo que cambia entre los dos se hace con el variante in-[.compacto]:.
+{% endcomment %}
+<section id="bloque-misiones" class="card p-5"
+         x-data="{ desborda: false,
+                   medir() { const l = this.$refs.lista; this.desborda = !!l && l.scrollHeight > l.clientHeight + 1 } }"
+         x-init="$nextTick(() => medir())" @resize.window.debounce.150ms="medir()">
 
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div class="flex items-start gap-3">
-      <span class="icon-chip-lg acento-xp mt-0.5">
-        {% include "_icono.html" with icono="misiones" clase="h-9 w-9" %}
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <span class="icon-chip acento-warn">
+        {% include "_icono.html" with icono="sol" clase="h-7 w-7" %}
       </span>
-    <div>
-      <p class="label">
+      <h2 class="text-body-sm font-semibold uppercase tracking-[0.14em] text-ink">
         {% if misiones.dia_protegido %}Día protegido
-        {% elif misiones.reinicio %}Semana de Reinicio
-        {% elif misiones.modo_minimo %}Día mínimo
-        {% else %}Misiones de hoy{% endif %}
-      </p>
-      {% if not misiones.dia_protegido %}
-        <h2 class="mt-1 text-h3 font-semibold tabular text-ink">
-          {{ misiones.hechas }} de {{ misiones.total }} completadas
-        </h2>
+        {% elif misiones.reinicio %}Hoy · Reinicio
+        {% elif misiones.modo_minimo %}Hoy · Día mínimo
+        {% else %}Hoy{% endif %}
+      </h2>
+      {% if not misiones.dia_protegido and misiones.total %}
+        <span class="pill-mut">{{ misiones.hechas }}/{{ misiones.total }}</span>
       {% endif %}
     </div>
-    </div>
-
-    {% if not misiones.dia_protegido %}
-      {% if misiones.modo_minimo %}
-        <button type="button" class="btn"
-                hx-get="{% url 'missions:bloque' %}"
-                hx-target="#bloque-misiones"
-                hx-swap="outerHTML">Volver al día completo</button>
-      {% else %}
-        <button type="button" class="btn-warn"
-                hx-get="{% url 'missions:bloque' %}?minimo=1"
-                hx-target="#bloque-misiones"
-                hx-swap="outerHTML">
-          {% include "_icono.html" with icono="rayo" clase="h-4 w-4" %}
-          Día mínimo
-        </button>
-      {% endif %}
-    {% endif %}
+    <p class="hidden text-caption font-medium uppercase tracking-[0.16em] text-ink-3 sm:block">
+      Disciplina genera libertad
+    </p>
   </div>
 
   {% if misiones.dia_protegido %}
@@ -51,15 +42,14 @@
   {% else %}
 
     {% if misiones.reinicio %}
-      <p class="mt-4 rounded-sm border-l-2 border-ok bg-ok/10 p-3 text-body-sm text-ink-2">
+      <p class="mt-4 rounded-sm border-l-2 border-ok bg-ok/10 p-3 text-body-sm text-ink-2 in-[.compacto]:hidden">
         <span class="label text-ok">Semana de Reinicio</span><br>
         Solo 3 contactos, 1 entregable pequeño y la revisión. La XP va ×1,5.
         No es una excusa: es la ruta de vuelta.
       </p>
     {% endif %}
 
-    <div class="bar mt-4"><div class="bar-fill" style="width: {{ misiones.pct }}%"></div></div>
-    <p class="mt-2 text-right text-caption tabular text-ink-3">{{ misiones.pct }}%</p>
+    <div class="bar mt-4 in-[.compacto]:hidden"><div class="bar-fill" style="width: {{ misiones.pct }}%"></div></div>
 
     {% if error %}
       <p class="mt-4 rounded-sm border border-bad/40 bg-bad/10 px-3 py-2 text-body-sm text-bad">{{ error }}</p>
@@ -69,187 +59,205 @@
       <p class="mt-3 text-body-sm text-ink-3">Lo imprescindible. Mantiene la racha y nada más.</p>
     {% endif %}
 
-    {% for pool in misiones.elecciones %}
-      <div class="mt-8 rounded-sm border border-xp/35 bg-xp/6 p-4">
-        <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 class="text-caption font-medium uppercase tracking-widest text-xp">
-            Elige una
-          </h3>
+    <div x-ref="lista" class="mt-5 in-[.compacto]:max-h-[8.25rem] in-[.compacto]:overflow-hidden">
+
+      {# --- Elecciones: en el panel, una sola fila que lleva a elegir --- #}
+      {% for pool in misiones.elecciones %}
+        {% if not pool.elegida %}
+          <a href="{% url 'missions:index' %}" class="fila-hoy mb-3 hidden in-[.compacto]:flex">
+            <span class="casilla border-dashed"></span>
+            <span class="min-w-0 flex-1 truncate text-body font-semibold text-ink">
+              Elige tu ruta de hoy
+              <span class="font-normal text-ink-3">· {{ pool.opciones|length }} opciones</span>
+            </span>
+            <span class="shrink-0 text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}</span>
+          </a>
+        {% endif %}
+
+        <div class="mb-6 rounded-md border border-xp/35 bg-xp/6 p-4 in-[.compacto]:hidden">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="label-acento acento-xp">Elige una</h3>
+            {% if pool.elegida %}
+              <span class="pill-ok">Elegida: {{ pool.elegida.titulo }}</span>
+            {% else %}
+              <span class="text-caption text-ink-3">{{ pool.opciones|length }} rutas · la misma dirección</span>
+            {% endif %}
+          </div>
+
           {% if pool.elegida %}
-            <span class="pill-ok">Elegida: {{ pool.elegida.titulo }}</span>
+            <p class="mt-2 text-body-sm text-ink-2">
+              Hoy has elegido <strong class="text-ink">{{ pool.elegida.titulo }}</strong>.
+              Las otras vuelven mañana.
+            </p>
           {% else %}
-            <span class="text-caption text-ink-3">{{ pool.opciones|length }} rutas · la misma dirección</span>
+            <p class="mt-1 text-caption text-ink-3">Tú decides la ruta. Solo una cuenta hoy.</p>
+            <ul class="mt-3 space-y-2">
+              {% for opcion in pool.opciones %}
+                <li>
+                  <button type="button" class="fila-hoy w-full text-left"
+                          hx-get="{% url 'missions:evidencia' opcion.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
+                          hx-target="#modal" hx-swap="innerHTML">
+                    <span class="casilla"></span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-body font-semibold text-ink">{{ opcion.titulo }}</span>
+                      <span class="mt-0.5 block text-caption text-ink-3">
+                        {{ opcion.mision.descripcion|default:opcion.mision.definicion_terminada }}
+                      </span>
+                    </span>
+                    <span class="pill-xp shrink-0">{{ opcion.mision.xp }} XP</span>
+                    <span class="shrink-0 text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}</span>
+                  </button>
+                </li>
+              {% endfor %}
+            </ul>
           {% endif %}
         </div>
+      {% endfor %}
 
-        {% if pool.elegida %}
-          <p class="mt-2 text-body-sm text-ink-2">
-            Hoy has elegido <strong class="text-ink">{{ pool.elegida.titulo }}</strong>.
-            Las otras vuelven mañana.
-          </p>
-        {% else %}
-          <p class="mt-1 text-caption text-ink-3">
-            Tú decides la ruta. Solo una cuenta hoy.
-          </p>
+      {# --- Misiones por periodicidad --- #}
+      {% for grupo in misiones.grupos %}
+        <div class="mb-6 last:mb-0 in-[.compacto]:mb-0">
+          <h3 class="mb-3 text-caption font-medium uppercase tracking-widest in-[.compacto]:hidden
+                     {% if grupo.acento == 'warn' %}text-warn
+                     {% elif grupo.acento == 'ok' %}text-ok
+                     {% elif grupo.acento == 'ink' %}text-ink-2
+                     {% else %}text-xp{% endif %}">
+            {{ grupo.titulo }}
+            <span class="tabular text-ink-3">({{ grupo.hechas }}/{{ grupo.total }})</span>
+          </h3>
 
-          <ul class="mt-3 space-y-2">
-            {% for opcion in pool.opciones %}
-              <li>
-                <button type="button"
-                        class="fila-mision flex w-full items-start gap-3 text-left"
-                        hx-get="{% url 'missions:evidencia' opcion.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
-                        hx-target="#modal" hx-swap="innerHTML">
-                  <span class="check check-todo mt-0.5"></span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block text-body-sm font-semibold text-ink">{{ opcion.titulo }}</span>
-                    <span class="mt-0.5 block text-caption leading-4 text-ink-3">
-                      {{ opcion.mision.descripcion|default:opcion.mision.definicion_terminada }}
+          <ul class="space-y-3 in-[.compacto]:mb-3">
+            {% for fila in grupo.filas %}
+              <li class="{% if fila.completada %}in-[.compacto]:hidden{% endif %}">
+                <div class="fila-hoy">
+
+                  {% if fila.completada %}
+                    <span class="casilla-done" aria-label="Completada">
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="m5 12.5 5 5L19 7"/>
+                      </svg>
                     </span>
-                    <span class="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span class="pill-xp">{{ opcion.mision.xp }} XP</span>
-                      {% if opcion.mision.tiempo_estimado_min %}
-                        <span class="pill-mut">{{ opcion.mision.tiempo_estimado_min }} min</span>
-                      {% endif %}
-                      {% if opcion.mision.attribute %}
-                        <span class="pill-mut">{{ opcion.mision.attribute.nombre }}</span>
-                      {% endif %}
+                  {% elif fila.mision.evidencia_requerida %}
+                    <button type="button" class="casilla-todo"
+                            aria-label="Completar «{{ fila.titulo }}» con evidencia"
+                            hx-get="{% url 'missions:evidencia' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
+                            hx-target="#modal"
+                            hx-swap="innerHTML"></button>
+                  {% elif fila.mision.pide_notas %}
+                    <button type="button" class="casilla-todo"
+                            aria-label="Completar «{{ fila.titulo }}» apuntando"
+                            hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
+                            hx-target="#modal"
+                            hx-swap="innerHTML"></button>
+                  {% else %}
+                    <button type="button" class="casilla-todo"
+                            aria-label="Completar «{{ fila.titulo }}»"
+                            hx-post="{% url 'missions:completar' fila.mision.pk %}"
+                            hx-vals='{"minimo": "{% if misiones.modo_minimo %}1{% else %}0{% endif %}"}'
+                            hx-target="#bloque-misiones"
+                            hx-swap="outerHTML"></button>
+                  {% endif %}
+
+                  {# El cuerpo de la fila abre la guia; la casilla la da por hecha. #}
+                  <button type="button"
+                          class="flex min-w-0 flex-1 items-center gap-3 text-left"
+                          aria-label="Ver cómo hacer «{{ fila.titulo }}»"
+                          hx-get="{% url 'missions:detalle' fila.mision.pk %}?accion=1{% if misiones.modo_minimo %}&minimo=1{% endif %}"
+                          hx-target="#modal"
+                          hx-swap="innerHTML">
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-body font-semibold
+                                   {% if fila.completada %}text-ink-3 line-through{% else %}text-ink{% endif %}">
+                        {{ fila.titulo }}
+                      </span>
+                      <span class="mt-0.5 block text-caption leading-4 text-ink-3 in-[.compacto]:hidden">
+                        {% if fila.codigo %}{{ fila.codigo }} · {% endif %}{{ fila.mision.definicion_terminada }}
+                      </span>
+                      <span class="mt-2 flex flex-wrap items-center gap-2 in-[.compacto]:hidden">
+                        {% if fila.mision.tiempo_estimado_min %}
+                          <span class="pill-mut">{{ fila.mision.tiempo_estimado_min }} min</span>
+                        {% endif %}
+                        {% if fila.mision.evidencia_requerida %}
+                          <span class="pill-bad">Evidencia</span>
+                        {% endif %}
+                        {% if fila.mision.pide_notas %}
+                          <span class="pill-mut">Cuaderno</span>
+                        {% endif %}
+                      </span>
                     </span>
-                  </span>
-                  <span class="mt-1 shrink-0 text-ink-3">
-                    {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
-                  </span>
-                </button>
+
+                    <span class="hidden shrink-0 text-caption font-medium tabular text-xp sm:inline">+{{ fila.mision.xp }} XP</span>
+                    <span class="shrink-0 text-ink-3">
+                      {% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}
+                    </span>
+                  </button>
+                </div>
+
+                {# --- Cuaderno: lo apuntado hoy, o lo que dejaste escrito ayer --- #}
+                {% if fila.notas %}
+                  <div class="mt-2 rounded-sm border-l-2 border-xp bg-surface-1 p-3 in-[.compacto]:hidden">
+                    <div class="flex items-start justify-between gap-2">
+                      <p class="label text-ink-3">Apuntado hoy</p>
+                      <button type="button" class="text-caption text-ink-3 underline hover:text-ink-2"
+                              hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
+                              hx-target="#modal" hx-swap="innerHTML">Editar</button>
+                    </div>
+                    <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ fila.notas }}</p>
+                  </div>
+                {% elif fila.anteriores %}
+                  <div class="mt-2 rounded-sm border-l-2 border-ink-3 bg-surface-1 p-3 in-[.compacto]:hidden">
+                    <div class="flex items-start justify-between gap-2">
+                      <p class="label text-ink-3">Lo dejaste apuntado el {{ fila.anteriores.fecha|date:"j \d\e F" }}</p>
+                      <button type="button" class="text-caption text-ink-3 underline hover:text-ink-2"
+                              hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
+                              hx-target="#modal" hx-swap="innerHTML">Abrir cuaderno</button>
+                    </div>
+                    <p class="mt-1 whitespace-pre-line text-body-sm text-ink-3">{{ fila.anteriores.notas }}</p>
+                  </div>
+                {% elif fila.mision.pide_notas and fila.completada %}
+                  <button type="button" class="mt-2 text-caption text-ink-3 underline hover:text-ink-2"
+                          hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
+                          hx-target="#modal" hx-swap="innerHTML">Abrir cuaderno</button>
+                {% endif %}
               </li>
             {% endfor %}
           </ul>
-        {% endif %}
-      </div>
-    {% endfor %}
+        </div>
+      {% empty %}
+        <p class="text-body-sm text-ink-3">
+          {% if misiones.modo_minimo %}No hay misiones mínimas definidas.{% else %}Nada pendiente hoy.{% endif %}
+        </p>
+      {% endfor %}
 
-    {% for grupo in misiones.grupos %}
-      <div class="mt-8">
-        <h3 class="text-caption font-medium uppercase tracking-widest text-ink-2">
-          {{ grupo.titulo }}
-          <span class="tabular text-ink-3">({{ grupo.hechas }}/{{ grupo.total }})</span>
-        </h3>
-        <p class="mt-0.5 text-body-sm text-ink-3">{{ grupo.subtitulo }}</p>
+      {% if misiones.total and misiones.hechas == misiones.total %}
+        <p class="hidden text-body-sm text-ok in-[.compacto]:block">
+          Todo lo de hoy está hecho. El resto del día es tuyo.
+        </p>
+      {% endif %}
+    </div>
 
-        {# El filo lateral tiñe el grupo con el color de su periodicidad. #}
-        <ul class="rail mt-3 space-y-3 border-l-2 pl-4
-                   {% if grupo.acento == 'warn' %}acento-warn border-warn
-                   {% elif grupo.acento == 'ok' %}acento-ok border-ok
-                   {% elif grupo.acento == 'ink' %}acento-ink border-ink-3
-                   {% else %}acento-xp border-xp{% endif %}">
-          {% for fila in grupo.filas %}
-            <li class="fila-mision">
-              <div class="flex items-start gap-3">
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+      {% if misiones.modo_minimo %}
+        <button type="button" class="btn-sm"
+                hx-get="{% url 'missions:bloque' %}"
+                hx-target="#bloque-misiones"
+                hx-swap="outerHTML">Volver al día completo</button>
+      {% else %}
+        <button type="button" class="btn-warn-sm"
+                hx-get="{% url 'missions:bloque' %}?minimo=1"
+                hx-target="#bloque-misiones"
+                hx-swap="outerHTML">
+          {% include "_icono.html" with icono="rayo" clase="h-3.5 w-3.5" %}
+          Día mínimo
+        </button>
+      {% endif %}
 
-              {% if fila.completada %}
-                <span class="check-done" aria-label="Completada">
-                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                       stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="m5 12.5 5 5L19 7"/>
-                  </svg>
-                </span>
-              {% elif fila.mision.evidencia_requerida %}
-                <button type="button" class="check-todo"
-                        aria-label="Completar «{{ fila.titulo }}» con evidencia"
-                        hx-get="{% url 'missions:evidencia' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
-                        hx-target="#modal"
-                        hx-swap="innerHTML"></button>
-              {% elif fila.mision.pide_notas %}
-                <button type="button" class="check-todo"
-                        aria-label="Completar «{{ fila.titulo }}» apuntando"
-                        hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
-                        hx-target="#modal"
-                        hx-swap="innerHTML"></button>
-              {% else %}
-                <button type="button" class="check-todo"
-                        aria-label="Completar «{{ fila.titulo }}»"
-                        hx-post="{% url 'missions:completar' fila.mision.pk %}"
-                        hx-vals='{"minimo": "{% if misiones.modo_minimo %}1{% else %}0{% endif %}"}'
-                        hx-target="#bloque-misiones"
-                        hx-swap="outerHTML"></button>
-              {% endif %}
-
-              {# El cuerpo de la fila abre la guia; la casilla la da por hecha. #}
-              <button type="button"
-                      class="flex min-w-0 flex-1 items-start gap-3 text-left"
-                      aria-label="Ver cómo hacer «{{ fila.titulo }}»"
-                      hx-get="{% url 'missions:detalle' fila.mision.pk %}?accion=1{% if misiones.modo_minimo %}&minimo=1{% endif %}"
-                      hx-target="#modal"
-                      hx-swap="innerHTML">
-                <span class="min-w-0 flex-1">
-                  <span class="flex flex-wrap items-baseline gap-2">
-                    {% if fila.codigo %}
-                      <span class="text-caption font-medium tracking-wider text-ink-3">{{ fila.codigo }}</span>
-                    {% endif %}
-                    <span class="text-body-sm font-semibold
-                                 {% if fila.completada %}text-ink-3 line-through{% else %}text-ink{% endif %}">
-                      {{ fila.titulo }}
-                    </span>
-                  </span>
-
-                  <span class="mt-0.5 block text-caption leading-4 text-ink-3">{{ fila.mision.definicion_terminada }}</span>
-
-                  <span class="mt-2 flex flex-wrap items-center gap-2">
-                    <span class="pill-xp">{{ fila.mision.xp }} XP</span>
-                    {% if fila.mision.tiempo_estimado_min %}
-                      <span class="pill-mut">{{ fila.mision.tiempo_estimado_min }} min</span>
-                    {% endif %}
-                    {% if fila.mision.evidencia_requerida %}
-                      <span class="pill-bad">Evidencia</span>
-                    {% endif %}
-                    {% if fila.mision.pide_notas %}
-                      <span class="pill-mut">Cuaderno</span>
-                    {% endif %}
-                  </span>
-                </span>
-
-                <span class="mt-1 shrink-0 text-ink-3">
-                  {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
-                </span>
-              </button>
-              </div>
-
-              {# --- Cuaderno: lo apuntado hoy, o lo que dejaste escrito ayer --- #}
-              {% if fila.notas %}
-                <div class="mt-3 rounded-sm border-l-2 border-xp bg-surface-2 p-3">
-                  <div class="flex items-start justify-between gap-2">
-                    <p class="label text-ink-3">Apuntado hoy</p>
-                    <button type="button" class="text-caption text-ink-3 underline hover:text-ink-2"
-                            hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
-                            hx-target="#modal" hx-swap="innerHTML">Editar</button>
-                  </div>
-                  <p class="mt-1 whitespace-pre-line text-body-sm text-ink-2">{{ fila.notas }}</p>
-                </div>
-              {% elif fila.anteriores %}
-                <div class="mt-3 rounded-sm border-l-2 border-ink-3 bg-surface-2 p-3">
-                  <div class="flex items-start justify-between gap-2">
-                    <p class="label text-ink-3">Lo dejaste apuntado el {{ fila.anteriores.fecha|date:"j \d\e F" }}</p>
-                    <button type="button" class="text-caption text-ink-3 underline hover:text-ink-2"
-                            hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
-                            hx-target="#modal" hx-swap="innerHTML">Abrir cuaderno</button>
-                  </div>
-                  <p class="mt-1 whitespace-pre-line text-body-sm text-ink-3">{{ fila.anteriores.notas }}</p>
-                </div>
-              {% elif fila.mision.pide_notas and fila.completada %}
-                <button type="button" class="mt-3 text-caption text-ink-3 underline hover:text-ink-2"
-                        hx-get="{% url 'missions:notas' fila.mision.pk %}{% if misiones.modo_minimo %}?minimo=1{% endif %}"
-                        hx-target="#modal" hx-swap="innerHTML">Abrir cuaderno</button>
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      </div>
-    {% empty %}
-      <p class="mt-5 text-body-sm text-ink-3">
-        {% if misiones.modo_minimo %}
-          No hay misiones mínimas definidas.
-        {% else %}
-          Nada pendiente hoy.
-        {% endif %}
-      </p>
-    {% endfor %}
+      <a href="{% url 'missions:index' %}" x-show="desborda" x-cloak class="btn-xp py-1.5 text-caption">
+        Ir a misiones
+        <span class="tabular opacity-80">· {{ misiones.pendientes }} pendiente{{ misiones.pendientes|pluralize }}</span>
+        {% include "_icono.html" with icono="flecha" clase="h-4 w-4" %}
+      </a>
+    </div>
   {% endif %}
 </section>

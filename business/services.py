@@ -9,7 +9,7 @@ import datetime as dt
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import F, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.utils import timezone
 
 from progression import services as progression
@@ -407,6 +407,36 @@ def resumen_pipeline(estado: str = "", fecha: dt.date | None = None) -> dict:
         "en_rojo": sum(1 for f in filas if f["alerta"] == "rojo"),
         "en_ambar": sum(1 for f in filas if f["alerta"] == "ambar"),
     }
+
+
+def embudo_pipeline() -> list[dict]:
+    """Oportunidades abiertas por etapa, para la tarjeta de pipeline del panel.
+
+    Cada etapa lleva su peso sobre el total abierto: la barra dice donde se
+    acumula el pipeline, no si se ha llegado a un objetivo.
+    """
+    conteo = dict(
+        Deal.objects.filter(estado__in=Deal.ESTADOS_ABIERTOS)
+        .order_by()  # sin el orden por defecto, que rompe el GROUP BY
+        .values_list("estado")
+        .annotate(n=Count("id"))
+    )
+    etapas = (
+        (Deal.Estado.CONTACTADO, "Contacto", "Primer contacto hecho"),
+        (Deal.Estado.CONVERSANDO, "Conversación", "En conversación"),
+        (Deal.Estado.PROPUESTA, "Propuesta", "Esperando respuesta"),
+    )
+    total = sum(conteo.values())
+    return [
+        {
+            "estado": estado,
+            "etiqueta": etiqueta,
+            "detalle": detalle,
+            "total": conteo.get(estado, 0),
+            "pct": round(conteo.get(estado, 0) / total * 100) if total else 0,
+        }
+        for estado, etiqueta, detalle in etapas
+    ]
 
 
 def resumen_facturas(fecha: dt.date | None = None) -> dict:
