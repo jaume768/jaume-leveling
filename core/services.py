@@ -535,9 +535,9 @@ def _fila_de_atributo(atributo) -> dict:
 RADAR_ANCHO = 660
 RADAR_ALTO = 400
 RADAR_CENTRO_X = 330
-RADAR_CENTRO_Y = 202
-RADAR_RADIO = 124           # el radio del valor 100
-RADAR_RADIO_ETIQUETA = 150  # donde arranca el nombre del atributo
+RADAR_CENTRO_Y = 200
+RADAR_RADIO = 140           # el radio del valor 100
+RADAR_RADIO_ETIQUETA = 162  # donde arranca el nombre del atributo
 RADAR_ANILLOS = (25, 50, 75, 100)
 
 

@@ -795,18 +795,6 @@
 /* --- Hoja de personaje ----------------------------------------------------
    El mapa de atributos, las pestanas de categoria y las filas plegables. */
 
-/* Cabecera de movil: el retrato en apaisado con el texto encima, a la
-   izquierda, sobre un velo que lo sostiene sin tapar la cara. */
-@utility velo-hero {
-  background-image: linear-gradient(
-    to right,
-    var(--color-base) 0%,
-    color-mix(in oklab, var(--color-base) 88%, transparent) 38%,
-    color-mix(in oklab, var(--color-base) 30%, transparent) 72%,
-    transparent 100%
-  );
-}
-
 /* Pestanas de categoria: Negocio, Tecnica, Personal, Salud. */
 @utility pestana {
   @apply flex flex-1 items-center justify-center gap-2 rounded-md border border-line

@@ -78,44 +78,60 @@
   {# ================= La hoja ================= #}
   <div class="entra space-y-4 lg:space-y-6">
 
-    {# --- Móvil: el retrato apaisado con el rango encima, plegable --- #}
-    <section class="relative overflow-hidden rounded-md border border-line bg-surface-2 lg:hidden">
-      <div x-show="cabecera" class="pointer-events-none absolute inset-0">
-        <img src="{% static 'img/personaje-mini.webp' %}" alt="" aria-hidden="true"
-             class="h-full w-full object-cover object-[78%_12%]">
-        <span class="velo-hero absolute inset-0 block"></span>
-      </div>
+    {% comment %}
+      Movil: el retrato manda, como en escritorio. El rango se apoya en el pie,
+      donde el velo lo sostiene, y el progreso va debajo en su propia fila para
+      que la cara no quede tapada por texto.
+    {% endcomment %}
+    <section class="card overflow-hidden lg:hidden">
+      <div x-show="cabecera" class="retrato relative overflow-hidden">
+        <picture>
+          <source media="(min-width: 768px)" srcset="{% static 'img/personaje.webp' %}">
+          <img src="{% static 'img/personaje-mini.webp' %}" alt="Tu personaje: rango {{ rango.nombre|default:'sin rango' }}"
+               width="900" height="1350" loading="eager" decoding="async"
+               class="block h-full w-full object-cover object-top">
+        </picture>
 
-      <button type="button" class="btn-icono absolute right-3 top-3 z-10"
-              @click="cabecera = !cabecera"
-              :aria-expanded="cabecera ? 'true' : 'false'"
-              aria-label="Plegar o desplegar la cabecera">
-        <span class="block transition-transform" :class="cabecera ? '-rotate-90' : 'rotate-90'">
-          {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
-        </span>
-      </button>
+        <div class="velo-retrato pointer-events-none absolute inset-0"></div>
 
-      <div class="relative p-4">
-        <p x-show="cabecera" class="max-w-[58%] font-serif text-h4 leading-snug text-ink">
-          Un mejor yo construye una mejor realidad.
-        </p>
-
-        <div class="mt-4 flex items-center gap-3">
+        <div class="absolute inset-x-0 bottom-0 flex items-center gap-3 p-4">
           <span class="pedestal">
             {% include "core/_emblema.html" with rango=rango clase="h-14 w-14" %}
           </span>
-          <div class="min-w-0 flex-1 pr-10">
-            <p class="truncate text-h4 font-bold uppercase tracking-tight text-xp
-                      [text-shadow:0_0_20px_var(--color-xp)]">
+          <div class="min-w-0">
+            <p class="label">Rango actual</p>
+            <h2 class="text-h3 font-bold uppercase tracking-tight text-xp
+                       [text-shadow:0_0_24px_var(--color-xp)]">
               {{ rango.nombre|default:"Sin rango" }}
-              <span class="font-semibold normal-case tracking-normal text-ink">· Nivel {{ perfil.nivel }}</span>
-            </p>
-            <div class="bar mt-2 max-w-56"><div class="bar-fill" style="width: {{ media }}%"></div></div>
-            <p class="mt-1 text-h4 font-bold tabular text-ink">
-              {{ media }} <span class="text-body-sm font-normal text-ink-3">/ 100</span>
-            </p>
+            </h2>
+            <p class="text-body font-semibold text-ink">Nivel {{ perfil.nivel }}</p>
           </div>
         </div>
+      </div>
+
+      <div class="flex items-center gap-3 p-4">
+        <div class="min-w-0 flex-1">
+          <p class="label">
+            Progreso general
+            <span x-show="!cabecera" x-cloak class="normal-case tracking-normal text-xp">
+              · {{ rango.nombre|default:"Sin rango" }} · Nivel {{ perfil.nivel }}
+            </span>
+          </p>
+          <div class="bar mt-2"><div class="bar-fill" style="width: {{ media }}%"></div></div>
+        </div>
+
+        <p class="shrink-0 text-h4 font-bold tabular text-ink">
+          {{ media }} <span class="text-body-sm font-normal text-ink-3">/ 100</span>
+        </p>
+
+        <button type="button" class="btn-icono shrink-0"
+                @click="cabecera = !cabecera"
+                :aria-expanded="cabecera ? 'true' : 'false'"
+                aria-label="Plegar o desplegar el retrato">
+          <span class="block transition-transform" :class="cabecera ? '-rotate-90' : 'rotate-90'">
+            {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
+          </span>
+        </button>
       </div>
     </section>
 
@@ -163,7 +179,12 @@
             </a>
           </div>
 
+          {% comment %}
+            En movil el mapa sale de la tarjeta por los lados: los nombres se
+            comen el ancho, y cada pixel que gana el poligono se nota.
+          {% endcomment %}
           {% localize off %}
+           <div class="-mx-4 lg:mx-0">
             <svg class="radar mt-2" viewBox="0 0 {{ radar.ancho }} {{ radar.alto }}"
                  role="img" aria-label="Los quince atributos, cada radio uno">
               <defs>
@@ -199,11 +220,12 @@
               {% for e in radar.etiquetas %}
                 <text x="{{ e.x }}" y="{{ e.y }}" text-anchor="{{ e.ancla }}"
                       dominant-baseline="middle" class="fill-ink-2"
-                      style="font-size: 14px">{{ e.atributo.nombre }} <tspan
-                      style="font-size: 16px; font-weight: 700"
+                      style="font-size: 12px">{{ e.atributo.nombre }} <tspan
+                      style="font-size: 14px; font-weight: 700"
                       class="{% if e.estado.acento == 'ok' %}fill-ok{% elif e.estado.acento == 'warn' %}fill-warn{% else %}fill-bad{% endif %}">{{ e.atributo.valor }}</tspan></text>
               {% endfor %}
             </svg>
+           </div>
           {% endlocalize %}
 
           <p class="mt-1 text-center text-caption text-ink-3 lg:hidden">
@@ -213,7 +235,7 @@
       {% endif %}
 
       {# Los dos extremos: lo que tira y lo que frena. #}
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-1 lg:gap-4">
+      <div class="grid grid-cols-1 gap-3 lg:gap-4">
         <div class="card-acento acento-ok p-3 lg:p-4">
           <p class="flex items-center gap-2">
             <span class="icon-chip text-ok">{% include "_icono.html" with icono="progresion" clase="h-5 w-5" %}</span>
