@@ -1,0 +1,42 @@
+name: Recuperar acceso SSH
+
+# Temporal: añade la clave pública del secreto MI_CLAVE_PUBLICA al
+# authorized_keys del servidor usando la clave de despliegue. Se lanza a mano
+# desde Actions. Bórralo (y el secreto) en cuanto vuelvas a entrar por SSH.
+on: workflow_dispatch
+
+jobs:
+  acceso:
+    name: Añadir mi clave pública al servidor
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Preparar la clave de despliegue
+        env:
+          CLAVE: ${{ secrets.SSH_CLAVE_PRIVADA }}
+          HOST: ${{ secrets.SSH_HOST }}
+          PUBLICA: ${{ secrets.MI_CLAVE_PUBLICA }}
+        run: |
+          [ -n "$PUBLICA" ] || { echo "::error::Falta el secreto MI_CLAVE_PUBLICA."; exit 1; }
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CLAVE" > ~/.ssh/despliegue
+          chmod 600 ~/.ssh/despliegue
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      # La clave pública viaja por stdin para no pelearse con las comillas.
+      - name: Añadir la clave a authorized_keys
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          USUARIO: ${{ secrets.SSH_USUARIO }}
+          PUBLICA: ${{ secrets.MI_CLAVE_PUBLICA }}
+        run: |
+          printf '%s\n' "$PUBLICA" | ssh -i ~/.ssh/despliegue -o IdentitiesOnly=yes -o BatchMode=yes \
+              "$USUARIO@$HOST" '
+                k=$(cat)
+                mkdir -p ~/.ssh && chmod 700 ~/.ssh
+                touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
+                grep -qxF "$k" ~/.ssh/authorized_keys || echo "$k" >> ~/.ssh/authorized_keys
+                echo "Clave añadida."
+                # Letra a letra: si no, Actions lo tapa con *** por coincidir con SSH_USUARIO.
+                echo "Usuario del servidor: $(whoami | sed "s/./& /g")"
+              '
