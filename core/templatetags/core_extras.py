@@ -12,3 +12,16 @@ def dictkey(diccionario, clave):
     if hasattr(diccionario, "get"):
         return diccionario.get(clave, "")
     return ""
+
+
+@register.filter
+def miles(valor):
+    """Entero con punto de miles: 2000 -> "2.000".
+
+    El formato del locale pone un espacio fino, que en las cifras del panel
+    se lee como dos numeros sueltos.
+    """
+    try:
+        return f"{round(float(valor)):,}".replace(",", ".")
+    except (TypeError, ValueError):
+        return valor

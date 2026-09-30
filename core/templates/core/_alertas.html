@@ -1,62 +1,73 @@
 {# Vacio lleva el atributo hidden: space-y-* lo salta y no deja hueco doble. #}
 <div id="alertas"{% if not alertas and not penalizaciones and not aviso_revision and not bloqueo %} hidden{% endif %}>
   {% if alertas or penalizaciones or aviso_revision or bloqueo %}
-    <section class="space-y-4">
+    <section class="space-y-3">
 
       {% if bloqueo %}
-        <div class="rounded-md border border-bad/45 border-l-4 border-l-bad bg-bad/10 p-4">
-          <p class="flex items-center gap-2 text-body-sm font-semibold text-bad">
-            {% include "_icono.html" with icono="aviso" clase="h-4 w-4" %}
-            Trabajo técnico no facturable BLOQUEADO
-          </p>
-          <p class="mt-1 text-body-sm text-ink-2">
-            {{ bloqueo.penalizacion.descripcion }}. Se levanta con {{ bloqueo.objetivo }} contactos.
-          </p>
-          <div class="bar mt-3">
-            <div class="bar-fill bg-bad" style="width: {% widthratio bloqueo.contactos bloqueo.objetivo 100 %}%"></div>
+        <div class="franja acento-bad">
+          <span class="caja-icono">{% include "_icono.html" with icono="aviso" clase="h-5 w-5" %}</span>
+          <div class="min-w-0 flex-1 basis-60">
+            <p class="text-body-sm font-semibold text-ink">Trabajo técnico no facturable bloqueado</p>
+            <p class="mt-0.5 text-caption text-ink-2">
+              {{ bloqueo.penalizacion.descripcion }}. Se levanta con {{ bloqueo.objetivo }} contactos.
+            </p>
+            <div class="bar mt-2 max-w-xs"><div class="bar-fill bar-fill-bad" style="width: {% widthratio bloqueo.contactos bloqueo.objetivo 100 %}%"></div></div>
           </div>
-          <p class="mt-2 text-caption tabular text-ink-3">
-            {{ bloqueo.contactos }}/{{ bloqueo.objetivo }} contactos esta semana{% if bloqueo.cumplido %} · cumplido, ya puedes marcarla como resuelta{% endif %}
+          <p class="text-caption tabular text-ink-2">
+            <strong class="text-body-sm text-ink">{{ bloqueo.contactos }}/{{ bloqueo.objetivo }}</strong> contactos{% if bloqueo.cumplido %} · cumplido{% endif %}
           </p>
         </div>
       {% endif %}
 
       {% if aviso_revision %}
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-md
-                    border border-warn/35 border-l-4 border-l-warn bg-warn/10 p-4">
-          <p class="text-body-sm font-semibold text-warn">{{ aviso_revision.texto }}</p>
-          <a href="{% url 'review:index' %}" class="btn-warn py-1.5">
+        <div class="franja acento-warn">
+          <span class="caja-icono">{% include "_icono.html" with icono="revision" clase="h-5 w-5" %}</span>
+          <p class="min-w-0 flex-1 basis-48 text-body-sm font-semibold text-ink">{{ aviso_revision.texto }}</p>
+          <a href="{% url 'review:index' %}" class="btn-warn">
             {% if aviso_revision.borrador %}Abrir borrador{% else %}Empezar{% endif %}
           </a>
         </div>
       {% endif %}
 
       {% for alerta in alertas %}
-        <div class="rounded-md border border-bad/45 border-l-4 border-l-bad bg-bad/10 p-4">
-          <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <p class="text-body-sm font-semibold text-bad">{{ alerta.titulo }}</p>
-            <a href="{{ alerta.url }}" class="text-caption text-bad underline underline-offset-4">Abrir</a>
+        <div class="franja acento-bad">
+          <span class="caja-icono">{% include "_icono.html" with icono="aviso" clase="h-5 w-5" %}</span>
+          <div class="min-w-0 flex-1 basis-48">
+            <p class="text-body-sm font-semibold text-ink">{{ alerta.titulo }}</p>
+            <p class="mt-0.5 text-caption text-ink-2">
+              {{ alerta.detalle }}{% if alerta.items %} {{ alerta.items|join:" · " }}{% endif %}
+            </p>
           </div>
-          <p class="mt-1 text-body-sm text-ink-2">{{ alerta.detalle }}</p>
-          <ul class="mt-2 space-y-0.5 text-caption text-ink-3">
-            {% for item in alerta.items %}<li>{{ item }}</li>{% endfor %}
-          </ul>
+          <div class="flex flex-wrap items-center gap-3">
+            {% if alerta.clave == "factura" %}
+              <p class="hidden text-caption text-ink-2 sm:block">
+                <strong class="text-body-sm tabular text-ink">{{ alerta.margen }} día{{ alerta.margen|pluralize }}</strong> de margen
+              </p>
+            {% endif %}
+            {% if alerta.recordatorio %}
+              <a href="{{ alerta.recordatorio }}" class="btn-bad">
+                <span class="sm:hidden">Avisar</span><span class="hidden sm:inline">Enviar recordatorio</span>
+              </a>
+            {% endif %}
+            <a href="{{ alerta.url }}" class="btn hidden border-bad/40 bg-transparent sm:inline-flex">Abrir</a>
+          </div>
         </div>
       {% endfor %}
 
       {% for penalizacion in penalizaciones %}
-        <div class="rounded-md border border-bad/45 border-l-4 border-l-bad bg-bad/10 p-4">
-          <div class="flex flex-wrap items-baseline justify-between gap-3">
-            <p class="text-body-sm font-semibold text-bad">
+        <div class="franja acento-bad">
+          <span class="caja-icono">{% include "_icono.html" with icono="aviso" clase="h-5 w-5" %}</span>
+          <div class="min-w-0 flex-1 basis-48">
+            <p class="text-body-sm font-semibold text-ink">
               {{ penalizacion.descripcion }}
-              <span class="tabular">({{ penalizacion.xp }} XP)</span>
+              <span class="tabular text-bad">({{ penalizacion.xp }} XP)</span>
             </p>
-            <button type="button" class="btn"
-                    hx-post="{% url 'progression:resolver' penalizacion.pk %}"
-                    hx-target="#alertas" hx-swap="outerHTML"
-                    title="Marcar la corrección como hecha">Resuelta</button>
+            <p class="mt-0.5 text-caption text-ink-2">{{ penalizacion.correccion_exigida }}</p>
           </div>
-          <p class="mt-1 text-body-sm text-ink-2">{{ penalizacion.correccion_exigida }}</p>
+          <button type="button" class="btn border-bad/40 bg-transparent"
+                  hx-post="{% url 'progression:resolver' penalizacion.pk %}"
+                  hx-target="#alertas" hx-swap="outerHTML"
+                  title="Marcar la corrección como hecha">Resuelta</button>
         </div>
       {% endfor %}
 

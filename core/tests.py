@@ -208,6 +208,47 @@ def test_navegacion_activa_el_panel_en_la_raiz():
     assert entradas["Panel"]["activa"] is True
 
 
+@pytest.mark.django_db
+def test_la_barra_inferior_lleva_panel_misiones_y_negocio():
+    # Lo demas queda tras "Más", que abre el menu lateral.
+    movil = [e["etiqueta"] for e in core_services.navegacion("/") if e["movil"]]
+    assert movil == ["Panel", "Misiones", "Negocio"]
+
+
+@pytest.mark.parametrize(
+    "hora, esperado",
+    [(6, "Buenos días"), (13, "Buenos días"), (14, "Buenas tardes"),
+     (20, "Buenas tardes"), (21, "Buenas noches"), (2, "Buenas noches")],
+)
+def test_saludo_segun_la_hora(hora, esperado):
+    assert core_services.saludo(hora) == esperado
+
+
+def _req(pct, cumplido=False):
+    return {"pct": pct, "cumplido": cumplido}
+
+
+def test_vida_del_jefe_es_lo_que_falta_de_media():
+    # 2.000 € cobrados, 0/1 recurrente, 0/2 casos y 2/4 semanas: 37,5 % hecho.
+    requisitos = [_req(100, True), _req(0), _req(0), _req(50)]
+    assert core_services.vida_del_jefe(requisitos) == 63
+
+
+def test_un_requisito_cumplido_cuenta_entero():
+    # Los de "menos es mejor" no traen avance parcial: cumplido es 100.
+    assert core_services.vida_del_jefe([_req(0, True)]) == 0
+
+
+def test_jefe_sin_requisitos_tiene_la_vida_entera():
+    assert core_services.vida_del_jefe([]) == 100
+
+
+def test_romano_del_rango():
+    assert core_services.romano(2) == "II"
+    assert core_services.romano(6) == "VI"
+    assert core_services.romano(42) == "42"
+
+
 # --- La escalera de rangos y niveles -----------------------------------------
 
 
@@ -758,10 +799,12 @@ class TestCapturaRapida:
         respuesta = client.get(reverse("core:captura"), {"tipo": "inventado"})
         assert respuesta.context["tipo"] == "contacto"
 
-    def test_el_boton_flotante_esta_en_todas_las_paginas(self, client):
+    def test_la_captura_rapida_esta_en_todas_las_paginas(self, client):
         for nombre in ("core:index", "core:personaje", "notebook:index", "business:pipeline"):
             contenido = client.get(reverse(nombre)).content.decode()
-            assert 'class="fab"' in contenido, nombre
+            # En escritorio, el boton de la cabecera; en movil, el del centro.
+            assert "btn-captura" in contenido, nombre
+            assert "fab-central" in contenido, nombre
             assert contenido.count('id="modal"') == 1, nombre
 
 

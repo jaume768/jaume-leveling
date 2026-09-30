@@ -66,20 +66,21 @@ def rango_para_nivel(nivel: int):
 # --- Presentacion: navegacion y jefe de rango --------------------------------
 
 # La navegacion es la misma en la barra lateral y en la barra inferior movil.
-# Se declara una vez: nombre de la url, etiqueta, icono y si sale en movil.
+# Se declara una vez: nombre de la url, etiqueta, icono, grupo del menu lateral
+# y si sale en la barra inferior. Lo que no sale ahi queda tras "Más".
 NAVEGACION = (
-    ("core:index", "Panel", "panel", True),
-    ("missions:index", "Misiones", "misiones", True),
-    ("core:niveles", "Niveles", "rangos", False),
-    ("core:personaje", "Personaje", "usuario", False),
-    ("core:calibracion", "Calibración", "reloj", False),
-    ("progression:index", "Progresión", "progresion", False),
-    ("progression:recompensas", "Recompensas", "rangos", False),
-    ("business:index", "Negocio", "negocio", True),
-    ("review:index", "Revisión", "revision", True),
-    ("notebook:index", "Cuaderno", "cuaderno", False),
-    ("wisdom:index", "Consejo", "consejo", False),
-    ("wisdom:maximas", "Máximas", "maximas", False),
+    ("core:index", "Panel", "panel", "Juego", True),
+    ("missions:index", "Misiones", "misiones", "Juego", True),
+    ("core:niveles", "Niveles", "rangos", "Juego", False),
+    ("core:personaje", "Personaje", "usuario", "Juego", False),
+    ("progression:recompensas", "Recompensas", "regalo", "Juego", False),
+    ("core:calibracion", "Calibración", "reloj", "Progreso", False),
+    ("progression:index", "Progresión", "progresion", "Progreso", False),
+    ("review:index", "Revisión", "revision", "Progreso", False),
+    ("business:index", "Negocio", "negocio", "Negocio y mente", True),
+    ("notebook:index", "Cuaderno", "cuaderno", "Negocio y mente", False),
+    ("wisdom:index", "Consejo", "consejo", "Negocio y mente", False),
+    ("wisdom:maximas", "Máximas", "maximas", "Negocio y mente", False),
 )
 
 
@@ -96,15 +97,57 @@ def navegacion(ruta: str) -> list[dict]:
             "url": reverse(nombre),
             "etiqueta": etiqueta,
             "icono": icono,
+            "grupo": grupo,
             "movil": movil,
             "activa": False,
         }
-        for nombre, etiqueta, icono, movil in NAVEGACION
+        for nombre, etiqueta, icono, grupo, movil in NAVEGACION
     ]
     candidatas = [e for e in entradas if ruta.startswith(e["url"])]
     if candidatas:
         max(candidatas, key=lambda e: len(e["url"]))["activa"] = True
     return entradas
+
+
+def saludo(hora: int) -> str:
+    """Saludo de la cabecera del panel segun la hora del dia."""
+    if 6 <= hora < 14:
+        return "Buenos días"
+    if 14 <= hora < 21:
+        return "Buenas tardes"
+    return "Buenas noches"
+
+
+def ficha_de_usuario() -> dict:
+    """Nivel y rango para la tarjeta de usuario del pie del menu lateral."""
+    from .models import Profile
+
+    perfil = Profile.get()
+    rango = perfil.rango or rango_para_nivel(perfil.nivel)
+    return {"nivel": perfil.nivel, "rango": rango.nombre if rango else ""}
+
+
+ROMANOS = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
+
+
+def romano(numero: int) -> str:
+    """Numeral romano del orden de un rango. Hay seis; el resto, en arabigo."""
+    return ROMANOS[numero - 1] if 1 <= numero <= len(ROMANOS) else str(numero)
+
+
+def vida_del_jefe(requisitos: list[dict]) -> int:
+    """Lo que le queda al jefe: 100 menos el avance medio de sus requisitos.
+
+    Un requisito cumplido cuenta 100 aunque su porcentaje diga otra cosa (los
+    de "menos es mejor" no llevan avance parcial).
+    """
+    import math
+
+    if not requisitos:
+        return 100
+    avance = sum(100 if r["cumplido"] else r["pct"] for r in requisitos)
+    # Medio punto hacia arriba: 62,5 es 63. round() redondea al par y daria 62.
+    return math.floor(100 - avance / len(requisitos) + 0.5)
 
 
 def desglosar_jefe(texto: str) -> dict | None:
@@ -970,6 +1013,9 @@ def contexto_panel(fecha=None, minimo: bool = False) -> dict:
     perfil = contexto["perfil"]
     # El perfil puede no tener rango asignado a mano: se deduce del nivel.
     rango = perfil.rango or rango_para_nivel(perfil.nivel)
+    # El jefe se vence con los mismos numeros que cierran el rango.
+    requisitos_jefe = requisitos_de_ascenso(rango, fecha) if rango else []
+    embudo = business.embudo_pipeline()
     recurrente = business.recurrente_activo()
     # El objetivo de recurrente sube con el rango: lo manda business, que es
     # donde vive el umbral. Aqui no se duplica la cifra.
@@ -978,7 +1024,9 @@ def contexto_panel(fecha=None, minimo: bool = False) -> dict:
     contexto.update(
         {
             "hoy": fecha,
+            "saludo": saludo(timezone.localtime().hour),
             "rango": rango,
+            "rango_romano": romano(rango.orden) if rango else "",
             "jefe": desglosar_jefe(rango.jefe) if rango else None,
             "misiones": missions.panel_de_misiones(fecha, minimo=minimo),
             "alertas": business.alertas(fecha),
@@ -993,9 +1041,11 @@ def contexto_panel(fecha=None, minimo: bool = False) -> dict:
             "hay_horas": tarifa is not None,
             "objetivo_tarifa": objetivo_tarifa,
             "grafica_tarifa": grafica_tarifa(fecha, objetivo_tarifa),
-            # El jefe se vence con los mismos numeros que cierran el rango.
-            "requisitos_jefe": requisitos_de_ascenso(rango, fecha) if rango else [],
-            "embudo": business.embudo_pipeline(),
+            "requisitos_jefe": requisitos_jefe,
+            "vida_jefe": vida_del_jefe(requisitos_jefe),
+            "tramo_racha": progression.tramo_racha(contexto["racha"]),
+            "embudo": embudo,
+            "siguiente_paso": business.siguiente_paso_pipeline(embudo),
         }
     )
     return contexto

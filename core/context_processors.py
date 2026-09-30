@@ -11,6 +11,8 @@ def navegacion(request):
     entradas = services.navegacion(request.path)
     return {
         "navegacion": entradas,
+        # Tarjeta del pie del menu lateral: nivel y rango en todas las paginas.
+        "ficha": services.ficha_de_usuario() if request.user.is_authenticated else None,
         # La barra inferior parte las entradas en dos mitades con la captura
         # rapida en medio.
         "navegacion_movil": [e for e in entradas if e["movil"]],

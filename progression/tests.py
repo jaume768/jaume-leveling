@@ -19,6 +19,26 @@ LUNES_S38 = dt.date(2026, 9, 14)
 MARTES_S38 = dt.date(2026, 9, 15)
 
 
+@pytest.mark.parametrize(
+    "dias, llenos, siguiente",
+    [
+        (0, 0, (5, Decimal("1.10"))),
+        (2, 2, (5, Decimal("1.10"))),
+        (4, 4, (5, Decimal("1.10"))),
+        # Del dia 5 al 15, los segmentos miden el camino hasta el tope.
+        (5, 0, (15, Decimal("1.25"))),
+        (10, 2, (15, Decimal("1.25"))),
+        (15, 5, (None, None)),
+        (40, 5, (None, None)),
+    ],
+)
+def test_tramo_de_racha(dias, llenos, siguiente):
+    tramo = services.tramo_racha(dias)
+    assert sum(tramo["segmentos"]) == llenos
+    assert len(tramo["segmentos"]) == 5
+    assert (tramo["siguiente_dias"], tramo["siguiente_multiplicador"]) == siguiente
+
+
 def chequeo(fecha, **extra):
     salida = StringIO()
     call_command("chequeo_diario", fecha=fecha.isoformat(), stdout=salida, **extra)

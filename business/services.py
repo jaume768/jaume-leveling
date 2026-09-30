@@ -49,22 +49,27 @@ def alertas(fecha: dt.date | None = None) -> list[dict]:
     fecha = fecha or timezone.localdate()
     avisos = []
 
-    vencidas = list(facturas_vencidas(fecha))
-    if vencidas:
-        importe = sum(f.importe for f in vencidas)
-        a_reclamar = [f for f in vencidas if f.hay_que_reclamar]
+    # Una alerta por factura: cada una tiene su cliente, su margen y su
+    # recordatorio. Si hay tantas que molesta, el problema no es el panel.
+    for factura in facturas_vencidas(fecha):
+        dias = factura.dias_vencida
+        margen = Invoice.DIAS_PARA_RECLAMAR - dias
         avisos.append(
             {
-                "clave": "facturas",
-                "titulo": f"{len(vencidas)} factura(s) vencida(s): {importe:.0f} EUR",
+                "clave": "factura",
+                "titulo": f"Factura vencida · {factura.client.nombre} · {euros(factura.importe)}",
                 "detalle": (
-                    f"{len(a_reclamar)} pasan de {Invoice.DIAS_PARA_RECLAMAR} dias. "
-                    "Reclamacion antes que cualquier otra tarea."
-                )
-                if a_reclamar
-                else "Todavia dentro de los 15 dias. Vigilalas.",
-                "items": [f"{f.client.nombre} · {f.importe:.0f} EUR · {f.dias_vencida} d" for f in vencidas],
-                "url": "/admin/business/invoice/?cobrada__exact=0",
+                    f"{dias} día{'s' if dias != 1 else ''} de retraso. "
+                    + (
+                        f"Aún dentro del margen de {Invoice.DIAS_PARA_RECLAMAR} días. Vigílala."
+                        if margen > 0
+                        else "Reclamación antes que cualquier otra tarea."
+                    )
+                ),
+                "margen": max(0, margen),
+                "items": [],
+                "recordatorio": enlace_recordatorio(factura),
+                "url": "/negocio/facturas/",
             }
         )
 
@@ -92,6 +97,30 @@ def alertas(fecha: dt.date | None = None) -> list[dict]:
             }
         )
     return avisos
+
+
+def euros(importe) -> str:
+    """Importe redondeado con punto de miles: 2000 -> "2.000 €"."""
+    return f"{importe:,.0f} €".replace(",", ".")
+
+
+def enlace_recordatorio(factura: Invoice) -> str:
+    """Enlace mailto con el recordatorio de pago ya redactado.
+
+    El cliente no guarda correo, asi que el destinatario lo pones tu: el
+    texto es lo que cuesta escribir en frio.
+    """
+    from urllib.parse import quote
+
+    asunto = f"Recordatorio: factura {factura.concepto}"
+    cuerpo = (
+        f"Hola,\n\n"
+        f"Te escribo por la factura de {factura.concepto}, de {euros(factura.importe)}, "
+        f"que venció el {factura.vencimiento:%d/%m/%Y}. "
+        "¿Me confirmas cuándo podréis hacer el pago?\n\n"
+        "Gracias."
+    )
+    return f"mailto:?subject={quote(asunto)}&body={quote(cuerpo)}"
 
 
 def recurrente_activo() -> Decimal:
@@ -427,16 +456,58 @@ def embudo_pipeline() -> list[dict]:
         (Deal.Estado.PROPUESTA, "Propuesta", "Esperando respuesta"),
     )
     total = sum(conteo.values())
-    return [
-        {
-            "estado": estado,
-            "etiqueta": etiqueta,
-            "detalle": detalle,
-            "total": conteo.get(estado, 0),
-            "pct": round(conteo.get(estado, 0) / total * 100) if total else 0,
+    mayor = max(conteo.values(), default=0)
+    embudo = []
+    anterior = None
+    for estado, etiqueta, detalle in etapas:
+        n = conteo.get(estado, 0)
+        embudo.append(
+            {
+                "estado": estado,
+                "etiqueta": etiqueta,
+                "detalle": detalle,
+                "total": n,
+                "pct": round(n / total * 100) if total else 0,
+                # Ancho de la barra horizontal: relativo a la etapa mas llena.
+                "ancho": round(n / mayor * 100) if mayor else 0,
+                # Cuantos pasan desde la etapa anterior. None en la primera.
+                "conversion": round(n / anterior * 100) if anterior else None,
+            }
+        )
+        anterior = n
+    return embudo
+
+
+def siguiente_paso_pipeline(embudo: list[dict]) -> dict:
+    """La siguiente accion del pipeline: empujar lo que esta mas cerca del dinero.
+
+    Primero seguir propuestas, luego convertir conversaciones, luego contactos.
+    Con el pipeline vacio, abrir los 6 contactos de la semana.
+    """
+    contactos, conversaciones, propuestas = (e["total"] for e in embudo)
+    if propuestas:
+        return {
+            "texto": f"hacer seguimiento de {propuestas} propuesta{'s' if propuestas != 1 else ''}",
+            "estado": Deal.Estado.PROPUESTA,
+            "accion": "Seguimiento",
         }
-        for estado, etiqueta, detalle in etapas
-    ]
+    if conversaciones:
+        return {
+            "texto": "convertir 1 conversación en propuesta",
+            "estado": Deal.Estado.CONVERSANDO,
+            "accion": "+ Propuesta",
+        }
+    if contactos:
+        return {
+            "texto": "convertir 1 contacto en conversación",
+            "estado": Deal.Estado.CONTACTADO,
+            "accion": "Ver contactos",
+        }
+    return {
+        "texto": "abrir los 6 contactos de la semana",
+        "estado": "",
+        "accion": "+ Contacto",
+    }
 
 
 def resumen_facturas(fecha: dt.date | None = None) -> dict:

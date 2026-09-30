@@ -58,6 +58,60 @@ class TestResaltado:
 
 
 @pytest.mark.django_db
+class TestPanelDePipeline:
+    def _embudo(self, contactos, conversaciones, propuestas):
+        for estado, n in (
+            (Deal.Estado.CONTACTADO, contactos),
+            (Deal.Estado.CONVERSANDO, conversaciones),
+            (Deal.Estado.PROPUESTA, propuestas),
+        ):
+            for i in range(n):
+                _deal(negocio=f"{estado}-{i}", estado=estado)
+        return services.embudo_pipeline()
+
+    def test_el_embudo_lleva_ancho_relativo_y_conversion(self):
+        contacto, conversacion, propuesta = self._embudo(12, 3, 0)
+        assert (contacto["ancho"], conversacion["ancho"], propuesta["ancho"]) == (100, 25, 0)
+        assert contacto["conversion"] is None
+        assert conversacion["conversion"] == 25
+        assert propuesta["conversion"] == 0
+
+    def test_embudo_vacio_no_divide_por_cero(self):
+        etapas = self._embudo(0, 0, 0)
+        assert [e["ancho"] for e in etapas] == [0, 0, 0]
+        assert [e["conversion"] for e in etapas] == [None, None, None]
+
+    @pytest.mark.parametrize(
+        "conteo, estado",
+        [
+            ((12, 3, 2), Deal.Estado.PROPUESTA),
+            ((12, 3, 0), Deal.Estado.CONVERSANDO),
+            ((12, 0, 0), Deal.Estado.CONTACTADO),
+            ((0, 0, 0), ""),
+        ],
+    )
+    def test_el_siguiente_paso_empuja_lo_mas_cerca_del_dinero(self, conteo, estado):
+        paso = services.siguiente_paso_pipeline(self._embudo(*conteo))
+        assert paso["estado"] == estado
+
+
+@pytest.mark.django_db
+class TestAlertasDeFacturas:
+    def test_una_alerta_por_factura_con_su_margen(self, cliente):
+        hoy = timezone.localdate()
+        _factura(cliente, vencimiento=hoy - dt.timedelta(days=2))
+        _factura(cliente, importe="500", vencimiento=hoy - dt.timedelta(days=20))
+
+        facturas = [a for a in services.alertas(hoy) if a["clave"] == "factura"]
+
+        # Primero la mas antigua: es la que ya hay que reclamar.
+        assert [a["margen"] for a in facturas] == [0, 13]
+        assert facturas[1]["titulo"] == "Factura vencida · Felycampo · 2.000 €"
+        assert "Reclamación antes" in facturas[0]["detalle"]
+        assert facturas[1]["recordatorio"].startswith("mailto:?subject=")
+
+
+@pytest.mark.django_db
 class TestToqueRapido:
     def test_actualiza_ultimo_toque_y_concede_xp(self):
         deal = _deal(ultimo_toque=timezone.localdate() - dt.timedelta(days=10))
@@ -323,7 +377,7 @@ class TestVistas:
     def test_el_dashboard_muestra_la_tarifa_efectiva(self, client):
         respuesta = client.get(reverse("core:index"))
         assert "Tarifa efectiva".encode() in respuesta.content
-        assert "Objetivo:".encode() in respuesta.content
+        assert "Objetivo 40 €/h".encode() in respuesta.content
 
 
 # --- XP por hechos comerciales -----------------------------------------------

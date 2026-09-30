@@ -95,6 +95,31 @@ def racha_actual(fecha: dt.date | None = None) -> int:
     return dias
 
 
+def tramo_racha(dias: int, segmentos: int = 5) -> dict:
+    """Donde esta la racha dentro de su escalon, para pintarla por segmentos.
+
+    Devuelve el siguiente escalon (dias y multiplicador) y una lista de
+    booleanos: los segmentos llenos del camino hasta el. En el tope, todos
+    llenos y sin siguiente.
+    """
+    escalones = sorted(ESCALONES_RACHA)
+    base = 0
+    for minimo, multiplicador in escalones:
+        if dias < minimo:
+            llenos = (dias - base) * segmentos // (minimo - base)
+            return {
+                "siguiente_dias": minimo,
+                "siguiente_multiplicador": multiplicador,
+                "segmentos": [n < llenos for n in range(segmentos)],
+            }
+        base = minimo
+    return {
+        "siguiente_dias": None,
+        "siguiente_multiplicador": None,
+        "segmentos": [True] * segmentos,
+    }
+
+
 def multiplicador_racha(fecha: dt.date | None = None) -> Decimal:
     """Multiplicador de XP que corresponde a la racha vigente."""
     dias = racha_actual(fecha)
