@@ -6,7 +6,8 @@
   <form method="post" class="space-y-4 card p-5">
     {% csrf_token %}
     {% for campo in form %}{% include "business/_campo.html" with campo=campo %}{% endfor %}
-    <div class="flex justify-end gap-2 pt-2">
+    <div class="flex items-center justify-end gap-2 pt-2">
+      {% if eliminar %}<a href="{{ eliminar }}" class="mr-auto text-body-sm text-bad hover:underline">Eliminar</a>{% endif %}
       <a href="{{ volver }}" class="btn">Cancelar</a>
       <button type="submit" class="btn-xp">Guardar</button>
     </div>

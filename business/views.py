@@ -4,7 +4,14 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from . import services
-from .forms import ClientForm, DealFilaForm, DealForm, InvoiceForm, ProjectForm
+from .forms import (
+    ClientForm,
+    DealDatosForm,
+    DealFilaForm,
+    DealForm,
+    InvoiceForm,
+    ProjectForm,
+)
 from .models import Client, Deal, Invoice, Project
 
 
@@ -83,6 +90,45 @@ def deal_nuevo(request):
     )
 
 
+def deal_datos(request, pk):
+    """Corrige los datos de una oportunidad ya creada."""
+    deal = get_object_or_404(Deal, pk=pk)
+    form = DealDatosForm(request.POST or None, instance=deal)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Oportunidad corregida.")
+        return redirect("business:pipeline")
+    return render(
+        request,
+        "business/formulario.html",
+        {
+            "form": form,
+            "titulo": "Editar oportunidad",
+            "volver": reverse("business:pipeline"),
+            "eliminar": reverse("business:deal_eliminar", args=[deal.pk]),
+        },
+    )
+
+
+def deal_eliminar(request, pk):
+    """Pregunta y, con el POST, borra la linea del pipeline."""
+    deal = get_object_or_404(Deal, pk=pk)
+    if request.method == "POST":
+        services.eliminar_deal(deal)
+        messages.success(request, f"{deal.negocio} eliminado del pipeline.")
+        return redirect("business:pipeline")
+    return render(
+        request,
+        "business/confirmar_eliminar.html",
+        {
+            "titulo": "Eliminar oportunidad",
+            "nombre": deal.negocio,
+            "aviso": "La línea desaparece del pipeline. La XP que ya haya dado no se retira.",
+            "volver": reverse("business:deal_datos", args=[deal.pk]),
+        },
+    )
+
+
 # --- Facturas ---------------------------------------------------------------
 
 
@@ -152,6 +198,61 @@ def cliente_nuevo(request):
         request,
         "business/formulario.html",
         {"form": form, "titulo": "Nuevo cliente", "volver": reverse("business:clientes")},
+    )
+
+
+def cliente_editar(request, pk):
+    cliente = get_object_or_404(Client, pk=pk)
+    mrr_anterior = cliente.mrr
+    form = ClientForm(request.POST or None, instance=cliente)
+    if request.method == "POST" and form.is_valid():
+        cliente = form.save()
+        messages.success(request, "Cliente actualizado.")
+        for evento in services.puntuar_recurrente(cliente, mrr_anterior):
+            messages.success(request, f"{evento.descripcion}: +{evento.xp_neto} XP.")
+        return redirect("business:clientes")
+    return render(
+        request,
+        "business/formulario.html",
+        {
+            "form": form,
+            "titulo": "Editar cliente",
+            "volver": reverse("business:clientes"),
+            "eliminar": reverse("business:cliente_eliminar", args=[cliente.pk]),
+        },
+    )
+
+
+def cliente_eliminar(request, pk):
+    """Pregunta y, con el POST, borra el cliente si no tiene historia."""
+    cliente = get_object_or_404(Client, pk=pk)
+    if request.method == "POST":
+        if services.eliminar_cliente(cliente):
+            messages.success(request, f"{cliente.nombre} eliminado.")
+        else:
+            messages.error(
+                request,
+                f"{cliente.nombre} tiene facturas o proyectos y no se borra. "
+                "Márcalo como inactivo o perdido.",
+            )
+        return redirect("business:clientes")
+
+    ataduras = services.ataduras_de_cliente(cliente)
+    return render(
+        request,
+        "business/confirmar_eliminar.html",
+        {
+            "titulo": "Eliminar cliente",
+            "nombre": cliente.nombre,
+            "aviso": "Sus oportunidades del pipeline se quedan, ya sin cliente asignado.",
+            "bloqueo": (
+                f"Tiene {ataduras['facturas']} facturas y {ataduras['proyectos']} proyectos. "
+                "Un cliente con historia no se borra: márcalo como inactivo o perdido."
+                if any(ataduras.values())
+                else ""
+            ),
+            "volver": reverse("business:cliente_editar", args=[cliente.pk]),
+        },
     )
 
 

@@ -652,6 +652,34 @@ class TestRetratoDelPersonaje:
             separaciones = [b - a for a, b in zip(alturas, alturas[1:])]
             assert min(separaciones) >= 20, separaciones
 
+    def test_el_radar_de_movil_cabe_en_su_lienzo_y_no_se_pisa(self):
+        """En movil los nombres van en dos lineas: hace falta mas aire entre etiquetas."""
+        from core import services
+
+        radar = services.hoja_de_personaje()["radar_movil"]
+
+        assert radar["compacto"]
+        assert radar["ancho"] < services.RADAR_ESCRITORIO["ancho"]
+        assert len(radar["etiquetas"]) == 15
+        for e in radar["etiquetas"]:
+            assert 0 <= e["x"] <= radar["ancho"]
+            assert 1 <= len(e["lineas"]) <= 2
+            for linea in e["lineas"]:
+                assert 0 <= linea["y"] <= radar["alto"]
+        dos_lineas = 2 * services.RADAR_MOVIL["interlinea"]
+        for lado in ("start", "end"):
+            alturas = sorted(e["y"] for e in radar["etiquetas"] if e["ancla"] == lado)
+            separaciones = [b - a for a, b in zip(alturas, alturas[1:])]
+            assert min(separaciones) >= dos_lineas, separaciones
+
+    def test_los_nombres_largos_se_parten_en_dos_lineas_parejas(self):
+        from core import services
+
+        assert services.partir_nombre("Ventas") == ["Ventas"]
+        assert services.partir_nombre("Comunicación") == ["Comunicación"]
+        assert services.partir_nombre("Relaciones y equilibrio") == ["Relaciones", "y equilibrio"]
+        assert services.partir_nombre("IA y automatización") == ["IA y", "automatización"]
+
     def test_la_chispa_calla_cuando_no_hay_historia(self):
         from core import services
         from core.models import Attribute

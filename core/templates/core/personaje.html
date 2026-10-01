@@ -180,53 +180,16 @@
           </div>
 
           {% comment %}
-            En movil el mapa sale de la tarjeta por los lados: los nombres se
-            comen el ancho, y cada pixel que gana el poligono se nota.
+            Dos dibujos del mismo mapa. En movil sale de la tarjeta por los
+            lados y usa un lienzo estrecho, con los nombres en dos lineas. En
+            escritorio va centrado y con tope: sin el, crece con el monitor.
           {% endcomment %}
-          {% localize off %}
-           <div class="-mx-4 lg:mx-0">
-            <svg class="radar mt-2" viewBox="0 0 {{ radar.ancho }} {{ radar.alto }}"
-                 role="img" aria-label="Los quince atributos, cada radio uno">
-              <defs>
-                <radialGradient id="relleno-radar" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stop-color="var(--color-xp)" stop-opacity="0.55"/>
-                  <stop offset="100%" stop-color="var(--color-xp)" stop-opacity="0.12"/>
-                </radialGradient>
-              </defs>
-
-              {# La telaraña: cuatro anillos y un eje por atributo. #}
-              <g class="text-line" stroke="currentColor" stroke-width="1" fill="none" opacity="0.75">
-                {% for anillo in radar.anillos %}
-                  <polygon points="{{ anillo }}"/>
-                {% endfor %}
-                {% for eje in radar.ejes %}
-                  <line x1="{{ radar.centro_x }}" y1="{{ radar.centro_y }}"
-                        x2="{{ eje.x }}" y2="{{ eje.y }}"/>
-                {% endfor %}
-              </g>
-
-              <polygon points="{{ radar.poligono }}" fill="url(#relleno-radar)"
-                       stroke="var(--color-xp)" stroke-width="2.5" stroke-linejoin="round"/>
-
-              {% for v in radar.vertices %}
-                <circle cx="{{ v.x }}" cy="{{ v.y }}" r="4.5"
-                        class="{% if v.estado.acento == 'ok' %}fill-ok{% elif v.estado.acento == 'warn' %}fill-warn{% else %}fill-bad{% endif %}"/>
-              {% endfor %}
-
-              {% comment %}
-                El nombre y el valor van en una sola linea: con quince radios,
-                dos lineas por etiqueta se pisarian arriba y abajo.
-              {% endcomment %}
-              {% for e in radar.etiquetas %}
-                <text x="{{ e.x }}" y="{{ e.y }}" text-anchor="{{ e.ancla }}"
-                      dominant-baseline="middle" class="fill-ink-2"
-                      style="font-size: 12px">{{ e.atributo.nombre }} <tspan
-                      style="font-size: 14px; font-weight: 700"
-                      class="{% if e.estado.acento == 'ok' %}fill-ok{% elif e.estado.acento == 'warn' %}fill-warn{% else %}fill-bad{% endif %}">{{ e.atributo.valor }}</tspan></text>
-              {% endfor %}
-            </svg>
-           </div>
-          {% endlocalize %}
+          <div class="-mx-4 lg:hidden">
+            {% include "core/_radar.html" with radar=radar_movil sufijo="movil" %}
+          </div>
+          <div class="mx-auto hidden max-w-[40rem] lg:block">
+            {% include "core/_radar.html" with radar=radar sufijo="escritorio" %}
+          </div>
 
           <p class="mt-1 text-center text-caption text-ink-3 lg:hidden">
             Cada radio es un atributo. Lo hundido es lo que te cuesta dinero.

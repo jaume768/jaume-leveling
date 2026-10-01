@@ -404,6 +404,34 @@ def registrar_excepcion_de_suelo(project: Project, motivo: str) -> Penalty:
 # --- Resumenes para las vistas ---------------------------------------------
 
 
+# --- Borrado ----------------------------------------------------------------
+
+
+def ataduras_de_cliente(client: Client) -> dict:
+    """Facturas y proyectos que impiden borrar un cliente.
+
+    Un cliente con historia no se borra: se llevaria por delante lo facturado.
+    Se marca como inactivo o perdido.
+    """
+    return {"facturas": client.facturas.count(), "proyectos": client.proyectos.count()}
+
+
+def eliminar_cliente(client: Client) -> bool:
+    """Borra el cliente si no tiene facturas ni proyectos. Devuelve si lo hizo.
+
+    Sus oportunidades del pipeline se quedan, ya sin cliente asignado.
+    """
+    if any(ataduras_de_cliente(client).values()):
+        return False
+    client.delete()
+    return True
+
+
+def eliminar_deal(deal: Deal) -> None:
+    """Borra una linea del pipeline. La XP que ya concedio no se toca."""
+    deal.delete()
+
+
 def _rango_del_mes(fecha: dt.date) -> tuple[dt.date, dt.date]:
     primero = fecha.replace(day=1)
     if primero.month == 12:

@@ -575,32 +575,77 @@ def _fila_de_atributo(atributo) -> dict:
 # valor. Las coordenadas se calculan aqui, en una funcion pura, para que la
 # plantilla no haga mas que pintar numeros ya resueltos.
 
-RADAR_ANCHO = 660
-RADAR_ALTO = 400
-RADAR_CENTRO_X = 330
-RADAR_CENTRO_Y = 200
-RADAR_RADIO = 140           # el radio del valor 100
-RADAR_RADIO_ETIQUETA = 162  # donde arranca el nombre del atributo
 RADAR_ANILLOS = (25, 50, 75, 100)
 
+# Escritorio: lienzo apaisado, con sitio a los lados para el nombre entero en
+# una linea.
+RADAR_ESCRITORIO = {
+    "ancho": 660,
+    "alto": 400,
+    "centro_x": 330,
+    "centro_y": 200,
+    "radio": 140,              # el radio del valor 100
+    "radio_etiqueta_x": 162,   # donde arranca el nombre del atributo
+    "radio_etiqueta_y": 162,
+    "margen_polo": 0,
+    "interlinea": 0,
+    "compacto": False,
+}
 
-def _punto_radar(indice: int, total: int, radio: float) -> tuple:
+# Movil: el lienzo mide lo que la pantalla, para que el texto salga a su tamano
+# y no encogido. Los nombres no caben a lo ancho, asi que se parten en dos
+# lineas y las etiquetas se reparten en un ovalo mas alto que ancho: a lo alto
+# sobra sitio, a lo ancho no.
+RADAR_MOVIL = {
+    "ancho": 380,
+    "alto": 360,
+    "centro_x": 190,
+    "centro_y": 186,
+    "radio": 92,
+    "radio_etiqueta_x": 101,
+    "radio_etiqueta_y": 150,
+    "margen_polo": 12,         # la etiqueta de arriba se aparta de sus vecinas
+    "interlinea": 12,
+    "compacto": True,
+}
+
+RADAR_LARGO_DE_LINEA = 12  # caracteres; por encima, el nombre se parte en dos
+
+
+def _punto_radar(geometria: dict, indice: int, total: int, radio_x: float, radio_y: float) -> tuple:
     """Coordenada del radio numero `indice`, empezando arriba y en reloj."""
     import math
 
     angulo = -math.pi / 2 + indice * 2 * math.pi / total
     return (
-        round(RADAR_CENTRO_X + radio * math.cos(angulo), 1),
-        round(RADAR_CENTRO_Y + radio * math.sin(angulo), 1),
+        round(geometria["centro_x"] + radio_x * math.cos(angulo), 1),
+        round(geometria["centro_y"] + radio_y * math.sin(angulo), 1),
     )
 
 
-def _poligono_radar(total: int, porcentaje: float) -> str:
-    puntos = (_punto_radar(i, total, RADAR_RADIO * porcentaje / 100) for i in range(total))
+def _poligono_radar(geometria: dict, total: int, porcentaje: float) -> str:
+    radio = geometria["radio"] * porcentaje / 100
+    puntos = (_punto_radar(geometria, i, total, radio, radio) for i in range(total))
     return " ".join(f"{x},{y}" for x, y in puntos)
 
 
-def radar_de_atributos(atributos) -> dict:
+def partir_nombre(nombre: str) -> list:
+    """El nombre en una linea si es corto, y en dos lo mas parejas posible si no.
+
+    La primera linea lleva delante el valor, asi que se cuenta con ese hueco.
+    """
+    palabras = nombre.split()
+    if len(nombre) <= RADAR_LARGO_DE_LINEA or len(palabras) < 2:
+        return [nombre]
+
+    hueco_del_valor = 3
+    cortes = [
+        (" ".join(palabras[:i]), " ".join(palabras[i:])) for i in range(1, len(palabras))
+    ]
+    return list(min(cortes, key=lambda c: max(len(c[0]) + hueco_del_valor, len(c[1]))))
+
+
+def radar_de_atributos(atributos, geometria: dict = RADAR_ESCRITORIO) -> dict:
     """Anillos, ejes, poligono y etiquetas del mapa de atributos.
 
     Devuelve un diccionario vacio si no hay radios suficientes para que un
@@ -612,17 +657,18 @@ def radar_de_atributos(atributos) -> dict:
     if total < 3:
         return {}
 
+    radio = geometria["radio"]
     vertices = []
     etiquetas = []
     ejes = []
     for i, atributo in enumerate(atributos):
-        x, y = _punto_radar(i, total, RADAR_RADIO * atributo.valor / 100)
+        valor = radio * atributo.valor / 100
+        x, y = _punto_radar(geometria, i, total, valor, valor)
         vertices.append(
             {"x": x, "y": y, "estado": estado_de_atributo(atributo.valor)}
         )
-        ejes.append(dict(zip(("x", "y"), _punto_radar(i, total, RADAR_RADIO))))
+        ejes.append(dict(zip(("x", "y"), _punto_radar(geometria, i, total, radio, radio))))
 
-        ex, ey = _punto_radar(i, total, RADAR_RADIO_ETIQUETA)
         angulo = -math.pi / 2 + i * 2 * math.pi / total
         coseno = math.cos(angulo)
         if coseno > 0.2:
@@ -632,23 +678,43 @@ def radar_de_atributos(atributos) -> dict:
         else:
             ancla = "middle"
 
+        margen = geometria["margen_polo"] if ancla == "middle" else 0
+        ex, ey = _punto_radar(
+            geometria,
+            i,
+            total,
+            geometria["radio_etiqueta_x"],
+            geometria["radio_etiqueta_y"] + margen,
+        )
+
+        # En la mitad de arriba el bloque crece hacia arriba y en la de abajo
+        # hacia abajo: siempre alejandose del poligono.
+        textos = partir_nombre(atributo.nombre) if geometria["compacto"] else [atributo.nombre]
+        arriba = ey < geometria["centro_y"]
+        lineas = []
+        for k, texto in enumerate(textos):
+            salto = (k - (len(textos) - 1)) if arriba else k
+            lineas.append({"texto": texto, "y": round(ey + salto * geometria["interlinea"], 1)})
+
         etiquetas.append(
             {
                 "atributo": atributo,
                 "x": ex,
                 "y": ey,
                 "ancla": ancla,
+                "lineas": lineas,
                 "estado": estado_de_atributo(atributo.valor),
             }
         )
 
     return {
-        "ancho": RADAR_ANCHO,
-        "alto": RADAR_ALTO,
-        "anillos": [_poligono_radar(total, p) for p in RADAR_ANILLOS],
+        "ancho": geometria["ancho"],
+        "alto": geometria["alto"],
+        "compacto": geometria["compacto"],
+        "anillos": [_poligono_radar(geometria, total, p) for p in RADAR_ANILLOS],
         "ejes": ejes,
-        "centro_x": RADAR_CENTRO_X,
-        "centro_y": RADAR_CENTRO_Y,
+        "centro_x": geometria["centro_x"],
+        "centro_y": geometria["centro_y"],
         "vertices": vertices,
         "poligono": " ".join(f"{v['x']},{v['y']}" for v in vertices),
         "etiquetas": etiquetas,
@@ -689,6 +755,7 @@ def hoja_de_personaje() -> dict:
             "fuertes": [],
             "agujeros": [],
             "radar": {},
+            "radar_movil": {},
         }
 
     por_categoria = []
@@ -720,6 +787,7 @@ def hoja_de_personaje() -> dict:
         "fuertes": ordenados[:3],
         "agujeros": list(reversed(ordenados[-3:])),
         "radar": radar_de_atributos(en_orden),
+        "radar_movil": radar_de_atributos(en_orden, RADAR_MOVIL),
     }
 
 

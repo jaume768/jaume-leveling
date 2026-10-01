@@ -36,6 +36,7 @@
           <th class="px-3 py-2 font-medium">Estado</th>
           <th class="px-3 py-2 font-medium">Recurrente</th>
           <th class="px-3 py-2 font-medium">Facturado</th>
+          <th class="px-3 py-2"></th>
         </tr>
       </thead>
       <tbody>
@@ -52,9 +53,13 @@
               {% if not cliente.mrr %}<span class="block text-caption text-warn">sin mantenimiento</span>{% endif %}
             </td>
             <td class="px-3 py-2 whitespace-nowrap text-ink-3">{{ cliente.facturado|default:0|floatformat:0 }} €</td>
+            <td class="px-3 py-2 text-right">
+              <a class="btn-sm" href="{% url 'business:cliente_editar' cliente.pk %}"
+                 title="Corrige los datos o elimina el cliente">Editar</a>
+            </td>
           </tr>
         {% empty %}
-          <tr class="border-t border-line"><td colspan="5" class="px-3 py-6 text-center text-ink-3">Sin clientes todavía.</td></tr>
+          <tr class="border-t border-line"><td colspan="6" class="px-3 py-6 text-center text-ink-3">Sin clientes todavía.</td></tr>
         {% endfor %}
       </tbody>
     </table>

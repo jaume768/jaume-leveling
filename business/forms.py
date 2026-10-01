@@ -72,6 +72,31 @@ class DealForm(forms.ModelForm):
         _estilar(self)
 
 
+class DealDatosForm(forms.ModelForm):
+    """Correccion de los datos de una oportunidad ya creada.
+
+    El estado y el motivo de perdida no estan aqui a proposito: se mueven desde
+    la fila del pipeline, que es donde viven sus reglas y su XP.
+    """
+
+    class Meta:
+        model = Deal
+        fields = [
+            "negocio", "contacto", "canal", "sector", "valor_potencial",
+            "fecha_primer_contacto", "ultimo_toque", "proximo_paso",
+            "fecha_proximo_paso", "client",
+        ]
+        widgets = {
+            "fecha_primer_contacto": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "ultimo_toque": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "fecha_proximo_paso": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilar(self)
+
+
 class InvoiceForm(forms.ModelForm):
     class Meta:
         model = Invoice

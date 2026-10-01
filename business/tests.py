@@ -610,3 +610,97 @@ class TestPanelComercial:
         assert grafica["linea"] == ""
         assert grafica["variacion"] is None
         assert grafica["barra_pct"] == 0
+
+
+# --- Corregir y eliminar lo ya introducido -----------------------------------
+
+
+@pytest.mark.django_db
+class TestCorregirYEliminar:
+    def test_se_corrigen_los_datos_de_una_oportunidad(self, client):
+        deal = _deal(negocio="Gruas Pereyo", valor_potencial=Decimal("900"))
+        respuesta = client.post(
+            reverse("business:deal_datos", args=[deal.pk]),
+            {
+                "negocio": "Gruas Perelló",
+                "contacto": "Toni",
+                "valor_potencial": "1900",
+                "fecha_primer_contacto": "2026-09-07",
+            },
+        )
+        assert respuesta.status_code == 302
+        deal.refresh_from_db()
+        assert deal.negocio == "Gruas Perelló"
+        assert deal.contacto == "Toni"
+        assert deal.valor_potencial == Decimal("1900")
+
+    def test_corregir_los_datos_no_mueve_el_estado_ni_da_xp(self, client):
+        deal = _deal(estado=Deal.Estado.CONVERSANDO)
+        client.post(
+            reverse("business:deal_datos", args=[deal.pk]),
+            {
+                "negocio": "Otro nombre",
+                "valor_potencial": "2000",
+                "fecha_primer_contacto": "2026-09-07",
+                "estado": Deal.Estado.GANADO,
+            },
+        )
+        deal.refresh_from_db()
+        assert deal.estado == Deal.Estado.CONVERSANDO
+        assert XPEvent.objects.count() == 0
+
+    def test_eliminar_una_oportunidad_pide_confirmacion(self, client):
+        deal = _deal()
+        respuesta = client.get(reverse("business:deal_eliminar", args=[deal.pk]))
+        assert respuesta.status_code == 200
+        assert Deal.objects.filter(pk=deal.pk).exists()
+
+        client.post(reverse("business:deal_eliminar", args=[deal.pk]))
+        assert not Deal.objects.filter(pk=deal.pk).exists()
+
+    def test_se_corrigen_los_datos_de_un_cliente(self, client, cliente):
+        respuesta = client.post(
+            reverse("business:cliente_editar", args=[cliente.pk]),
+            {
+                "nombre": "Fely Campo",
+                "slug": "felycampo",
+                "estado": Client.Estado.ACTIVO,
+                "mrr": "249",
+                "fecha_alta": "2026-09-07",
+            },
+        )
+        assert respuesta.status_code == 302
+        cliente.refresh_from_db()
+        assert cliente.nombre == "Fely Campo"
+        # Ya pagaba recurrente: corregir el nombre no firma un contrato nuevo.
+        assert XPEvent.objects.filter(accion_slug="contrato-recurrente-firmado").count() == 0
+
+    def test_ponerle_recurrente_al_editar_da_los_350_xp(self, client):
+        nuevo = Client.objects.create(nombre="Sin plan", slug="sin-plan")
+        client.post(
+            reverse("business:cliente_editar", args=[nuevo.pk]),
+            {
+                "nombre": "Sin plan",
+                "slug": "sin-plan",
+                "estado": Client.Estado.ACTIVO,
+                "mrr": "139",
+                "fecha_alta": "2026-09-07",
+            },
+        )
+        assert XPEvent.objects.get(accion_slug="contrato-recurrente-firmado").xp_bruto == 350
+
+    def test_un_cliente_sin_historia_se_elimina_y_suelta_sus_oportunidades(self, client, cliente):
+        deal = _deal(client=cliente)
+        client.post(reverse("business:cliente_eliminar", args=[cliente.pk]))
+
+        assert not Client.objects.filter(pk=cliente.pk).exists()
+        deal.refresh_from_db()
+        assert deal.client is None
+
+    def test_un_cliente_con_facturas_no_se_elimina(self, client, cliente):
+        _factura(cliente)
+        respuesta = client.get(reverse("business:cliente_eliminar", args=[cliente.pk]))
+        assert "No puedes eliminar" in respuesta.content.decode()
+
+        client.post(reverse("business:cliente_eliminar", args=[cliente.pk]))
+        assert Client.objects.filter(pk=cliente.pk).exists()
