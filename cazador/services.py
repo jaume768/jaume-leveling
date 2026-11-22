@@ -404,6 +404,48 @@ def _mejor_semana_xp() -> int:
     return max(semanas.values(), default=0)
 
 
+def _xp_ganada() -> int:
+    from django.db.models import Sum
+
+    XPEvent = apps.get_model("progression", "XPEvent")
+    return XPEvent.objects.filter(xp_neto__gt=0).aggregate(t=Sum("xp_neto"))["t"] or 0
+
+
+def _mejor_mes_de_racha() -> int:
+    MissionLog = apps.get_model("missions", "MissionLog")
+    dias = set(
+        MissionLog.objects.filter(completada=True, mission__cuenta_para_racha=True)
+        .values_list("fecha", flat=True)
+    )
+    meses: dict[tuple, int] = {}
+    for dia in dias:
+        meses[(dia.year, dia.month)] = meses.get((dia.year, dia.month), 0) + 1
+    return max(meses.values(), default=0)
+
+
+def _deals(ganados: bool = False) -> int:
+    Deal = apps.get_model("business", "Deal")
+    consulta = Deal.objects.all()
+    if ganados:
+        consulta = consulta.filter(estado=Deal.Estado.GANADO)
+    return consulta.count()
+
+
+def _rechazos_por_precio() -> int:
+    Deal = apps.get_model("business", "Deal")
+    return Deal.objects.filter(rechazado_por_precio=True).count()
+
+
+def _sombras() -> int:
+    Client = apps.get_model("business", "Client")
+    return Client.objects.filter(estado=Client.Estado.ACTIVO, mrr__gt=0).count()
+
+
+def _misiones_de_ascenso() -> int:
+    MissionLog = apps.get_model("missions", "MissionLog")
+    return MissionLog.objects.filter(completada=True, mission__tipo="PRINCIPAL").count()
+
+
 def _rechazo_por_precio() -> bool:
     Deal = apps.get_model("business", "Deal")
     return Deal.objects.filter(rechazado_por_precio=True).exists()
@@ -484,6 +526,52 @@ TITULOS = [
      "como": "750 XP en una semana.", "cond": lambda: _mejor_semana_xp() >= 750},
     {"clave": "coleccionista", "nombre": "Coleccionista",
      "como": "Abrir 10 cofres.", "cond": lambda: Cofre.objects.filter(abierto=True).count() >= 10},
+    # --- Constancia ---
+    {"clave": "buscador-de-tesoros", "nombre": "Buscador de tesoros",
+     "como": "Abrir tu primer cofre.", "cond": lambda: Cofre.objects.filter(abierto=True).exists()},
+    {"clave": "leyenda-de-la-constancia", "nombre": "Leyenda de la constancia",
+     "como": "Racha de 30 días.", "cond": lambda: mejor_racha() >= 30},
+    {"clave": "mes-de-hierro", "nombre": "Mes de hierro",
+     "como": "20 días con misión de racha en un mismo mes.", "cond": lambda: _mejor_mes_de_racha() >= 20},
+    {"clave": "segunda-oportunidad", "nombre": "Segunda oportunidad",
+     "como": "Que un escudo salve tu racha.",
+     "cond": lambda: Escudo.objects.filter(usado_en__isnull=False).exists()},
+    {"clave": "forjador-de-runas", "nombre": "Forjador de runas",
+     "como": "Forjar un escudo con 5 fragmentos.",
+     "cond": lambda: Escudo.objects.filter(motivo__startswith="Forjado con runas").exists()},
+    {"clave": "al-limite", "nombre": "Al límite",
+     "como": "Tocar el techo de 1.000 XP en una semana.", "cond": lambda: _mejor_semana_xp() >= 1000},
+    {"clave": "diez-mil", "nombre": "Diez mil",
+     "como": "Ganar 10.000 XP desde que despertaste.", "cond": lambda: _xp_ganada() >= 10_000},
+    # --- Negocio ---
+    {"clave": "cien-presas", "nombre": "Cien presas",
+     "como": "Abrir 100 oportunidades en el pipeline.", "cond": lambda: _deals() >= 100},
+    {"clave": "cerrador", "nombre": "Cerrador",
+     "como": "Ganar tu primera oportunidad.", "cond": lambda: _deals(ganados=True) >= 1},
+    {"clave": "cerrador-en-serie", "nombre": "Cerrador en serie",
+     "como": "Ganar 5 oportunidades.", "cond": lambda: _deals(ganados=True) >= 5},
+    {"clave": "muro-de-precio", "nombre": "Muro de precio",
+     "como": "Rechazar 3 proyectos por precio bajo.", "cond": lambda: _rechazos_por_precio() >= 3},
+    {"clave": "cronista", "nombre": "Cronista",
+     "como": "Publicar 3 casos de estudio.", "cond": lambda: _casos() >= 3},
+    {"clave": "diez-mil-cobrados", "nombre": "Diez mil en la saca",
+     "como": "10.000 € cobrados.", "cond": lambda: _cobrado() >= 10_000},
+    # --- Sombras ---
+    {"clave": "renta-asegurada", "nombre": "Renta asegurada",
+     "como": "450 €/mes recurrentes.", "cond": lambda: _recurrente() >= 450},
+    {"clave": "legion", "nombre": "Legión",
+     "como": "3 sombras en tu ejército.", "cond": lambda: _sombras() >= 3},
+    {"clave": "senor-del-ejercito", "nombre": "Señor del ejército",
+     "como": "1.200 €/mes recurrentes: el punto de decisión.", "cond": lambda: _recurrente() >= 1200},
+    # --- Mazmorras, mente y cuerpo ---
+    {"clave": "cazajefes", "nombre": "Cazajefes",
+     "como": "Completar una misión de ascenso.", "cond": lambda: _misiones_de_ascenso() >= 1},
+    {"clave": "estratega", "nombre": "Estratega",
+     "como": "4 revisiones semanales hechas.", "cond": lambda: _misiones_hechas("revision-semanal") >= 4},
+    {"clave": "cuerpo-templado", "nombre": "Cuerpo templado",
+     "como": "4 semanas con tus 4 entrenos.", "cond": lambda: _misiones_hechas("entrenos-semana") >= 4},
+    {"clave": "esteta", "nombre": "Esteta",
+     "como": "Desbloquear todos los marcos.", "cond": lambda: not set(MARCOS) - marcos_desbloqueados()},
 ] + [
     {"clave": f"rango-{orden}", "nombre": datos["titulo"],
      "como": f"Ascender a rango {datos['letra']}.",

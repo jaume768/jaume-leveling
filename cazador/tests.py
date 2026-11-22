@@ -150,6 +150,20 @@ class TestLogrosYAvisos:
         services.revisar_logros()
         assert Logro.objects.count() == total
 
+    def test_las_claves_de_titulo_son_unicas_y_hay_muchos(self):
+        claves = [t["clave"] for t in services.TITULOS]
+        assert len(claves) == len(set(claves))
+        assert len(claves) >= 30
+
+    def test_todas_las_condiciones_se_evaluan_sin_error(self):
+        for logro in services.TITULOS + services.HABILIDADES:
+            assert logro["cond"]() in (True, False), logro["clave"]
+
+    def test_un_escudo_salvador_da_segunda_oportunidad(self):
+        Escudo.objects.create(motivo="prueba", usado_en=MARTES)
+        services.revisar_logros()
+        assert Logro.objects.filter(clave="segunda-oportunidad").exists()
+
     def test_equipar_un_titulo_bloqueado_falla(self):
         with pytest.raises(ValueError):
             services.equipar_titulo("inquebrantable")
