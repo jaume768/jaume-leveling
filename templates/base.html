@@ -176,7 +176,7 @@
         </div>
       {% endif %}
       <a href="{{ entrada.url }}"
-         class="flex flex-col items-center gap-1 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-wide
+         class="flex min-w-0 flex-col items-center gap-1 py-2.5 text-[0.6rem] font-semibold uppercase tracking-normal
                 {% if entrada.activa %}text-xp{% else %}text-ink-3{% endif %}"
          {% if entrada.activa %}aria-current="page"{% endif %}>
         {% include "_icono.html" with icono=entrada.icono clase="h-5 w-5" %}
@@ -184,7 +184,7 @@
       </a>
     {% endfor %}
     <button type="button" @click="abierto = true"
-            class="flex flex-col items-center gap-1 py-2.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-ink-3">
+            class="flex min-w-0 flex-col items-center gap-1 py-2.5 text-[0.6rem] font-semibold uppercase tracking-normal text-ink-3">
       {% include "_icono.html" with icono="mas" clase="h-5 w-5" %}
       Más
     </button>

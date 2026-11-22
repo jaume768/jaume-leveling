@@ -86,16 +86,20 @@ def dias_con_escudo(desde: dt.date, hasta: dt.date) -> set[dt.date]:
 
 def cadena_de_dias(fecha: dt.date | None = None, semanas: int = 6) -> list[list[dict]]:
     """Cuadricula de las ultimas semanas, de lunes a domingo, para pintar la cadena."""
+    from core.models import Profile
+
     fecha = fecha or timezone.localdate()
     lunes_actual = fecha - dt.timedelta(days=fecha.weekday())
+    # Antes de que el Sistema arrancara no hubo nada que fallar, y tampoco se
+    # pintan semanas vacias: la cadena crece desde la semana del arranque.
+    arranque = Profile.get().fecha_inicio
+    lunes_arranque = arranque - dt.timedelta(days=arranque.weekday())
+    semanas_vividas = max(1, (lunes_actual - lunes_arranque).days // 7 + 1)
+    semanas = max(1, min(semanas, semanas_vividas))
     inicio = lunes_actual - dt.timedelta(weeks=semanas - 1)
     fin = lunes_actual + dt.timedelta(days=6)
     hechos = dias_con_accion(inicio, fecha)
     escudos = dias_con_escudo(inicio, fecha)
-    # Antes de que el Sistema arrancara no hubo nada que fallar.
-    from core.models import Profile
-
-    arranque = Profile.get().fecha_inicio
 
     filas = []
     for s in range(semanas):

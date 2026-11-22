@@ -86,6 +86,17 @@ class TestRachaYEscudos:
         assert estados[:5] == ["hecho", "fallado", "protegido", "fallado", "hoy"]
         assert estados[5:] == ["futuro", "futuro"]
 
+    def test_la_cadena_crece_desde_la_semana_del_arranque(self):
+        from core.models import Profile
+
+        perfil = Profile.get()
+        perfil.fecha_inicio = LUNES - dt.timedelta(days=12)  # dos semanas antes
+        perfil.save()
+        assert len(services.cadena_de_dias(VIERNES, semanas=6)) == 3
+        perfil.fecha_inicio = LUNES
+        perfil.save()
+        assert len(services.cadena_de_dias(VIERNES, semanas=6)) == 1
+
     def test_antes_del_arranque_no_hay_dias_fallados(self):
         from core.models import Profile
 
