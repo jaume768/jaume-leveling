@@ -84,11 +84,16 @@ def racha_actual(fecha: dt.date | None = None) -> int:
     if not es_dia_protegido(cursor) and not _hubo_accion_comercial(cursor):
         cursor -= dt.timedelta(days=1)
 
+    Escudo = apps.get_model("cazador", "Escudo")
     for _ in range(MAX_DIAS_RACHA):
         if es_dia_protegido(cursor):
             cursor -= dt.timedelta(days=1)
             continue
         if not _hubo_accion_comercial(cursor):
+            # Un escudo de racha gastado en ese dia lo salva: ni suma ni rompe.
+            if Escudo.objects.filter(usado_en=cursor).exists():
+                cursor -= dt.timedelta(days=1)
+                continue
             break
         dias += 1
         cursor -= dt.timedelta(days=1)
@@ -275,8 +280,16 @@ def registrar_xp(
         fuente=fuente,
         objeto_relacionado=objeto_relacionado,
     )
+    # El Sistema avisa de lo que acaba de pasar: XP, subida de nivel, ascenso
+    # y logros. Se compara con el perfil de antes de sumar.
+    from cazador import services as cazador
+
+    antes = Profile.get()
+    nivel_antes = antes.nivel
+    orden_antes = antes.rango.orden if antes.rango else 0
     if xp_neto:
         _actualizar_perfil(xp_neto)
+    cazador.tras_xp(evento, nivel_antes, orden_antes)
     return evento
 
 

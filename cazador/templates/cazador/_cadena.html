@@ -1,0 +1,25 @@
+{% comment %}
+  Cadena de dias: las ultimas semanas, de lunes a domingo. Cada casilla es un
+  dia con mision de racha (cian), salvado por escudo (violeta), fallado (rojo)
+  o protegido (discontinuo). Romper la cadena se ve.
+{% endcomment %}
+<div>
+  <div class="grid grid-cols-7 gap-1 text-center text-[0.6rem] font-semibold uppercase tracking-wider text-ink-3">
+    <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+  </div>
+  <div class="mt-1 grid grid-cols-7 gap-1">
+    {% for semana in cadena %}
+      {% for dia in semana %}
+        <span class="dia dia-{{ dia.estado }}" title="{{ dia.fecha|date:'D j M' }} · {{ dia.estado }}">
+          {% if dia.estado == 'escudo' %}◆{% elif dia.hoy %}{{ dia.fecha|date:'j' }}{% endif %}
+        </span>
+      {% endfor %}
+    {% endfor %}
+  </div>
+  <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[0.65rem] text-ink-3">
+    <span class="flex items-center gap-1"><span class="dia dia-hecho h-2.5 w-2.5"></span>Cumplido</span>
+    <span class="flex items-center gap-1"><span class="dia dia-escudo h-2.5 w-2.5"></span>Escudo</span>
+    <span class="flex items-center gap-1"><span class="dia dia-fallado h-2.5 w-2.5"></span>Fallado</span>
+    <span class="flex items-center gap-1"><span class="dia dia-protegido h-2.5 w-2.5"></span>Zona segura</span>
+  </div>
+</div>

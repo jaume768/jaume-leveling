@@ -69,7 +69,7 @@
             <button type="button"
                     class="fila-mision flex w-full items-start gap-3 text-left
                            {% if not fila.disponible %}opacity-60{% endif %}"
-                    hx-get="{% url 'missions:detalle' fila.mision.pk %}"
+                    hx-get="{% url 'missions:detalle' fila.mision.pk %}{% if fila.mision.tipo == 'PRINCIPAL' %}?accion=1{% endif %}"
                     hx-target="#modal" hx-swap="innerHTML">
 
               {# Estado: hecha en su periodo, bloqueada por rango, o pendiente #}

@@ -155,7 +155,7 @@ class TestPanelHTMX:
     def test_el_panel_carga(self, client):
         respuesta = client.get(reverse("core:index"))
         assert respuesta.status_code == 200
-        assert b"Nivel" in respuesta.content
+        assert b"Racha" in respuesta.content
 
     def test_completar_por_htmx_devuelve_el_fragmento(self, client, d2):
         respuesta = client.post(reverse("missions:completar", args=[d2.pk]))
@@ -439,7 +439,7 @@ def test_el_marcador_del_panel_solo_cuenta_el_ritmo_del_dia():
     assert panel["total"] < len(panel["filas"]) + len(panel["elecciones"])
 
     titulos = [g["titulo"] for g in panel["grupos"]]
-    assert titulos == ["Diarias", "Semanales", "Mensuales", "Principales"]
+    assert titulos == ["Diarias", "Semanales", "Mensuales", "De ascenso"]
 
 
 # --- Cuaderno del cierre del día ---------------------------------------------
@@ -719,7 +719,7 @@ class TestCatalogoDeMisiones:
     def test_los_grupos_van_en_orden_de_periodicidad(self):
         catalogo = services.catalogo_de_misiones(LUNES)
         assert [g["titulo"] for g in catalogo["grupos"]] == [
-            "Diarias", "Semanales", "Mensuales", "Principales",
+            "Diarias", "Semanales", "Mensuales", "De ascenso",
         ]
 
     def test_ordenar_por_el_valor_del_tipo_daba_otro_orden(self):
@@ -796,7 +796,7 @@ class TestPantallaDeMisiones:
             contenido.index("Haz lo esencial"),
             contenido.index("Construye resultados"),
             contenido.index("El mes se gana"),
-            contenido.index("Cierran tu rango"),
+            contenido.index("Abren la mazmorra"),
         ]
         assert posiciones == sorted(posiciones)
 

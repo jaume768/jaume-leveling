@@ -197,22 +197,22 @@ def test_porcentaje_se_recorta_entre_0_y_100(valor, objetivo, esperado):
 @pytest.mark.django_db
 def test_navegacion_marca_la_entrada_mas_especifica():
     entradas = {e["etiqueta"]: e for e in core_services.navegacion("/negocio/facturas/")}
-    assert entradas["Negocio"]["activa"] is True
+    assert entradas["Gremio"]["activa"] is True
     # El panel cuelga de "/" y no debe activarse con cualquier ruta.
-    assert entradas["Panel"]["activa"] is False
+    assert entradas["Hoy"]["activa"] is False
 
 
 @pytest.mark.django_db
 def test_navegacion_activa_el_panel_en_la_raiz():
     entradas = {e["etiqueta"]: e for e in core_services.navegacion("/")}
-    assert entradas["Panel"]["activa"] is True
+    assert entradas["Hoy"]["activa"] is True
 
 
 @pytest.mark.django_db
-def test_la_barra_inferior_lleva_panel_misiones_y_negocio():
+def test_la_barra_inferior_lleva_hoy_misiones_gremio_y_estado():
     # Lo demas queda tras "Más", que abre el menu lateral.
     movil = [e["etiqueta"] for e in core_services.navegacion("/") if e["movil"]]
-    assert movil == ["Panel", "Misiones", "Negocio"]
+    assert movil == ["Hoy", "Misiones", "Gremio", "Estado"]
 
 
 @pytest.mark.parametrize(
@@ -549,7 +549,7 @@ class TestPantallaDeCalibracion:
         respuesta = client.get(reverse("core:calibracion"))
 
         assert respuesta.status_code == 200
-        assert "Calibración mensual".encode() in respuesta.content
+        assert "Ajustes del Sistema".encode() in respuesta.content
         assert "Red profesional".encode() in respuesta.content
 
     def test_el_post_sube_el_atributo(self, client):
@@ -873,7 +873,7 @@ class TestEmblemasDeRango:
     def test_la_escalera_muestra_los_seis(self, client):
         contenido = client.get(reverse("core:niveles")).content.decode()
         for orden in range(1, 7):
-            assert f"rango-{orden}.webp" in contenido
+            assert f"emblema-rango-{orden}" in contenido
         # Los cuatro que aún no se han alcanzado van apagados.
         assert contenido.count("emblema-off") == 4
 

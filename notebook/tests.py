@@ -114,7 +114,7 @@ class TestVistas:
     def test_esta_en_el_menu(self, client):
         contenido = client.get(reverse("core:index")).content.decode()
         assert reverse("notebook:index") in contenido
-        assert "Cuaderno" in contenido
+        assert "Diario" in contenido
 
     def test_crear_por_htmx_devuelve_la_lista(self, client):
         respuesta = client.post(

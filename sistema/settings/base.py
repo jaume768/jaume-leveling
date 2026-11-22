@@ -16,6 +16,9 @@ env = environ.Env(
     TIME_ZONE=(str, "Europe/Madrid"),
     ANTHROPIC_API_KEY=(str, ""),
     ANTHROPIC_MODEL=(str, "claude-sonnet-5"),
+    VAPID_PUBLIC_KEY=(str, ""),
+    VAPID_PRIVATE_KEY=(str, ""),
+    VAPID_SUBJECT=(str, "https://jaumeleveling.websjfs.com"),
 )
 
 environ.Env.read_env(BASE_DIR / ".env")
@@ -46,6 +49,7 @@ LOCAL_APPS = [
     "review",
     "wisdom",
     "notebook",
+    "cazador",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -62,6 +66,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    "cazador.middleware.AvisosHtmxMiddleware",
 ]
 
 ROOT_URLCONF = "sistema.urls"
@@ -132,3 +137,10 @@ ANTHROPIC_MODEL = env("ANTHROPIC_MODEL")
 # barra de direccion de Chrome arriba. Vacia, el fichero sale vacio.
 ANDROID_PACKAGE = env("ANDROID_PACKAGE", default="com.jaumeleveling.app")
 ANDROID_SHA256 = env.list("ANDROID_SHA256", default=[])
+
+# Notificaciones al movil (Web Push). Las claves se generan una vez con
+# `python manage.py claves_vapid` y viven en el .env. Sin ellas, el Sistema
+# funciona igual pero no envia nada.
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY")
+VAPID_SUBJECT = env("VAPID_SUBJECT")

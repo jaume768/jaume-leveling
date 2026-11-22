@@ -1,431 +1,187 @@
 {% extends "base.html" %}
 {% load l10n core_extras %}
 
-{% block title %}Panel{% endblock %}
+{% block title %}Hoy{% endblock %}
 
 {% block cabecera %}
-  <p class="truncate text-caption text-ink-3 first-letter:uppercase md:text-body-sm">{{ hoy|date:"l, j \d\e F" }}<span class="hidden sm:inline"> de {{ hoy|date:"Y" }}</span></p>
-  <h1 class="display mt-0.5 truncate text-h2 font-bold text-ink md:text-[2rem] md:leading-10">
-    {{ saludo }}{% if rango %}, {{ rango.nombre }}{% endif %}.
+  <p class="truncate text-caption uppercase tracking-[0.2em] text-ink-3">{{ hoy|date:"l, j \d\e F" }}</p>
+  <h1 class="titular-sistema mt-0.5 truncate text-h2 md:text-[2rem] md:leading-10">
+    {{ saludo }}, {{ cazador.alias|default:"Jugador" }}.
   </h1>
 {% endblock %}
 
 {% block content %}
-{# Degradado de los anillos de progreso: se define una vez y lo usan todos. #}
-<svg class="absolute h-0 w-0" aria-hidden="true" focusable="false">
-  <defs>
-    <linearGradient id="degradado-anillo" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="var(--color-violeta)"/>
-      <stop offset="100%" stop-color="var(--color-xp)"/>
-    </linearGradient>
-  </defs>
-</svg>
-
 <div class="space-y-4 md:space-y-5">
-
-{# ================= Nivel: rango, XP y las tres cifras del dia ================= #}
-<section class="card-nivel p-4 md:p-6">
-  <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-
-    <a href="{% url 'core:niveles' %}" title="Ver rangos y niveles"
-       class="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-4 md:gap-x-6">
-      <span class="relative md:row-span-2">
-        {% include "core/_emblema.html" with rango=rango clase="h-16 w-16 md:h-28 md:w-28" %}
-        {% if rango %}
-          <span class="absolute -bottom-2 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-[5px] bg-xp
-                       px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider text-white md:block">
-            Rango {{ rango_romano }}
-          </span>
-        {% endif %}
-      </span>
-
-      <span class="min-w-0 md:self-end">
-        <span class="label-acento acento-xp block truncate">
-          <span class="md:hidden">{% if rango %}{{ rango.nombre }} · Rango {{ rango_romano }}{% else %}Sin rango{% endif %}</span>
-          <span class="hidden md:inline">Rango actual · {% if rango %}{{ rango.nombre }}{% else %}sin rango{% endif %}</span>
-        </span>
-        <span class="mt-1 flex items-baseline gap-3">
-          <span class="display text-[2rem] font-bold leading-none text-ink md:text-[3.5rem]">Nivel {{ perfil.nivel }}</span>
-          <span class="hidden text-body-sm text-ink-3 sm:inline">→ Nivel {{ perfil.nivel|add:1 }}</span>
-        </span>
-      </span>
-
-      <span class="col-span-2 block md:col-span-1 md:col-start-2 md:self-start">
-        <span class="bar block h-2 bg-surface-3">
-          <span class="bar-fill block" style="width: {{ perfil.progreso_nivel_pct }}%"></span>
-        </span>
-        <span class="mt-2 flex justify-between gap-3 text-caption tabular text-ink-3">
-          <span><strong class="font-semibold text-ink">{{ perfil.xp_en_nivel|miles }}</strong> / {{ perfil.xp_en_nivel|add:perfil.xp_para_siguiente_nivel|miles }} XP</span>
-          <span>Faltan <strong class="font-semibold text-ink">{{ perfil.xp_para_siguiente_nivel|miles }}</strong><span class="hidden sm:inline"> XP</span></span>
-        </span>
-      </span>
-    </a>
-
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:w-[27rem] lg:shrink-0">
-
-      {# Racha comercial: segmentos hasta el siguiente multiplicador #}
-      <a href="{% url 'progression:index' %}" class="mini-cifra acento-warn">
-        <span class="label-acento flex items-center gap-1.5">
-          {% include "_icono.html" with icono="fuego" clase="h-3.5 w-3.5" %}
-          Racha<span class="md:hidden"> ×{{ multiplicador|floatformat:2 }}</span>
-        </span>
-        <span class="mt-2 block text-ink">
-          <span class="display text-[1.75rem] font-bold leading-none tabular">{{ racha }}</span>
-          <span class="text-body-sm text-ink-2">día{{ racha|pluralize }}</span>
-        </span>
-        <span class="mt-2.5 flex gap-1" aria-hidden="true">
-          {% for lleno in tramo_racha.segmentos %}
-            <span class="{% if lleno %}segmento-on{% else %}segmento{% endif %}"></span>
-          {% endfor %}
-        </span>
-        <span class="mt-2 hidden text-caption text-ink-3 md:block">
-          ×{{ multiplicador|floatformat:2 }}
-          {% if tramo_racha.siguiente_dias %}· a los {{ tramo_racha.siguiente_dias }} días ×{{ tramo_racha.siguiente_multiplicador|floatformat:2 }}{% else %}· tope{% endif %}
-        </span>
-      </a>
-
-      {# XP de la semana #}
-      <a href="{% url 'progression:index' %}" class="mini-cifra acento-xp">
-        <span class="label-acento flex items-center gap-1.5">
-          {% include "_icono.html" with icono="progresion" clase="h-3.5 w-3.5" %}
-          XP semana
-        </span>
-        <span class="mt-2 flex items-center gap-3">
-          <svg class="anillo h-10 w-10 shrink-0 md:h-11 md:w-11" viewBox="0 0 36 36" aria-hidden="true">
-            <circle class="anillo-fondo" cx="18" cy="18" r="15" stroke-width="4"/>
-            {% if xp_semana_pct %}
-              <circle class="anillo-valor" cx="18" cy="18" r="15" stroke-width="4" pathLength="100"
-                      stroke-dasharray="{{ xp_semana_pct }} 100"/>
-            {% endif %}
-          </svg>
-          <span class="min-w-0">
-            <span class="display block text-[1.5rem] font-bold leading-none tabular text-ink">
-              {{ xp_semana }}<span class="text-caption font-normal text-ink-3 md:hidden"> /{{ objetivo_xp_semanal }}</span>
-            </span>
-            <span class="mt-1 hidden text-caption tabular text-ink-3 md:block">de {{ objetivo_xp_semanal }} · {{ xp_semana_pct }} %</span>
-          </span>
-        </span>
-      </a>
-
-      {# Recompensa: en movil baja a su propia fila, mas abajo #}
-      <a href="{% url 'progression:recompensas' %}" class="mini-cifra acento-violeta hidden md:block">
-        {% if recompensas.pendientes %}
-          <span class="label-acento flex items-center gap-1.5 acento-ok">
-            {% include "_icono.html" with icono="regalo" clase="h-3.5 w-3.5" %}
-            Te lo has ganado
-          </span>
-          <span class="mt-2 block text-body-sm font-semibold leading-snug text-ink">{{ recompensas.pendientes.0.titulo }}</span>
-          <span class="mt-1 block text-caption text-ok">Cobrarla →</span>
-        {% elif recompensas.siguiente %}
-          <span class="label-acento flex items-center gap-1.5">
-            {% include "_icono.html" with icono="regalo" clase="h-3.5 w-3.5" %}
-            Recompensa
-          </span>
-          <span class="mt-2 block text-body-sm font-semibold leading-snug text-ink">{{ recompensas.siguiente.titulo }}</span>
-          <span class="mt-1 block text-caption text-ink-3">
-            en {{ recompensas.faltan_niveles }} nivel{{ recompensas.faltan_niveles|pluralize:"es" }} · Nv. {{ recompensas.siguiente.nivel_requerido }}
-          </span>
-        {% else %}
-          <span class="label-acento flex items-center gap-1.5">
-            {% include "_icono.html" with icono="regalo" clase="h-3.5 w-3.5" %}
-            Recompensa
-          </span>
-          <span class="mt-2 block text-caption text-ink-3">Sin recompensas por delante. Añade una.</span>
-        {% endif %}
-      </a>
-    </div>
-  </div>
-</section>
 
 {% include "core/_alertas.html" %}
 
-{% comment %}
-  Rejilla central. En escritorio, el jefe a la izquierda y el pipeline y hoy a
-  la derecha. En movil la columna derecha se deshace (display: contents) y el
-  orden lo pone order-*: hoy, jefe, pipeline.
-{% endcomment %}
-<div class="flex flex-col gap-4 md:gap-5 lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] lg:items-start">
+<div class="grid gap-4 md:gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
 
-  {# --- Jefe de rango --- #}
-  {% if jefe %}
-    <section class="card-jefe order-2 p-4 md:p-6 lg:order-none">
-      <div class="flex items-start gap-4">
-        <span class="caja-icono acento-warn hidden h-12 w-12 sm:inline-flex">
-          {% include "_icono.html" with icono="diana" clase="h-6 w-6" %}
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="label-acento acento-warn">Jefe activo{% if jefe.plazo %}<span class="sm:hidden"> · {{ jefe.plazo }}</span>{% endif %}</p>
-          <h2 class="display mt-1 text-h2 font-bold text-ink">{{ jefe.nombre }}</h2>
-        </div>
-        {% if jefe.plazo %}
-          <a href="{% url 'core:niveles' %}" title="Ver los jefes de rango"
-             class="hidden items-center gap-1.5 rounded-sm border border-warn/40 bg-warn/10 px-2.5 py-1
-                    text-caption font-medium text-warn hover:bg-warn/20 sm:flex">
-            {% include "_icono.html" with icono="arena" clase="h-3.5 w-3.5" %}
-            Plazo: {{ jefe.plazo }}
-          </a>
-        {% endif %}
-      </div>
+  {# ======================= Columna principal ======================= #}
+  <div class="space-y-4 md:space-y-5">
 
-      <div class="mt-5 sm:max-w-[80%]">
-        <p class="flex justify-between text-caption font-semibold uppercase tracking-[0.14em] text-ink-2">
-          Vida del jefe <span class="tabular text-warn">{{ vida_jefe }} %</span>
-        </p>
-        <div class="bar mt-2 h-2 bg-surface-3">
-          <div class="bar-fill bar-fill-warn" style="width: {{ vida_jefe }}%"></div>
-        </div>
-        {% if jefe.prueba %}
-          <p class="mt-2 text-body-sm text-ink-2"><span class="hidden sm:inline">Victoria: </span>{{ jefe.prueba }}</p>
-        {% endif %}
-
-        {% if requisitos_jefe %}
-          <ul class="mt-4 space-y-2">
-            {% for req in requisitos_jefe %}
-              <li class="{% if req.cumplido %}requisito-hecho{% else %}requisito{% endif %}">
-                {% if req.cumplido %}
-                  <span class="casilla-done h-5 w-5" aria-label="Cumplido">
-                    {% include "_icono.html" with icono="check" clase="h-3 w-3" %}
-                  </span>
-                {% elif req.pct %}
-                  <span class="casilla-parcial h-5 w-5" aria-label="A medias"></span>
-                {% else %}
-                  <span class="casilla h-5 w-5" aria-label="Pendiente"></span>
-                {% endif %}
-                <span class="min-w-0 flex-1 {% if req.cumplido %}line-through{% endif %}">{{ req.texto }}</span>
-                <span class="shrink-0 text-caption tabular {% if req.cumplido %}text-ok{% elif req.pct %}text-warn{% else %}text-ink-3{% endif %}">
-                  {% if req.cumplido %}Hecho
-                  {% elif req.medible %}{{ req.actual|miles }}/{{ req.objetivo|miles }}
-                  {% else %}—{% endif %}
-                </span>
-              </li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      </div>
-    </section>
-  {% endif %}
-
-  {# ================= Columna derecha ================= #}
-  <div class="contents lg:flex lg:flex-col lg:gap-5">
-
-    {# --- Pipeline --- #}
-    <section class="card order-3 p-4 md:p-5 lg:order-none">
-      <div class="flex items-center justify-between gap-3">
-        <p class="label-acento acento-xp flex items-center gap-2">
-          {% include "_icono.html" with icono="embudo" clase="h-4 w-4" %}
-          Pipeline<span class="sm:hidden"> de clientes</span>
-        </p>
-        <a href="{% url 'business:pipeline' %}" class="text-caption font-medium text-xp hover:underline">
-          Ver<span class="hidden sm:inline"> todo</span>
-        </a>
-      </div>
-
-      {# Escritorio: barras horizontales con la cifra dentro. #}
-      <div class="mt-4 hidden space-y-2.5 sm:block">
-        {% for etapa in embudo %}
-          <a href="{% url 'business:pipeline' %}?estado={{ etapa.estado }}"
-             class="group grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-3">
-            <span class="truncate text-body-sm text-ink-2 group-hover:text-ink">{{ etapa.etiqueta }}</span>
-            <span class="tramo"
-                  style="--acento: {% if forloop.counter == 1 %}var(--color-xp){% elif forloop.counter == 2 %}var(--color-violeta){% else %}var(--color-ok){% endif %}">
-              {% if etapa.total %}<span class="tramo-fill" style="width: {{ etapa.ancho }}%"></span>{% endif %}
-              <strong class="relative w-9 pl-2.5 text-body-sm tabular text-ink {% if not etapa.total %}text-ink-3{% endif %}">{{ etapa.total }}</strong>
-              {% if etapa.ancho < 60 %}
-                <span class="absolute truncate text-caption text-ink-3"
-                      style="left: calc(max({{ etapa.ancho }}%, 2.25rem) + 0.75rem); right: 0.5rem">
-                  {% if etapa.conversion is not None and etapa.total %}{{ etapa.conversion }} % de conversión{% endif %}
-                </span>
-              {% endif %}
-            </span>
-          </a>
-        {% endfor %}
-      </div>
-
-      {# Movil: tres cajas y una barra apilada. #}
-      <div class="mt-3 grid grid-cols-3 gap-2 sm:hidden">
-        {% for etapa in embudo %}
-          <a href="{% url 'business:pipeline' %}?estado={{ etapa.estado }}"
-             class="rounded-md border border-line bg-surface-1/70 px-3 py-2.5">
-            <span class="display block text-h2 font-bold tabular {% if etapa.total %}text-ink{% else %}text-ink-3{% endif %}">{{ etapa.total }}</span>
-            <span class="block truncate text-caption text-ink-3">{{ etapa.etiqueta }}</span>
-          </a>
-        {% endfor %}
-      </div>
-      <div class="mt-3 flex h-1.5 overflow-hidden rounded-full bg-surface-3 sm:hidden" aria-hidden="true">
-        {% for etapa in embudo %}
-          <span class="h-full {% if forloop.counter == 1 %}bg-xp{% elif forloop.counter == 2 %}bg-violeta{% else %}bg-ok{% endif %}"
-                style="width: {{ etapa.pct }}%"></span>
-        {% endfor %}
-      </div>
-
-      <div class="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
-        <p class="text-caption text-ink-2 first-letter:uppercase">
-          {% with conv=embudo.1.conversion %}{% if conv is not None and embudo.1.total %}<span class="sm:hidden">{{ conv }} % pasa a conversación · </span>{% endif %}{% endwith %}<span class="hidden sm:inline">Siguiente paso: </span>{{ siguiente_paso.texto }}
-        </p>
-        <a href="{% url 'business:pipeline' %}{% if siguiente_paso.estado %}?estado={{ siguiente_paso.estado }}{% endif %}"
-           class="hidden shrink-0 text-caption font-semibold text-xp hover:underline sm:inline">{{ siguiente_paso.accion }}</a>
-      </div>
-    </section>
-
-    {# --- Hoy: el miercoles, solo el aviso; el resto, las misiones --- #}
-    {% if misiones.dia_protegido %}
-      <section class="card order-1 flex items-center gap-4 p-4 lg:order-none">
-        <span class="caja-icono acento-warn">{% include "_icono.html" with icono="sol" clase="h-5 w-5" %}</span>
-        <div class="min-w-0">
-          <p class="text-body-sm font-semibold text-ink">Día protegido</p>
-          <p class="text-caption text-ink-2">
-            <span class="hidden sm:inline">Hoy no hay misiones. No suma XP, no rompe la racha, no penaliza.</span>
-            <span class="sm:hidden">Sin misiones. No suma, no rompe, no penaliza.</span>
-          </p>
-        </div>
+    {# --- Mision diaria: cuenta atras y lo que esta en juego --- #}
+    {% if zona_segura and misiones.dia_protegido %}
+      <section class="ventana ventana-ok p-5 text-center">
+        <p class="ventana-titulo">Zona segura</p>
+        <p class="titular-sistema mt-3 text-h3">Hoy no hay misiones</p>
+        <p class="mt-1 text-body-sm text-ink-2">Miércoles: no suma XP, no rompe la racha y no penaliza. Descansa.</p>
       </section>
     {% else %}
-      <div class="compacto order-1 lg:order-none">
+      <section class="ventana {% if racha_en_juego %}ventana-peligro{% endif %} p-4 md:p-5"
+               x-data="{ r: '--:--:--',
+                         t() { const a = new Date(); const m = new Date(a); m.setHours(24, 0, 0, 0);
+                               let s = Math.max(0, Math.floor((m - a) / 1000));
+                               const h = String(Math.floor(s / 3600)).padStart(2, '0'); s %= 3600;
+                               this.r = h + ':' + String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); } }"
+               x-init="t(); setInterval(() => t(), 1000)">
+        <p class="ventana-titulo">Misión diaria</p>
+        <div class="mt-4 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="text-caption uppercase tracking-[0.2em] text-ink-3">Tiempo restante</p>
+            <p class="cuenta-atras cifra-sistema text-[2.6rem] leading-none md:text-[3.2rem]" x-text="r">--:--:--</p>
+          </div>
+          <div class="text-right">
+            <p class="cifra-sistema text-[2rem] leading-none">{{ diarias.hechas }}<span class="text-h4 text-ink-3">/{{ diarias.total }}</span></p>
+            <p class="text-caption uppercase tracking-[0.2em] text-ink-3">diarias</p>
+          </div>
+        </div>
+        <div class="barra-xp mt-3 h-2"><span class="barra-xp-fill" style="width: {% if diarias.total %}{% widthratio diarias.hechas diarias.total 100 %}{% else %}0{% endif %}%"></span></div>
+        <p class="mt-3 text-body-sm {% if racha_en_juego %}text-bad{% else %}text-ink-2{% endif %}">
+          {% if diarias.completas %}
+            <strong class="text-ok">Misión diaria completada.</strong> Racha asegurada{% if cofre.disponible %} y cofre esperando{% endif %}.
+          {% elif racha_asegurada %}
+            Racha asegurada por hoy. Cierra el resto para ganar el cofre.
+          {% elif racha_en_juego %}
+            <strong>Tu racha de {{ racha }} día{{ racha|pluralize }} está en juego.</strong>
+            {% if escudos %}Si fallas, un escudo la salvará ({{ escudos }} disponible{{ escudos|pluralize }}).{% else %}Sin escudos: si llega a 00:00 sin misión de racha, se rompe.{% endif %}
+          {% else %}
+            Completa una misión de racha hoy para empezar la cadena.
+          {% endif %}
+        </p>
+      </section>
+
+      <div class="compacto">
         {% include "missions/_bloque.html" %}
       </div>
     {% endif %}
-  </div>
-</div>
 
-{# ================= Cifras de negocio y maxima ================= #}
-<div class="grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-3">
+    {# --- Mazmorra de ascenso: el jefe del rango, planta a planta --- #}
+    {% if jefe %}
+      <section class="card-jefe p-4 md:p-6">
+        <div class="flex items-start gap-4">
+          {% include "core/_emblema.html" with rango=rango clase="hidden h-14 w-14 sm:block" %}
+          <div class="min-w-0 flex-1">
+            <p class="ventana-titulo" style="--filo: var(--color-violeta)">Mazmorra de rango {{ rango.cazador.letra }}</p>
+            <h2 class="titular-sistema mt-2 text-h2">{{ jefe.nombre }}</h2>
+            {% if jefe.plazo %}<p class="mt-0.5 text-caption uppercase tracking-[0.18em] text-violeta">Portal abierto · plazo {{ jefe.plazo }}</p>{% endif %}
+          </div>
+        </div>
 
-  {# --- Tarifa efectiva: la metrica maestra --- #}
-  <section class="card flex flex-col p-4 md:p-5">
-    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-      <p class="label-acento acento-xp"><span class="sm:hidden">Tarifa · 90 d</span><span class="hidden sm:inline">Tarifa efectiva · 90 d</span></p>
-      <p class="hidden whitespace-nowrap text-caption text-ink-3 sm:block">Objetivo {{ objetivo_tarifa|floatformat:0 }} €/h</p>
-    </div>
-    <p class="mt-3 flex items-baseline gap-2 tabular">
-      <span class="display text-[2rem] font-bold leading-none text-ink md:text-[2.5rem]">
-        {% if hay_horas %}{{ tarifa_efectiva|floatformat:0 }}{% else %}<span class="text-ink-3">— —</span>{% endif %}
-      </span>
-      <span class="text-body-sm text-ink-3">€/h</span>
-    </p>
-    <p class="mt-1 text-caption text-ink-3 sm:hidden">Objetivo {{ objetivo_tarifa|floatformat:0 }} €/h</p>
-
-    {% if hay_horas %}
-      <p class="mt-2 flex flex-wrap items-center gap-1.5 text-caption text-ink-2">
-        {% if grafica_tarifa.variacion is not None %}
-          {% if grafica_tarifa.variacion >= 0 %}
-            <strong class="font-semibold text-ok">+{{ grafica_tarifa.variacion }} %</strong>
-          {% else %}
-            <strong class="font-semibold text-bad">−{{ grafica_tarifa.variacion_abs }} %</strong>
-          {% endif %}
-          <span class="hidden sm:inline">respecto al período anterior</span>
-        {% else %}
-          <span class="text-ink-3">Sin período anterior con el que comparar.</span>
-        {% endif %}
-      </p>
-      {# Sin localizar: las coordenadas llevan punto decimal, no coma. #}
-      {% localize off %}
-      <div class="relative mt-auto pt-3">
-        <svg viewBox="0 0 {{ grafica_tarifa.ancho }} {{ grafica_tarifa.alto }}" preserveAspectRatio="none"
-             class="block h-14 w-full overflow-visible" role="img"
-             aria-label="Evolución de la tarifa efectiva en los últimos 90 días">
-          <defs>
-            <linearGradient id="relleno-tarifa" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="var(--color-xp)" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="var(--color-xp)" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          {% if grafica_tarifa.linea %}
-            <path d="{{ grafica_tarifa.area }}" fill="url(#relleno-tarifa)"/>
-            <polyline points="{{ grafica_tarifa.linea }}" fill="none" stroke="var(--color-xp)"
-                      stroke-width="2" stroke-linejoin="round" stroke-linecap="round"
-                      vector-effect="non-scaling-stroke"/>
-          {% endif %}
-        </svg>
-        {% if not grafica_tarifa.linea %}
-          <p class="absolute inset-0 flex items-center justify-center text-caption text-ink-3">
-            La gráfica aparece con dos semanas de datos.
+        <div class="mt-5">
+          <p class="flex justify-between text-caption font-semibold uppercase tracking-[0.16em] text-ink-2">
+            Vida del jefe <span class="tabular text-bad">{{ vida_jefe }} %</span>
           </p>
-        {% endif %}
-      </div>
-      {% endlocalize %}
-    {% else %}
-      <p class="mt-3 hidden text-caption text-ink-3 sm:block">
-        Sin proyectos entregados con horas registradas. La gráfica aparece con dos semanas de datos.
-      </p>
-      <div class="mt-auto pt-3 sm:pt-4">
-        <a href="{% url 'business:proyectos' %}" class="btn-hueco w-full">Registrar horas</a>
-      </div>
+          <div class="barra-xp mt-2 h-2.5"><span class="barra-xp-fill" style="width: {{ vida_jefe }}%; --color-xp: var(--color-bad)"></span></div>
+          {% if jefe.prueba %}
+            <p class="mt-2 text-body-sm text-ink-2">Para vencerlo: {{ jefe.prueba }}</p>
+          {% endif %}
+
+          {% if requisitos_jefe %}
+            <ol class="mt-4 space-y-2">
+              {% for req in requisitos_jefe %}
+                <li class="{% if req.cumplido %}requisito-hecho{% else %}requisito{% endif %}">
+                  <span class="cifra-sistema w-14 shrink-0 text-caption uppercase tracking-wider {% if req.cumplido %}text-ok{% else %}text-violeta{% endif %}">Planta {{ forloop.counter }}</span>
+                  <span class="min-w-0 flex-1 {% if req.cumplido %}line-through{% endif %}">{{ req.texto }}</span>
+                  <span class="shrink-0 text-caption tabular {% if req.cumplido %}text-ok{% elif req.pct %}text-warn{% else %}text-ink-3{% endif %}">
+                    {% if req.cumplido %}Superada{% elif req.medible %}{{ req.actual|miles }}/{{ req.objetivo|miles }}{% else %}—{% endif %}
+                  </span>
+                </li>
+              {% endfor %}
+            </ol>
+          {% endif %}
+        </div>
+      </section>
     {% endif %}
-  </section>
+  </div>
 
-  {# --- Recurrente activo --- #}
-  <section class="card flex flex-col p-4 md:p-5">
-    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-      <p class="label-acento acento-ok"><span class="hidden sm:inline">Ingreso </span>recurrente</p>
-      <p class="hidden whitespace-nowrap text-caption text-ink-3 sm:block">Objetivo {{ objetivo_recurrente|floatformat:0 }} €/mes</p>
-    </div>
-    <p class="mt-3 flex items-baseline gap-2 tabular">
-      <span class="display text-[2rem] font-bold leading-none text-ink md:text-[2.5rem]">{{ recurrente|miles }}</span>
-      <span class="text-body-sm text-ink-3">€/mes</span>
-    </p>
-    <p class="mt-1 text-caption text-ink-3 sm:hidden">Objetivo {{ objetivo_recurrente|floatformat:0 }} €/mes</p>
+  {# ======================= Columna lateral ======================= #}
+  <div class="space-y-4 md:space-y-5">
 
-    <div class="relative mt-3 hidden sm:block">
-      <div class="bar h-2 bg-surface-3">
-        {% if recurrente_pct %}<div class="bar-fill bar-fill-ok" style="width: {{ recurrente_pct }}%"></div>{% endif %}
+    {# --- Estado compacto --- #}
+    <a href="{% url 'core:personaje' %}" class="ventana block p-4" style="--rango: {{ rango.cazador.color }}">
+      <p class="ventana-titulo">Estado</p>
+      <div class="mt-3 flex items-center gap-4">
+        {% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}
+        <div class="min-w-0 flex-1">
+          <p class="clase-cazador text-body-sm">Rango {{ rango.cazador.letra }} · {{ rango.cazador.clase }}</p>
+          <p class="cifra-sistema text-[2.2rem] leading-none">Nv. {{ perfil.nivel }}</p>
+          {% if cazador.titulo_equipado %}<p class="truncate text-caption italic text-warn">«{{ cazador.titulo_equipado }}»</p>{% endif %}
+        </div>
       </div>
-      {% if not recurrente_pct %}
-        <span class="absolute -top-0.5 left-0 h-3 w-3 rounded-full border-2 border-ok bg-surface-2"></span>
-      {% endif %}
-    </div>
+      <div class="barra-xp mt-3"><span class="barra-xp-fill" style="width: {{ perfil.progreso_nivel_pct }}%"></span></div>
+      <p class="mt-1.5 flex justify-between text-caption tabular text-ink-3">
+        <span><span class="text-ink">{{ perfil.xp_en_nivel|miles }}</span> / {{ perfil.xp_en_nivel|add:perfil.xp_para_siguiente_nivel|miles }} XP</span>
+        <span>Semana: <span class="text-ink">{{ xp_semana }}</span>/{{ objetivo_xp_semanal }}</span>
+      </p>
+    </a>
 
-    {% if recurrente %}
-      <p class="mt-2 hidden text-caption tabular text-ink-3 sm:block">{{ recurrente_pct }} % del objetivo</p>
-      <div class="mt-auto pt-3 sm:pt-4">
-        <a href="{% url 'business:clientes' %}" class="btn-ok w-full">Ver clientes</a>
+    {# --- Cofre del dia --- #}
+    {% include "cazador/_cofre.html" %}
+
+    {# --- Racha y cadena de dias --- #}
+    <section class="ventana p-4">
+      <p class="ventana-titulo">Racha</p>
+      <div class="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <p class="cifra-sistema text-[2.4rem] leading-none">{{ racha }} <span class="text-body-sm font-normal text-ink-3">día{{ racha|pluralize }}</span></p>
+          <p class="mt-1 text-caption text-ink-3">
+            ×{{ multiplicador|floatformat:2 }} XP{% if tramo_racha.siguiente_dias %} · a los {{ tramo_racha.siguiente_dias }} días ×{{ tramo_racha.siguiente_multiplicador|floatformat:2 }}{% else %} · tope{% endif %}
+          </p>
+        </div>
+        <div class="text-right">
+          <p class="text-caption uppercase tracking-[0.16em] text-ink-3">Récord</p>
+          <p class="cifra-sistema text-h3">{{ mejor_racha }}</p>
+        </div>
       </div>
-    {% else %}
-      <p class="mt-2 hidden text-caption text-ink-3 sm:block">El primer contrato desbloquea este medidor.</p>
-      <div class="mt-auto pt-3 sm:pt-4">
-        <a href="{% url 'business:pipeline' %}" class="btn-ok w-full">
-          <span class="sm:hidden">Primer contrato</span><span class="hidden sm:inline">Conseguir primer contrato →</span>
-        </a>
+      <div class="mt-3 flex gap-1" aria-hidden="true">
+        {% for lleno in tramo_racha.segmentos %}<span class="{% if lleno %}segmento-on{% else %}segmento{% endif %}"></span>{% endfor %}
       </div>
+      <div class="mt-4">{% include "cazador/_cadena.html" %}</div>
+      <div class="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3 text-caption">
+        <span class="flex items-center gap-1.5 text-ink-2" title="Salvan un día fallado. Se ganan con una semana perfecta o forjando 5 fragmentos.">
+          Escudos
+          {% for i in "12" %}<span class="text-body {% if forloop.counter <= escudos %}text-violeta drop-shadow-[0_0_6px_var(--color-violeta)]{% else %}text-ink-3/40{% endif %}">◆</span>{% endfor %}
+        </span>
+        <span class="text-ink-3">Runas {{ fragmentos }}/{{ fragmentos_por_escudo }}</span>
+      </div>
+    </section>
+
+    {# --- Siguiente recompensa del inventario --- #}
+    {% if recompensas.pendientes or recompensas.siguiente %}
+      <a href="{% url 'progression:recompensas' %}" class="ventana ventana-oro flex items-center gap-3 p-4">
+        <span class="caja-icono acento-warn h-10 w-10">{% include "_icono.html" with icono="regalo" clase="h-5 w-5" %}</span>
+        <span class="min-w-0 flex-1">
+          {% if recompensas.pendientes %}
+            <span class="block text-caption uppercase tracking-[0.16em] text-ok">Objeto listo para reclamar</span>
+            <span class="block truncate text-body-sm font-semibold text-ink">{{ recompensas.pendientes.0.titulo }}</span>
+          {% else %}
+            <span class="block text-caption uppercase tracking-[0.16em] text-warn">Próximo botín · Nv. {{ recompensas.siguiente.nivel_requerido }}</span>
+            <span class="block truncate text-body-sm font-semibold text-ink">{{ recompensas.siguiente.titulo }}</span>
+            <span class="block text-caption text-ink-3">en {{ recompensas.faltan_niveles }} nivel{{ recompensas.faltan_niveles|pluralize:"es" }}</span>
+          {% endif %}
+        </span>
+      </a>
     {% endif %}
-  </section>
 
-  {# --- Recompensa, solo en movil: en escritorio va en la tarjeta de nivel --- #}
-  {% if recompensas.pendientes or recompensas.siguiente %}
-    <a href="{% url 'progression:recompensas' %}"
-       class="card col-span-2 flex items-center gap-3 px-4 py-3 md:hidden">
-      <span class="caja-icono acento-violeta h-9 w-9">
-        {% include "_icono.html" with icono="regalo" clase="h-4 w-4" %}
-      </span>
-      <span class="min-w-0 flex-1">
-        {% if recompensas.pendientes %}
-          <span class="label-acento acento-ok block">Te lo has ganado</span>
-          <span class="block truncate text-body-sm font-semibold text-ink">{{ recompensas.pendientes.0.titulo }}</span>
-        {% else %}
-          <span class="label-acento acento-violeta block">Siguiente recompensa · Nv. {{ recompensas.siguiente.nivel_requerido }}</span>
-          <span class="block truncate text-body-sm font-semibold text-ink">{{ recompensas.siguiente.titulo }}</span>
-        {% endif %}
-      </span>
-      <span class="text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}</span>
-    </a>
-  {% endif %}
-
-  {# --- Maxima --- #}
-  {% if consejo.maxima %}
-    <a href="{% url 'wisdom:maximas' %}" class="card-maxima col-span-2 flex flex-col p-4 md:p-5 lg:col-span-1"
-       title="Ver todas las máximas">
-      <p class="label-acento {% if consejo.contextual %}acento-warn{% else %}acento-violeta{% endif %}">
-        Máxima{% if consejo.maxima.libro %} · {{ consejo.maxima.libro }}{% endif %}
-      </p>
-      <p class="mt-3 font-serif text-h3 italic leading-snug text-ink md:text-[1.4rem] md:leading-8">
-        «{{ consejo.maxima.texto }}»
-      </p>
-      {% if consejo.motivo %}
-        <p class="mt-auto pt-4 text-caption text-ink-2">{{ consejo.motivo }}</p>
-      {% elif consejo.maxima.aplicacion %}
-        <p class="mt-auto pt-4 text-caption text-ink-2">{{ consejo.maxima.aplicacion }}</p>
-      {% endif %}
-    </a>
-  {% endif %}
+    {# --- Mensaje del Codice --- #}
+    {% if consejo.maxima %}
+      <a href="{% url 'wisdom:maximas' %}" class="card block p-4" title="Abrir el Códice">
+        <p class="text-caption uppercase tracking-[0.2em] text-violeta">Códice{% if consejo.maxima.libro %} · {{ consejo.maxima.libro }}{% endif %}</p>
+        <p class="mt-2 font-serif text-body italic leading-snug text-ink">«{{ consejo.maxima.texto }}»</p>
+      </a>
+    {% endif %}
+  </div>
 </div>
 
 </div>

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load l10n core_extras %}
+{% block title %}Gremio{% endblock %}
+{% block encabezado %}Gremio{% endblock %}
+{% block subtitulo %}Tu negocio real: lo que se cobra, lo que entra cada mes y lo que viene.{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-6xl space-y-4 md:space-y-5">
+  {% include "business/_nav.html" %}
+  {% include "core/_alertas.html" %}
+
+  {# --- Las cuatro cifras que mandan --- #}
+  <div class="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+    <div class="ventana p-4">
+      <p class="text-caption uppercase tracking-[0.16em] text-ink-3">Cobrado este mes</p>
+      <p class="cifra-sistema mt-2 text-[1.9rem] leading-none">{{ cobrado_mes|miles }} <span class="text-body-sm font-normal text-ink-3">€</span></p>
+      <p class="mt-1 text-caption text-ink-3">Total histórico {{ cobrado_total|miles }} €</p>
+    </div>
+    <div class="ventana {% if importe_vencido %}ventana-peligro{% endif %} p-4">
+      <p class="text-caption uppercase tracking-[0.16em] text-ink-3">Pendiente de cobro</p>
+      <p class="cifra-sistema mt-2 text-[1.9rem] leading-none">{{ pendiente_total|miles }} <span class="text-body-sm font-normal text-ink-3">€</span></p>
+      <p class="mt-1 text-caption {% if importe_vencido %}text-bad{% else %}text-ink-3{% endif %}">{% if importe_vencido %}{{ importe_vencido|miles }} € vencidos{% else %}Nada vencido{% endif %}</p>
+    </div>
+    <div class="ventana ventana-ok p-4">
+      <p class="text-caption uppercase tracking-[0.16em] text-ink-3">Recurrente</p>
+      <p class="cifra-sistema mt-2 text-[1.9rem] leading-none">{{ recurrente|miles }} <span class="text-body-sm font-normal text-ink-3">€/mes</span></p>
+      <div class="barra-xp mt-2"><span class="barra-xp-fill" style="width: {{ recurrente_pct }}%; --color-xp: var(--color-ok)"></span></div>
+      <p class="mt-1 text-caption text-ink-3">Objetivo {{ objetivo_recurrente|floatformat:0 }} €/mes</p>
+    </div>
+    <div class="ventana p-4">
+      <p class="text-caption uppercase tracking-[0.16em] text-ink-3">Tarifa efectiva · 90 d</p>
+      <p class="cifra-sistema mt-2 text-[1.9rem] leading-none">{% if hay_horas %}{{ tarifa_efectiva|floatformat:0 }}{% else %}—{% endif %} <span class="text-body-sm font-normal text-ink-3">€/h</span></p>
+      <p class="mt-1 text-caption text-ink-3">Objetivo {{ objetivo_tarifa|floatformat:0 }} €/h · suelo {{ suelo|miles }} €</p>
+    </div>
+  </div>
+
+  <div class="grid gap-4 md:gap-5 lg:grid-cols-2 lg:items-start">
+    {# --- Pipeline --- #}
+    <section class="ventana p-4 md:p-5">
+      <div class="flex items-center justify-between gap-3">
+        <p class="ventana-titulo flex-1">Pipeline</p>
+        <a href="{% url 'business:pipeline' %}" class="text-caption font-semibold uppercase tracking-wider text-xp hover:underline">Abrir</a>
+      </div>
+      <div class="mt-4 space-y-2.5">
+        {% for etapa in embudo %}
+          <a href="{% url 'business:pipeline' %}?estado={{ etapa.estado }}"
+             class="group grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-3">
+            <span class="truncate text-body-sm text-ink-2 group-hover:text-ink">{{ etapa.etiqueta }}</span>
+            <span class="tramo"
+                  style="--acento: {% if forloop.counter == 1 %}var(--color-xp){% elif forloop.counter == 2 %}var(--color-violeta){% else %}var(--color-ok){% endif %}">
+              {% if etapa.total %}<span class="tramo-fill" style="width: {{ etapa.ancho }}%"></span>{% endif %}
+              <strong class="relative w-9 pl-2.5 text-body-sm tabular text-ink {% if not etapa.total %}text-ink-3{% endif %}">{{ etapa.total }}</strong>
+            </span>
+          </a>
+        {% endfor %}
+      </div>
+      <div class="mt-4 flex items-center justify-between gap-3 border-t border-line pt-3">
+        <p class="text-caption text-ink-2 first-letter:uppercase">Siguiente paso: {{ siguiente_paso.texto }}</p>
+        <a href="{% url 'business:pipeline' %}{% if siguiente_paso.estado %}?estado={{ siguiente_paso.estado }}{% endif %}"
+           class="shrink-0 text-caption font-semibold text-xp hover:underline">{{ siguiente_paso.accion }}</a>
+      </div>
+    </section>
+
+    {# --- Ejercito de sombras --- #}
+    {% include "cazador/_sombras.html" %}
+  </div>
+
+  {# --- Grafica de tarifa --- #}
+  <section class="ventana p-4 md:p-5">
+    <p class="ventana-titulo">Tarifa efectiva</p>
+    {% if hay_horas and grafica_tarifa.linea %}
+      {% localize off %}
+      <svg viewBox="0 0 {{ grafica_tarifa.ancho }} {{ grafica_tarifa.alto }}" preserveAspectRatio="none"
+           class="mt-4 block h-24 w-full overflow-visible" role="img" aria-label="Evolución de la tarifa efectiva en los últimos 90 días">
+        <defs>
+          <linearGradient id="relleno-tarifa" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--color-xp)" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="var(--color-xp)" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="{{ grafica_tarifa.area }}" fill="url(#relleno-tarifa)"/>
+        <polyline points="{{ grafica_tarifa.linea }}" fill="none" stroke="var(--color-xp)" stroke-width="2"
+                  stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+      </svg>
+      {% endlocalize %}
+    {% else %}
+      <p class="mt-3 text-body-sm text-ink-3">La gráfica aparece con dos semanas de datos de proyectos entregados con horas.</p>
+      <a href="{% url 'business:proyectos' %}" class="btn-hueco mt-3">Registrar horas</a>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

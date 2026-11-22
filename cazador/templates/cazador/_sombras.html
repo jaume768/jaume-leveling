@@ -1,0 +1,36 @@
+{% load core_extras %}
+{% comment %}
+  Ejercito de sombras: cada cliente con mantenimiento recurrente es una sombra.
+  Recibe `sombras` = cazador.services.ejercito_de_sombras().
+{% endcomment %}
+<section class="ventana ventana-sombra p-4 md:p-5">
+  <p class="ventana-titulo">Ejército de sombras</p>
+  <div class="mt-4 flex items-end justify-between gap-3">
+    <div>
+      <p class="cifra-sistema text-[2rem] leading-none" style="text-shadow: 0 0 16px var(--color-violeta)">{{ sombras.total|miles }} <span class="text-body-sm font-normal text-ink-3">€/mes</span></p>
+      <p class="mt-1 text-caption text-ink-3">Poder del ejército · objetivo {{ sombras.objetivo|miles }} €/mes</p>
+    </div>
+    <p class="cifra-sistema text-h3 text-violeta">{{ sombras.sombras|length }} <span class="text-caption font-normal text-ink-3">sombra{{ sombras.sombras|length|pluralize }}</span></p>
+  </div>
+  <div class="barra-xp mt-3 h-2"><span class="barra-xp-fill" style="width: {{ sombras.pct }}%; --color-xp: var(--color-violeta)"></span></div>
+
+  {% if sombras.sombras %}
+    <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+      {% for s in sombras.sombras %}
+        <li class="flex items-center gap-3 rounded-sm border border-violeta/30 bg-violeta/8 px-3 py-2">
+          <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-violeta/60 bg-[#0b0416]
+                       text-body-sm font-bold text-violeta shadow-[0_0_12px_-3px_var(--color-violeta)]">{{ s.cliente.nombre|first }}</span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-body-sm font-semibold text-ink">{{ s.cliente.nombre }}</span>
+            <span class="block text-caption text-ink-3">{{ s.grado }} · {{ s.mrr|miles }} €/mes</span>
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-4 text-body-sm text-ink-2">
+      Aún no tienes sombras. Cada cliente que firme un mantenimiento se levanta como sombra y suma su €/mes al poder del ejército.
+    </p>
+    <a href="{% url 'business:clientes' %}" class="btn mt-3 w-full border-violeta/40 text-violeta hover:bg-violeta/10">Ofrecer mantenimiento</a>
+  {% endif %}
+</section>

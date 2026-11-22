@@ -1,11 +1,13 @@
-{# Pestañas de la sección Negocio. #}
-<nav class="mb-6 flex flex-wrap gap-1 border-b border-line text-body-sm">
+{# Pestañas del Gremio: el resumen y las cuatro partes del negocio. #}
+<nav class="pestanas-sistema mb-6">
+  {% url 'business:index' as u_resumen %}
   {% url 'business:pipeline' as u_pipeline %}
   {% url 'business:facturas' as u_facturas %}
   {% url 'business:clientes' as u_clientes %}
   {% url 'business:proyectos' as u_proyectos %}
-  <a href="{{ u_pipeline }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'pipeline' %}border-line text-ink{% else %}border-transparent text-ink-3 hover:text-ink-2{% endif %}">Pipeline</a>
-  <a href="{{ u_facturas }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'facturas' %}border-line text-ink{% else %}border-transparent text-ink-3 hover:text-ink-2{% endif %}">Facturas</a>
-  <a href="{{ u_clientes }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'clientes' %}border-line text-ink{% else %}border-transparent text-ink-3 hover:text-ink-2{% endif %}">Clientes</a>
-  <a href="{{ u_proyectos }}" class="-mb-px border-b-2 px-3 py-2 {% if seccion == 'proyectos' %}border-line text-ink{% else %}border-transparent text-ink-3 hover:text-ink-2{% endif %}">Proyectos</a>
+  <a href="{{ u_resumen }}" class="{% if seccion == 'resumen' %}pestana-sistema-on{% else %}pestana-sistema{% endif %}">Resumen</a>
+  <a href="{{ u_pipeline }}" class="{% if seccion == 'pipeline' %}pestana-sistema-on{% else %}pestana-sistema{% endif %}">Pipeline</a>
+  <a href="{{ u_facturas }}" class="{% if seccion == 'facturas' %}pestana-sistema-on{% else %}pestana-sistema{% endif %}">Facturas</a>
+  <a href="{{ u_clientes }}" class="{% if seccion == 'clientes' %}pestana-sistema-on{% else %}pestana-sistema{% endif %}">Clientes</a>
+  <a href="{{ u_proyectos }}" class="{% if seccion == 'proyectos' %}pestana-sistema-on{% else %}pestana-sistema{% endif %}">Proyectos</a>
 </nav>

@@ -1,16 +1,30 @@
-{% load static %}
 {% comment %}
-  Emblema de un rango. Se incluye con:
+  Insignia de rango de cazador (E a S). Se incluye con:
     {% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}
-  y opcionalmente bloqueado=True para pintarlo apagado.
-  Si ese rango no tiene imagen, cae al icono de línea y no rompe nada.
+  y opcionalmente bloqueado=True para pintarla apagada.
+
+  Cristal hexagonal con la letra del rango, en el color de su clase. Es un SVG
+  en linea: la letra usa la fuente del Sistema y el color sale de --rango.
+  El rango S lleva ademas un aura de sombra detras del cristal.
 {% endcomment %}
-{% if rango.emblema %}
-  <img src="{% static rango.emblema %}" alt="Emblema del rango {{ rango.nombre }}"
-       width="320" height="320" loading="lazy" decoding="async"
-       class="emblema {{ clase|default:'h-14 w-14' }}{% if bloqueado %} emblema-off{% endif %}">
+{% with c=rango.cazador %}
+{% if c %}
+  <svg viewBox="0 0 120 120" role="img" aria-label="Emblema del rango {{ rango.nombre }}"
+       class="emblema insignia emblema-rango-{{ rango.orden }}{% if c.letra == 'S' %} insignia-s{% endif %} {{ clase|default:'h-14 w-14' }}{% if bloqueado %} emblema-off{% endif %}"
+       style="--rango: {{ c.color }}; overflow: visible">
+    <title>Rango {{ c.letra }} · {{ c.clase }} ({{ rango.nombre }})</title>
+    {% if c.letra == 'S' %}
+      <polygon class="insignia-sombra" points="60,-8 72,14 96,0 92,26 120,30 100,48 118,70 92,72 98,100 72,90 60,118 48,90 22,100 28,72 2,70 20,48 0,30 28,26 24,0 48,14"/>
+    {% endif %}
+    <polygon class="insignia-halo" points="60,0 112,30 112,90 60,120 8,90 8,30"/>
+    <polygon class="insignia-cristal" points="60,8 104,33 104,87 60,112 16,87 16,33"/>
+    <polygon class="insignia-faceta" points="60,8 16,33 16,60 60,36"/>
+    <polygon class="insignia-brillo" points="60,18 95,38 95,82 60,102 25,82 25,38"/>
+    <text class="insignia-letra" x="60" y="62" text-anchor="middle" dominant-baseline="central">{{ c.letra }}</text>
+  </svg>
 {% else %}
   <span class="icon-chip {{ clase|default:'h-14 w-14' }}">
     {% include "_icono.html" with icono="rangos" clase=clase|default:"h-14 w-14" %}
   </span>
 {% endif %}
+{% endwith %}

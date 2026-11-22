@@ -19,14 +19,14 @@
         {% if misiones.dia_protegido %}Día protegido
         {% elif misiones.reinicio %}Hoy · Reinicio
         {% elif misiones.modo_minimo %}Hoy · Día mínimo
-        {% else %}Hoy{% endif %}
+        {% else %}Objetivos de hoy{% endif %}
       </h2>
       {% if not misiones.dia_protegido and misiones.total %}
         <span class="pill-mut">{{ misiones.hechas }}/{{ misiones.total }}</span>
       {% endif %}
     </div>
     <p class="hidden text-caption font-medium uppercase tracking-[0.16em] text-ink-3 sm:block">
-      Disciplina genera libertad
+      [ Sistema ] Entrena, cobra, asciende
     </p>
   </div>
 
