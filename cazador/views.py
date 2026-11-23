@@ -80,3 +80,35 @@ def probar_push(request):
         f'<p class="text-caption {"text-ok" if llegados else "text-bad"}">'
         f'{"Enviada a " + str(llegados) + " dispositivo(s)." if llegados else "No llegó a ningún dispositivo."}</p>'
     )
+
+
+# --- Hitos de atributo y portales ---
+
+
+@require_POST
+def reclamar_hito(request):
+    from django.contrib import messages
+    from django.urls import reverse
+
+    from core.models import Attribute
+
+    from . import hitos
+
+    try:
+        hitos.reclamar_hito(request.POST.get("slug", ""), request.POST.get("evidencia", ""))
+    except Attribute.DoesNotExist:
+        return HttpResponseBadRequest("Atributo desconocido.")
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    return redirect(reverse("core:personaje") + "#atributos")
+
+
+@require_POST
+def entrar_portal(request, pk):
+    from . import portales
+
+    try:
+        portales.entrar(pk)
+    except (ValueError, portales.Portal.DoesNotExist) as exc:
+        return HttpResponseBadRequest(str(exc))
+    return redirect("core:index")

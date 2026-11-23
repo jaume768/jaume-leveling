@@ -576,12 +576,16 @@ def _fila_de_atributo(atributo) -> dict:
         codigo, titulo = partir_titulo(mision.titulo)
         palancas.append({"codigo": codigo, "titulo": titulo, "pk": mision.pk})
 
+    from cazador import hitos
+
     return {
         "atributo": atributo,
         "estado": estado_de_atributo(atributo.valor),
         "palancas": palancas,
         "icono": ICONOS_ATRIBUTO.get(atributo.slug, ICONO_ATRIBUTO_POR_DEFECTO),
         "chispa": chispa_de_atributo(atributo, atributo.registros.all()),
+        # El "+10": en que escalon va y si ya se puede reclamar.
+        "hito": hitos.estado_de_hito(atributo),
     }
 
 

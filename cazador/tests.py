@@ -211,3 +211,131 @@ class TestPantallas:
         settings.VAPID_PUBLIC_KEY = ""
         settings.VAPID_PRIVATE_KEY = ""
         assert services.enviar_push("t", "c") == 0
+
+
+@pytest.mark.django_db
+class TestHitosDeAtributo:
+    def test_el_primer_escalon_es_el_siguiente_10_de_siempre(self):
+        from core.models import Attribute
+
+        from cazador import hitos
+
+        for atributo in Attribute.objects.all():
+            escalera = hitos.ESCALERAS[atributo.slug]
+            assert escalera[0][0] == atributo.siguiente_hito, atributo.slug
+
+    def test_un_hito_con_evidencia_sube_10_y_pasa_al_siguiente(self):
+        from core.models import Attribute
+
+        from cazador import hitos
+
+        antes = Attribute.objects.get(slug="red-profesional")
+        hitos.reclamar_hito("red-profesional", "Lista de 15 dueños en el cuaderno, 20/11.")
+        despues = Attribute.objects.get(slug="red-profesional")
+        assert despues.valor == antes.valor + 10
+        assert despues.siguiente_hito == hitos.ESCALERAS["red-profesional"][1][0]
+        assert despues.registros.count() >= 1
+
+    def test_sin_evidencia_no_se_reclama(self):
+        from cazador import hitos
+
+        with pytest.raises(ValueError):
+            hitos.reclamar_hito("red-profesional", "")
+
+    def test_un_hito_medible_sin_cumplir_no_se_reclama(self):
+        from cazador import hitos
+
+        with pytest.raises(ValueError):
+            hitos.reclamar_hito("organizacion")
+
+    def test_un_hito_medible_cumplido_avisa_y_se_reclama(self):
+        from core.models import Attribute
+
+        from cazador import hitos
+
+        mision = Mission.objects.get(slug="revision-semanal")
+        domingo = dt.date(2026, 9, 13)
+        for semana in range(8):
+            MissionLog.objects.create(mission=mision, fecha=domingo - dt.timedelta(weeks=semana), completada=True)
+        assert "Organización" in " ".join(hitos.revisar_hitos()) or Aviso.objects.filter(
+            clave__startswith="hito-listo:organizacion").exists()
+        antes = Attribute.objects.get(slug="organizacion").valor
+        hitos.reclamar_hito("organizacion")
+        assert Attribute.objects.get(slug="organizacion").valor == antes + 10
+
+    def test_estado_pinta_el_hito(self, client):
+        contenido = client.get(reverse("core:personaje")).content.decode()
+        assert "Hito 1 de" in contenido
+
+
+@pytest.mark.django_db
+class TestPortales:
+    def test_se_ofrecen_tres_una_vez_por_semana(self):
+        from cazador import portales
+
+        primera = portales.abrir_portales(LUNES)
+        segunda = portales.abrir_portales(JUEVES)
+        assert len(primera) == 3
+        assert {p.pk for p in primera} == {p.pk for p in segunda}
+        assert sorted(p.dificultad for p in primera) == ["A", "C", "E"]
+
+    def test_entrar_descarta_los_otros_y_solo_una_vez(self):
+        from cazador import portales
+        from cazador.models import Portal
+
+        ofrecidos = portales.abrir_portales(LUNES)
+        portales.entrar(ofrecidos[0].pk, LUNES)
+        estados = sorted(Portal.objects.values_list("estado", flat=True))
+        assert estados.count("DESCARTADO") == 2
+        with pytest.raises(ValueError):
+            portales.entrar(ofrecidos[1].pk, LUNES)
+
+    def test_se_supera_con_datos_reales_y_da_botin(self):
+        from cazador import portales
+        from cazador.models import Cazador, Portal
+
+        portal = Portal.objects.create(lunes=LUNES, dificultad="E", tipo="racha", titulo="t",
+                                       descripcion="d", objetivo=2, estado=Portal.Estado.ABIERTO)
+        _accion(LUNES)
+        _accion(MARTES)
+        portales.revisar(MARTES)
+        portal.refresh_from_db()
+        assert portal.estado == Portal.Estado.SUPERADO
+        assert Cazador.get().fragmentos == 1
+
+    def test_sin_cumplir_se_desborda_al_acabar_la_semana(self):
+        from cazador import portales
+        from cazador.models import Portal
+
+        portal = Portal.objects.create(lunes=LUNES, dificultad="A", tipo="racha", titulo="t",
+                                       descripcion="d", objetivo=5, estado=Portal.Estado.ABIERTO)
+        portales.revisar(LUNES + dt.timedelta(days=8))
+        portal.refresh_from_db()
+        assert portal.estado == Portal.Estado.DESBORDADO
+
+    def test_hoy_muestra_los_portales(self, client):
+        contenido = client.get(reverse("core:index")).content.decode()
+        assert "Portales de la semana" in contenido
+
+
+@pytest.mark.django_db
+class TestCodiceYRetratos:
+    def test_el_codice_tiene_las_frases_nuevas(self):
+        from wisdom.models import Maxim
+
+        assert Maxim.objects.count() >= 75
+
+    def test_las_frases_de_hoy_rotan_pero_no_cambian_al_recargar(self):
+        assert services.frases_del_codice(LUNES) == services.frases_del_codice(LUNES)
+        assert len(services.frases_del_codice(LUNES)) == 14
+
+    def test_los_retratos_por_rango_existen(self):
+        for orden in (3, 4, 5, 6):
+            assert services.retrato_de_rango(orden) == f"img/retratos/rango-{orden}.webp"
+            assert services.retrato_mini_de_rango(orden) == f"img/retratos/rango-{orden}-mini.webp"
+        assert services.retrato_de_rango(2) == "img/personaje.webp"
+
+    def test_la_galeria_bloquea_los_rangos_no_alcanzados(self):
+        galeria = services.galeria_de_retratos(2)
+        assert [g["letra"] for g in galeria] == ["D", "C", "B", "A", "S"]
+        assert [g["desbloqueado"] for g in galeria] == [True, False, False, False, False]

@@ -121,10 +121,10 @@ class TestMaximaContextual:
 
 @pytest.mark.django_db
 class TestVistaMaximas:
-    def test_la_vista_carga_las_22(self, client):
+    def test_la_vista_carga_las_75(self, client):
         respuesta = client.get(reverse("wisdom:maximas"))
         assert respuesta.status_code == 200
-        assert len(respuesta.context["maximas"]) == 22
+        assert len(respuesta.context["maximas"]) == 75
 
     def test_el_filtro_por_tag_reduce_la_lista(self, client):
         respuesta = client.get(reverse("wisdom:maximas"), {"tag": "cobro"})
@@ -138,7 +138,12 @@ class TestVistaMaximas:
         assert all(m.principio and m.texto and m.aplicacion for m in libros)
 
     def test_el_decalogo_tiene_sus_doce_reglas(self):
-        assert Maxim.objects.filter(numero__gt=10).count() == 12
+        assert Maxim.objects.filter(numero__gt=10, numero__lte=22).count() == 12
+
+    def test_las_frases_nuevas_tienen_autor_y_aplicacion(self):
+        nuevas = Maxim.objects.filter(numero__gt=22)
+        assert nuevas.count() == 53
+        assert all(m.libro and m.texto and m.aplicacion for m in nuevas)
 
     def test_todas_tienen_al_menos_un_tag_conocido(self):
         for maxima in Maxim.objects.all():

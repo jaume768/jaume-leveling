@@ -157,3 +157,58 @@ class EnvioPush(models.Model):
 
     def __str__(self):
         return self.clave
+
+
+class HitoAtributo(models.Model):
+    """Un +10 reclamado. El indice dice por que escalon de la escalera va."""
+
+    slug = models.SlugField("atributo", max_length=80)
+    indice = models.PositiveSmallIntegerField("escalon")
+    texto = models.CharField("hito", max_length=255)
+    evidencia = models.TextField("evidencia", blank=True)
+    automatico = models.BooleanField("detectado por el Sistema", default=False)
+    fecha = models.DateField("fecha", default=timezone.localdate)
+
+    class Meta:
+        verbose_name = "hito de atributo"
+        verbose_name_plural = "hitos de atributo"
+        ordering = ["-fecha", "-pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["slug", "indice"], name="hito_unico_por_escalon")
+        ]
+
+    def __str__(self):
+        return f"{self.slug} #{self.indice}: {self.texto}"
+
+
+class Portal(models.Model):
+    """Portal semanal: un reto de 7 dias con botin. Cada lunes se abren tres."""
+
+    class Estado(models.TextChoices):
+        OFRECIDO = "OFRECIDO", "Ofrecido"
+        ABIERTO = "ABIERTO", "Abierto"
+        SUPERADO = "SUPERADO", "Superado"
+        DESBORDADO = "DESBORDADO", "Desbordado"
+        DESCARTADO = "DESCARTADO", "Descartado"
+
+    lunes = models.DateField("lunes de la semana")
+    dificultad = models.CharField("dificultad", max_length=1)
+    tipo = models.SlugField("objetivo", max_length=40)
+    atributo = models.SlugField("atributo que entrena", max_length=80, blank=True)
+    titulo = models.CharField("titulo", max_length=120)
+    descripcion = models.CharField("descripcion", max_length=255)
+    objetivo = models.PositiveIntegerField("objetivo")
+    estado = models.CharField("estado", max_length=12, choices=Estado.choices, default=Estado.OFRECIDO)
+    botin = models.CharField("botin", max_length=255, blank=True)
+    cerrado = models.DateField("cerrado", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "portal"
+        verbose_name_plural = "portales"
+        ordering = ["-lunes", "dificultad"]
+        constraints = [
+            models.UniqueConstraint(fields=["lunes", "dificultad"], name="portal_unico_por_dificultad")
+        ]
+
+    def __str__(self):
+        return f"Portal {self.dificultad} · {self.titulo} ({self.lunes})"

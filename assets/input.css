@@ -726,7 +726,7 @@
 
 /* Fila de "Hoy": caja propia, titulo grande y chevron al final. */
 @utility fila-hoy {
-  @apply flex items-center gap-4 rounded-md border border-line px-4 py-3.5
+  @apply flex items-center gap-3 rounded-md border border-line px-3 py-3 sm:gap-4 sm:px-4 sm:py-3.5
          transition-[background-color,border-color] duration-150;
   background-color: color-mix(in oklab, var(--color-surface-1) 70%, transparent);
 
@@ -1123,9 +1123,21 @@
 }
 
 /* --- Retrato y silueta --- */
+/* Retrato del rango siguiente: se intuye pero no se ve. Los retratos traen su
+   propio fondo, asi que no vale una silueta negra: se oscurece y se difumina. */
 @utility silueta {
-  filter: brightness(0) drop-shadow(0 0 10px var(--color-xp)) drop-shadow(0 0 2px var(--color-xp));
-  opacity: 0.85;
+  filter: grayscale(0.6) brightness(0.35) blur(1.5px);
+  opacity: 0.9;
+}
+
+@utility retrato-bloqueado {
+  filter: grayscale(0.7) brightness(0.3) blur(6px);
+}
+
+/* Movil: el retrato en apaisado, encuadrando cara y torso. */
+@utility retrato-movil {
+  aspect-ratio: 4 / 3.4;
+  background-color: var(--color-base);
 }
 
 /* --- Cuenta atras --- */

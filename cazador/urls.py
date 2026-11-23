@@ -12,4 +12,6 @@ urlpatterns = [
     path("alias/", views.alias, name="alias"),
     path("push/suscribir/", views.suscribir, name="suscribir"),
     path("push/probar/", views.probar_push, name="probar_push"),
+    path("hito/", views.reclamar_hito, name="reclamar_hito"),
+    path("portal/<int:pk>/entrar/", views.entrar_portal, name="entrar_portal"),
 ]

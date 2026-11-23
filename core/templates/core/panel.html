@@ -13,6 +13,26 @@
 {% block content %}
 <div class="space-y-4 md:space-y-5">
 
+{# --- Codice: una frase que rota sola cada pocos segundos --- #}
+{% if codice %}
+  {{ codice|json_script:"frases-codice" }}
+  <section class="ventana ventana-sombra px-4 py-3"
+           x-data="{ i: 0, v: true, f: JSON.parse(document.getElementById('frases-codice').textContent),
+                     pasar(n) { this.v = false; setTimeout(() => { this.i = (this.i + n + this.f.length) % this.f.length; this.v = true }, 250) } }"
+           x-init="setInterval(() => pasar(1), 11000)">
+    <div class="flex items-start gap-3">
+      <a href="{% url 'wisdom:maximas' %}" class="mt-0.5 shrink-0 text-[0.65rem] font-bold uppercase tracking-[0.22em] text-violeta hover:underline">[Códice]</a>
+      <div class="min-w-0 flex-1 transition-opacity duration-300" :class="v ? 'opacity-100' : 'opacity-0'">
+        <p class="font-serif text-body italic leading-snug text-ink md:text-[1.05rem]" x-text="'«' + f[i].texto + '»'">«{{ codice.0.texto }}»</p>
+        <p class="mt-1 text-caption text-ink-3" x-text="'— ' + f[i].fuente">— {{ codice.0.fuente }}</p>
+      </div>
+      <button type="button" class="btn-icono h-8 w-8 shrink-0" @click="pasar(1)" aria-label="Siguiente frase">
+        {% include "_icono.html" with icono="chevron" clase="h-4 w-4" %}
+      </button>
+    </div>
+  </section>
+{% endif %}
+
 {% include "core/_alertas.html" %}
 
 <div class="grid grid-cols-[minmax(0,1fr)] gap-4 md:gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start">
@@ -64,6 +84,61 @@
       <div class="compacto">
         {% include "missions/_bloque.html" %}
       </div>
+    {% endif %}
+
+    {# --- Portales de la semana --- #}
+    {% if portales.filas %}
+      <section class="ventana ventana-sombra p-4 md:p-5">
+        <p class="ventana-titulo">Portales de la semana</p>
+        {% if portales.activo %}
+          {% with fila=portales.filas.0 %}
+            <div class="mt-4 flex items-center gap-4">
+              <span class="cifra-sistema flex h-14 w-14 shrink-0 items-center justify-center rounded-sm border-2 text-h2
+                           {% if fila.portal.dificultad == 'A' %}border-warn text-warn{% elif fila.portal.dificultad == 'C' %}border-xp text-xp{% else %}border-ink-3 text-ink-2{% endif %}">{{ fila.portal.dificultad }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="titular-sistema text-h4">{{ fila.portal.titulo }}</p>
+                <p class="text-body-sm text-ink-2">{{ fila.portal.descripcion }}</p>
+              </div>
+            </div>
+            {% if fila.portal.estado == 'SUPERADO' %}
+              <p class="mt-4 rounded-sm border border-ok/40 bg-ok/10 px-3 py-2 text-body-sm text-ok">
+                <strong>Portal superado.</strong> Botín: {{ fila.portal.botin }}.
+              </p>
+            {% elif fila.portal.estado == 'DESBORDADO' %}
+              <p class="mt-4 rounded-sm border border-bad/40 bg-bad/10 px-3 py-2 text-body-sm text-bad">Portal desbordado. El lunes se abren otros tres.</p>
+            {% else %}
+              <div class="mt-4 flex items-center gap-3">
+                <div class="barra-xp h-2.5 flex-1"><span class="barra-xp-fill" style="width: {{ fila.pct }}%; --color-xp: var(--color-violeta)"></span></div>
+                <span class="cifra-sistema shrink-0 text-body">{{ fila.actual }}/{{ fila.portal.objetivo }}</span>
+              </div>
+              <p class="mt-2 text-caption text-ink-3">
+                Se cierra en {{ portales.dias_restantes }} día{{ portales.dias_restantes|pluralize }} · botín:
+                {% if fila.portal.dificultad == 'A' %}3 runas + marco{% elif fila.portal.dificultad == 'C' %}2 runas{% else %}1 runa{% endif %}
+              </p>
+            {% endif %}
+          {% endwith %}
+        {% else %}
+          <p class="mt-3 text-body-sm text-ink-2">Elige uno. Salen de tus atributos más bajos y se miden solos. Cuanto más difícil, mejor botín. Fallar no quita XP.</p>
+          <div class="mt-4 grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-3">
+            {% for fila in portales.filas %}
+              <form method="post" action="{% url 'cazador:entrar_portal' fila.portal.pk %}"
+                    class="flex flex-col rounded-sm border p-3
+                           {% if fila.portal.dificultad == 'A' %}border-warn/50 bg-warn/5{% elif fila.portal.dificultad == 'C' %}border-xp/50 bg-xp/5{% else %}border-line bg-surface-1/60{% endif %}">
+                {% csrf_token %}
+                <div class="flex items-center justify-between gap-2">
+                  <span class="cifra-sistema text-h3 {% if fila.portal.dificultad == 'A' %}text-warn{% elif fila.portal.dificultad == 'C' %}text-xp{% else %}text-ink-2{% endif %}">Rango {{ fila.portal.dificultad }}</span>
+                  <span class="text-caption text-ink-3">{% if fila.portal.dificultad == 'A' %}3 runas + marco{% elif fila.portal.dificultad == 'C' %}2 runas{% else %}1 runa{% endif %}</span>
+                </div>
+                <p class="mt-1 text-body-sm font-semibold text-ink">{{ fila.portal.titulo }}</p>
+                <p class="text-caption text-ink-2">{{ fila.portal.descripcion }}</p>
+                <p class="mt-1 text-caption text-ink-3">Llevas {{ fila.actual }}/{{ fila.portal.objetivo }}</p>
+                <button type="submit" class="btn mt-3 w-full">Entrar</button>
+              </form>
+            {% endfor %}
+          </div>
+          <p class="mt-2 text-caption text-ink-3">Se cierran en {{ portales.dias_restantes }} día{{ portales.dias_restantes|pluralize }}.</p>
+        {% endif %}
+      </section>
     {% endif %}
 
     {# --- Mazmorra de ascenso: el jefe del rango, planta a planta --- #}
@@ -174,11 +249,12 @@
       </a>
     {% endif %}
 
-    {# --- Mensaje del Codice --- #}
-    {% if consejo.maxima %}
-      <a href="{% url 'wisdom:maximas' %}" class="card block p-4" title="Abrir el Códice">
-        <p class="text-caption uppercase tracking-[0.2em] text-violeta">Códice{% if consejo.maxima.libro %} · {{ consejo.maxima.libro }}{% endif %}</p>
+    {# --- Lo que el Codice dice sobre lo que esta fallando ahora mismo --- #}
+    {% if consejo.contextual and consejo.maxima %}
+      <a href="{% url 'wisdom:maximas' %}" class="ventana ventana-peligro block p-4" title="Abrir el Códice">
+        <p class="text-caption uppercase tracking-[0.2em] text-bad">Advertencia del Códice</p>
         <p class="mt-2 font-serif text-body italic leading-snug text-ink">«{{ consejo.maxima.texto }}»</p>
+        {% if consejo.motivo %}<p class="mt-2 text-caption text-ink-2">{{ consejo.motivo }}</p>{% endif %}
       </a>
     {% endif %}
   </div>

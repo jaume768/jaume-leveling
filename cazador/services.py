@@ -57,6 +57,36 @@ def retrato_de_rango(orden: int | None) -> str:
     return "img/personaje.webp"
 
 
+def retrato_mini_de_rango(orden: int | None) -> str:
+    """Version ligera para movil del retrato de ese rango."""
+    from django.contrib.staticfiles import finders
+
+    ruta = f"img/retratos/rango-{orden}-mini.webp"
+    if orden and finders.find(ruta):
+        return ruta
+    return "img/personaje-mini.webp"
+
+
+def galeria_de_retratos(orden_actual: int | None) -> list[dict]:
+    """Tu evolucion: el retrato actual y los de los rangos que tienen imagen propia.
+
+    Los rangos aun no alcanzados se ven bloqueados (oscurecidos) en el visor.
+    """
+    galeria = []
+    for orden, datos in RANGOS_CAZADOR.items():
+        ruta = retrato_de_rango(orden)
+        propio = ruta != "img/personaje.webp"
+        if not propio and orden != orden_actual:
+            continue
+        galeria.append({
+            "orden": orden, "letra": datos["letra"], "clase": datos["clase"],
+            "color": datos["color"], "ruta": ruta,
+            "desbloqueado": orden_actual is not None and orden <= orden_actual,
+            "actual": orden == orden_actual,
+        })
+    return galeria
+
+
 # --- Dias con racha ---------------------------------------------------------------
 
 
@@ -263,6 +293,8 @@ def estado_diarias(fecha: dt.date | None = None) -> dict:
 
 def tras_mision(fecha: dt.date | None = None) -> None:
     """Despues de cerrar una mision: si las diarias estan completas, cofre."""
+    from . import hitos, portales
+
     fecha = fecha or timezone.localdate()
     if estado_diarias(fecha)["completas"]:
         Cofre.objects.get_or_create(fecha=fecha)
@@ -272,6 +304,9 @@ def tras_mision(fecha: dt.date | None = None) -> None:
             "Has ganado el cofre del día. Ábrelo en Hoy.",
             clave=f"cofre:{fecha.isoformat()}",
         )
+    # Una mision puede cerrar un portal o completar un hito de atributo.
+    portales.revisar(fecha)
+    hitos.revisar_hitos()
 
 
 # --- Cofre diario ---------------------------------------------------------------------
@@ -446,6 +481,18 @@ def _misiones_de_ascenso() -> int:
     return MissionLog.objects.filter(completada=True, mission__tipo="PRINCIPAL").count()
 
 
+def _portales_superados(dificultad: str | None = None) -> int:
+    from . import portales
+
+    return portales.superados(dificultad)
+
+
+def _hitos_reclamados() -> int:
+    from .models import HitoAtributo
+
+    return HitoAtributo.objects.count()
+
+
 def _rechazo_por_precio() -> bool:
     Deal = apps.get_model("business", "Deal")
     return Deal.objects.filter(rechazado_por_precio=True).exists()
@@ -572,6 +619,18 @@ TITULOS = [
      "como": "4 semanas con tus 4 entrenos.", "cond": lambda: _misiones_hechas("entrenos-semana") >= 4},
     {"clave": "esteta", "nombre": "Esteta",
      "como": "Desbloquear todos los marcos.", "cond": lambda: not set(MARCOS) - marcos_desbloqueados()},
+    # --- Portales ---
+    {"clave": "cerrador-de-portales", "nombre": "Cerrador de portales",
+     "como": "Superar tu primer portal.", "cond": lambda: _portales_superados() >= 1},
+    {"clave": "rompeportales", "nombre": "Rompeportales",
+     "como": "Superar 5 portales.", "cond": lambda: _portales_superados() >= 5},
+    {"clave": "senor-de-las-mazmorras", "nombre": "Señor de las mazmorras",
+     "como": "Superar un portal de rango A.", "cond": lambda: _portales_superados("A") >= 1},
+    # --- Atributos ---
+    {"clave": "primer-hito", "nombre": "Más fuerte que ayer",
+     "como": "Reclamar tu primer +10 de atributo.", "cond": lambda: _hitos_reclamados() >= 1},
+    {"clave": "diez-hitos", "nombre": "Forjado en hechos",
+     "como": "Reclamar 10 hitos de atributo.", "cond": lambda: _hitos_reclamados() >= 10},
 ] + [
     {"clave": f"rango-{orden}", "nombre": datos["titulo"],
      "como": f"Ascender a rango {datos['letra']}.",
@@ -733,6 +792,11 @@ def tras_xp(evento, nivel_antes: int, orden_rango_antes: int) -> None:
                f"Clase: {datos['clase']}", valor=orden, clave=f"rango:{orden}")
     revisar_logros(evento.fecha)
 
+    from . import hitos, portales
+
+    portales.revisar(evento.fecha)
+    hitos.revisar_hitos()
+
 
 # --- Hoy y Estado -----------------------------------------------------------------------
 
@@ -766,7 +830,27 @@ def contexto_hoy(fecha: dt.date | None = None) -> dict:
         "cofre": cofre_de_hoy(fecha),
         "zona_segura": _es_protegido(fecha),
         "cazador": Cazador.get(),
+        "portales": _portales_contexto(fecha),
+        "codice": frases_del_codice(fecha),
     }
+
+
+def _portales_contexto(fecha):
+    from . import portales
+
+    return portales.contexto(fecha)
+
+
+def frases_del_codice(fecha: dt.date | None = None, cuantas: int = 14) -> list[dict]:
+    """Frases que rotan en Hoy. La seleccion cambia cada dia, no en cada recarga."""
+    fecha = fecha or timezone.localdate()
+    Maxim = apps.get_model("wisdom", "Maxim")
+    todas = list(Maxim.objects.values("numero", "libro", "titulo", "texto"))
+    random.Random(fecha.toordinal()).shuffle(todas)
+    return [
+        {"texto": m["texto"], "fuente": m["libro"] or m["titulo"], "titulo": m["titulo"]}
+        for m in todas[:cuantas]
+    ]
 
 
 def contexto_estado() -> dict:
@@ -856,9 +940,14 @@ def pulso(ahora: dt.datetime | None = None) -> list[str]:
     """
     from progression import services as progression
 
+    from . import hitos, portales
+
     ahora = timezone.localtime(ahora)
     fecha = ahora.date()
     hechos = cerrar_dia(fecha - dt.timedelta(days=1))
+    portales.abrir_portales(fecha)
+    hechos += portales.revisar(fecha)
+    hechos += [f"hito listo: {n}" for n in hitos.revisar_hitos()]
 
     if ahora.hour == HORA_MANANA:
         if fecha.weekday() == progression.MIERCOLES:
@@ -869,8 +958,26 @@ def pulso(ahora: dt.datetime | None = None) -> list[str]:
             diarias = estado_diarias(fecha)
             titulo = "La misión diaria ha llegado"
             cuerpo = f"{diarias['total']} misiones te esperan. Se reinicia a las 00:00."
+            if fecha.weekday() == 0:
+                titulo = "Se han abierto 3 portales"
+                cuerpo = f"Elige tu portal de la semana. Y la misión diaria: {diarias['total']} misiones."
         if enviar_push(titulo, cuerpo, "/", clave=f"manana:{fecha.isoformat()}"):
             hechos.append("aviso de la mañana enviado")
+
+    # Portal en curso: aviso el jueves si va por debajo de la mitad y el
+    # domingo, ultima llamada.
+    if ahora.hour == 12 and fecha.weekday() in (3, 6):
+        activo = portales.Portal.objects.filter(
+            lunes=fecha - dt.timedelta(days=fecha.weekday()), estado=portales.Portal.Estado.ABIERTO
+        ).first()
+        if activo:
+            actual = portales.progreso(activo)
+            if fecha.weekday() == 6 or actual * 2 < activo.objetivo:
+                cuerpo = f"{activo.titulo}: {actual}/{activo.objetivo}. "
+                cuerpo += "Se cierra esta noche." if fecha.weekday() == 6 else "Vas por debajo de la mitad."
+                if enviar_push(f"Portal {activo.dificultad} en peligro", cuerpo, "/",
+                               clave=f"portal:{activo.pk}:{fecha.isoformat()}"):
+                    hechos.append("aviso de portal enviado")
 
     if ahora.hour == HORA_NOCHE and not _es_protegido(fecha):
         diarias = estado_diarias(fecha)

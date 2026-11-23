@@ -30,8 +30,13 @@ def personaje(request):
     contexto.update(cazador.contexto_estado())
     rango = contexto.get("rango")
     siguiente = contexto.get("siguiente_rango")
-    contexto["retrato"] = cazador.retrato_de_rango(rango.orden if rango else None)
+    orden = rango.orden if rango else None
+    contexto["retrato"] = cazador.retrato_de_rango(orden)
+    contexto["retrato_mini"] = cazador.retrato_mini_de_rango(orden)
     contexto["retrato_siguiente"] = cazador.retrato_de_rango(siguiente.orden if siguiente else None)
+    galeria = cazador.galeria_de_retratos(orden)
+    contexto["galeria"] = galeria
+    contexto["indice_actual"] = next((i for i, g in enumerate(galeria) if g["actual"]), 0)
     return render(request, "core/personaje.html", contexto)
 
 
