@@ -1,0 +1,90 @@
+{% comment %}
+  Avisos del Sistema. Llegan sin ver y se pintan una vez:
+  - toasts arriba a la derecha (XP, cofre, escudo, penalizacion) que se van solos;
+  - ventanas a pantalla completa (mision diaria, nivel, rango, titulo, habilidad)
+    que se cierran con "Aceptar". Si hay varias, se apilan y se ven de una en una.
+{% endcomment %}
+{% if toasts %}
+  <div class="pointer-events-none fixed right-3 top-3 z-[100] flex flex-col items-end gap-2 md:right-6 md:top-6">
+    {% for a in toasts %}
+      <div x-data="{ v: true }" x-show="v" x-transition.opacity.duration.300ms
+           x-init="setTimeout(() => v = false, {{ forloop.counter|add:3 }}500);
+                   {% if a.tipo == 'XP' or a.tipo == 'COFRE' %}navigator.vibrate && navigator.vibrate({% if a.tipo == 'COFRE' %}[40, 60, 40]{% else %}25{% endif %});{% endif %}"
+           @click="v = false"
+           class="toast-sistema {% if a.tipo == 'PENALIZACION' %}ventana-peligro{% elif a.tipo == 'COFRE' %}ventana-oro{% elif a.tipo == 'ESCUDO' %}ventana-sombra{% endif %}"
+           style="animation-delay: {{ forloop.counter0 }}00ms" role="status">
+        <span class="mt-0.5 text-[0.7rem] font-bold uppercase tracking-[0.2em]" style="color: var(--filo)">[Sistema]</span>
+        <span class="min-w-0 flex-1">
+          <span class="cifra-sistema block text-body">{{ a.titulo }}</span>
+          {% if a.texto %}<span class="block truncate text-caption text-ink-2">{{ a.texto }}</span>{% endif %}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+{% for a in ventanas %}
+  <div x-data="{ v: true }" x-show="v" x-cloak
+       class="velo-sistema {% if a.tipo == 'RANGO' %}ventana-sombra{% elif a.tipo == 'TITULO' %}ventana-oro{% endif %}"
+       style="z-index: {{ forloop.revcounter|add:89 }}" role="dialog" aria-modal="true" aria-label="{{ a.titulo }}">
+    <div class="ventana-modal {% if a.tipo == 'RANGO' %}ventana-sombra{% elif a.tipo == 'TITULO' %}ventana-oro{% elif a.tipo == 'HABILIDAD' %}ventana-ok{% endif %}">
+
+      {% if a.tipo == 'MISION_DIARIA' %}
+        <p class="ventana-titulo">Misión diaria</p>
+        <h2 class="titular-sistema mt-4 text-h2">La misión diaria ha llegado</h2>
+        <p class="mt-1 text-body-sm text-ink-3">Entrenamiento del cazador · {{ diarias.total }} objetivo{{ diarias.total|pluralize }}</p>
+        <ul class="mt-5 space-y-2 text-left">
+          {% for fila in diarias.filas %}
+            <li class="flex items-center gap-3 rounded-sm border border-line bg-surface-2/60 px-3 py-2 text-body-sm">
+              <span class="{% if fila.completada %}text-ok{% else %}text-xp{% endif %}">{% if fila.completada %}✔{% else %}▸{% endif %}</span>
+              <span class="min-w-0 flex-1 text-ink">{{ fila.titulo }}</span>
+              <span class="cifra-sistema text-caption text-xp">+{{ fila.mision.xp }}</span>
+            </li>
+          {% endfor %}
+          {% for pool in diarias.elecciones %}
+            <li class="flex items-center gap-3 rounded-sm border border-line bg-surface-2/60 px-3 py-2 text-body-sm">
+              <span class="{% if pool.elegida %}text-ok{% else %}text-xp{% endif %}">{% if pool.elegida %}✔{% else %}▸{% endif %}</span>
+              <span class="min-w-0 flex-1 text-ink">Ruta a elegir ({{ pool.opciones|length }} opciones)</span>
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="mt-4 rounded-sm border border-bad/40 bg-bad/10 px-3 py-2 text-left text-caption text-ink-2">
+          <strong class="text-bad">Aviso:</strong> si a las 00:00 no hay ninguna misión de racha cumplida, la racha se rompe.
+        </p>
+        <button type="button" class="btn-xp mt-6 w-full" @click="v = false">Aceptar</button>
+
+      {% elif a.tipo == 'NIVEL' %}
+        <p class="ventana-titulo">Subida de nivel</p>
+        <p class="titular-sistema mt-5 text-[1.6rem]">¡Has subido de nivel!</p>
+        <p class="cifra-sistema mt-2 text-[5rem] leading-none">{{ a.valor }}</p>
+        <p class="mt-3 text-body-sm text-ink-2">Todas tus estadísticas siguen subiendo con hechos. Sigue así.</p>
+        <button type="button" class="btn-xp mt-6 w-full" @click="v = false">Aceptar</button>
+
+      {% elif a.tipo == 'RANGO' %}
+        <p class="ventana-titulo">Ascenso</p>
+        <div class="mt-5 flex justify-center">
+          {% include "core/_emblema.html" with rango=rango clase="h-28 w-28" %}
+        </div>
+        <p class="titular-sistema mt-4 text-[1.8rem]">{{ a.titulo }}</p>
+        <p class="clase-cazador mt-1 text-h4" style="--rango: {{ rango.cazador.color }}">{{ a.texto }}</p>
+        <p class="mt-3 text-body-sm text-ink-2">Nuevo título disponible: «{{ rango.cazador.titulo }}». Equípalo en Estado.</p>
+        <button type="button" class="btn-xp mt-6 w-full" @click="v = false">Aceptar</button>
+
+      {% elif a.tipo == 'TITULO' %}
+        <p class="ventana-titulo">Título obtenido</p>
+        <p class="titular-sistema mt-6 text-[1.9rem] text-warn">«{{ a.texto }}»</p>
+        <p class="mt-3 text-body-sm text-ink-2">Puedes equiparlo en tu ventana de Estado.</p>
+        <div class="mt-6 flex gap-2">
+          <button type="button" class="btn flex-1" @click="v = false">Cerrar</button>
+          <a href="{% url 'core:personaje' %}#titulos" class="btn-xp flex-1">Ir a Estado</a>
+        </div>
+
+      {% elif a.tipo == 'HABILIDAD' %}
+        <p class="ventana-titulo">Habilidad desbloqueada</p>
+        <p class="titular-sistema mt-6 text-[1.9rem] text-ok">{{ a.texto }}</p>
+        <p class="mt-3 text-body-sm text-ink-2">Ya forma parte de tu árbol de habilidades.</p>
+        <button type="button" class="btn-xp mt-6 w-full" @click="v = false">Aceptar</button>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}

@@ -16,7 +16,10 @@ from .models import Maxim
 ULTIMO_LIBRO = 10
 
 # Tags con los que se filtra la vista de máximas.
-TAGS = ["precio", "cobro", "pipeline", "dependencia", "negociacion", "foco", "tiempo"]
+TAGS = ["precio", "cobro", "pipeline", "dependencia", "negociacion", "foco", "tiempo", "disciplina", "sistema", "estoicos"]
+
+# Del 11 al 22, el decalogo. A partir de ahi, frases sueltas con su autor.
+ULTIMA_REGLA = 22
 
 # Umbral de concentración de cliente (docs/sistema-v3-maquiavelo.md, Libro II).
 CONCENTRACION_MAXIMA = 0.35

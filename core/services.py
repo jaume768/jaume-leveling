@@ -68,19 +68,22 @@ def rango_para_nivel(nivel: int):
 # La navegacion es la misma en la barra lateral y en la barra inferior movil.
 # Se declara una vez: nombre de la url, etiqueta, icono, grupo del menu lateral
 # y si sale en la barra inferior. Lo que no sale ahi queda tras "Más".
+# Cuatro pantallas con un solo proposito cada una (Hoy, Misiones, Gremio y
+# Estado) y el resto agrupado detras. Las cuatro primeras van en la barra
+# inferior del movil.
 NAVEGACION = (
-    ("core:index", "Panel", "panel", "Juego", True),
-    ("missions:index", "Misiones", "misiones", "Juego", True),
-    ("core:niveles", "Niveles", "rangos", "Juego", False),
-    ("core:personaje", "Personaje", "usuario", "Juego", False),
-    ("progression:recompensas", "Recompensas", "regalo", "Juego", False),
-    ("core:calibracion", "Calibración", "reloj", "Progreso", False),
-    ("progression:index", "Progresión", "progresion", "Progreso", False),
-    ("review:index", "Revisión", "revision", "Progreso", False),
-    ("business:index", "Negocio", "negocio", "Negocio y mente", True),
-    ("notebook:index", "Cuaderno", "cuaderno", "Negocio y mente", False),
-    ("wisdom:index", "Consejo", "consejo", "Negocio y mente", False),
-    ("wisdom:maximas", "Máximas", "maximas", "Negocio y mente", False),
+    ("core:index", "Hoy", "panel", "Sistema", True),
+    ("missions:index", "Misiones", "misiones", "Sistema", True),
+    ("business:index", "Gremio", "negocio", "Sistema", True),
+    ("core:personaje", "Estado", "usuario", "Sistema", True),
+    ("core:niveles", "Ascensión", "rangos", "Registros", False),
+    ("progression:index", "Registro", "progresion", "Registros", False),
+    ("progression:recompensas", "Inventario", "regalo", "Registros", False),
+    ("review:index", "Informe semanal", "revision", "Registros", False),
+    ("notebook:index", "Diario", "cuaderno", "Mente", False),
+    ("wisdom:index", "Consejero", "consejo", "Mente", False),
+    ("wisdom:maximas", "Códice", "maximas", "Mente", False),
+    ("core:calibracion", "Ajustes del Sistema", "reloj", "Mente", False),
 )
 
 
@@ -122,9 +125,22 @@ def ficha_de_usuario() -> dict:
     """Nivel y rango para la tarjeta de usuario del pie del menu lateral."""
     from .models import Profile
 
+    from cazador.models import Cazador
+
     perfil = Profile.get()
     rango = perfil.rango or rango_para_nivel(perfil.nivel)
-    return {"nivel": perfil.nivel, "rango": rango.nombre if rango else ""}
+    ficha = Cazador.get()
+    xp_en_nivel, xp_faltan, pct = progreso_en_nivel(perfil.nivel, perfil.xp_total)
+    return {
+        "nivel": perfil.nivel,
+        "rango": rango.nombre if rango else "",
+        "cazador": rango.cazador if rango else {},
+        "alias": ficha.alias,
+        "titulo": ficha.titulo_equipado,
+        "xp_en_nivel": xp_en_nivel,
+        "xp_nivel": xp_en_nivel + xp_faltan,
+        "pct": pct,
+    }
 
 
 ROMANOS = ("I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X")
@@ -560,12 +576,16 @@ def _fila_de_atributo(atributo) -> dict:
         codigo, titulo = partir_titulo(mision.titulo)
         palancas.append({"codigo": codigo, "titulo": titulo, "pk": mision.pk})
 
+    from cazador import hitos
+
     return {
         "atributo": atributo,
         "estado": estado_de_atributo(atributo.valor),
         "palancas": palancas,
         "icono": ICONOS_ATRIBUTO.get(atributo.slug, ICONO_ATRIBUTO_POR_DEFECTO),
         "chispa": chispa_de_atributo(atributo, atributo.registros.all()),
+        # El "+10": en que escalon va y si ya se puede reclamar.
+        "hito": hitos.estado_de_hito(atributo),
     }
 
 
@@ -1280,3 +1300,43 @@ def emblema_de_rango(orden: int) -> str:
     if orden in _emblemas_disponibles():
         return f"img/rangos/rango-{orden}.webp"
     return ""
+
+
+def contexto_gremio(fecha=None) -> dict:
+    """Resumen del Gremio: las cifras del negocio que antes ocupaban el panel."""
+    from django.utils import timezone
+
+    from business import services as business
+    from cazador import services as cazador
+    from review import services as review
+
+    from .models import Profile
+
+    fecha = fecha or timezone.localdate()
+    perfil = Profile.get()
+    rango = perfil.rango or rango_para_nivel(perfil.nivel)
+    tarifa = business.tarifa_efectiva_mes(fecha)
+    embudo = business.embudo_pipeline()
+    recurrente = business.recurrente_activo()
+    objetivo_recurrente = business.objetivo_recurrente(rango)
+    objetivo_tarifa = review.OBJETIVOS["m7_tarifa_efectiva"]
+    facturas = business.resumen_facturas(fecha)
+    return {
+        "seccion": "resumen",
+        "alertas": business.alertas(fecha),
+        "embudo": embudo,
+        "siguiente_paso": business.siguiente_paso_pipeline(embudo),
+        "recurrente": recurrente,
+        "objetivo_recurrente": objetivo_recurrente,
+        "recurrente_pct": porcentaje(recurrente, objetivo_recurrente),
+        "tarifa_efectiva": tarifa,
+        "hay_horas": tarifa is not None,
+        "objetivo_tarifa": objetivo_tarifa,
+        "grafica_tarifa": grafica_tarifa(fecha, objetivo_tarifa),
+        "cobrado_mes": facturas["cobrado_mes"],
+        "pendiente_total": facturas["pendiente_total"],
+        "importe_vencido": facturas["importe_vencido"],
+        "cobrado_total": total_cobrado(),
+        "suelo": business.suelo_precio(rango),
+        "sombras": cazador.ejercito_de_sombras(),
+    }

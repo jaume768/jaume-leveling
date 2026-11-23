@@ -43,6 +43,7 @@ COPY business business
 COPY review review
 COPY wisdom wisdom
 COPY notebook notebook
+COPY cazador cazador
 
 RUN chmod +x bin/tailwind.sh && bin/tailwind.sh --minify
 

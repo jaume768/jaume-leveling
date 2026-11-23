@@ -1,0 +1,51 @@
+{% comment %}
+  Activar las notificaciones del Sistema en este dispositivo. Pide permiso,
+  suscribe el service worker con la clave VAPID y guarda la suscripcion.
+  En iPhone solo funciona con la web instalada en la pantalla de inicio.
+{% endcomment %}
+<section class="ventana p-4" x-data="{
+    estado: 'comprobando',
+    async init() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !'{{ vapid_publica }}') { this.estado = 'no'; return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      this.estado = sub ? 'activo' : (Notification.permission === 'denied' ? 'bloqueado' : 'inactivo');
+    },
+    clave(b64) {
+      const p = '='.repeat((4 - b64.length % 4) % 4);
+      const s = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from([...s].map(c => c.charCodeAt(0)));
+    },
+    async activar() {
+      const permiso = await Notification.requestPermission();
+      if (permiso !== 'granted') { this.estado = 'bloqueado'; return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: this.clave('{{ vapid_publica }}') });
+      const r = await fetch('{% url 'cazador:suscribir' %}', { method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
+        body: JSON.stringify(sub.toJSON()) });
+      this.estado = r.ok ? 'activo' : 'error';
+    } }">
+  <p class="ventana-titulo">Notificaciones</p>
+  <p class="mt-3 text-body-sm text-ink-2">
+    08:00 · llega la misión diaria. 21:00 · aviso si te faltan misiones y la racha está en juego.
+  </p>
+  <div class="mt-3">
+    <template x-if="estado === 'activo'">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="pill-ok">Activas en este dispositivo</span>
+        <button type="button" class="btn-sm" hx-post="{% url 'cazador:probar_push' %}" hx-target="#resultado-push">Enviar prueba</button>
+        <span id="resultado-push"></span>
+      </div>
+    </template>
+    <template x-if="estado === 'inactivo' || estado === 'error'">
+      <button type="button" class="btn-xp w-full" @click="activar()">Activar notificaciones</button>
+    </template>
+    <template x-if="estado === 'bloqueado'">
+      <p class="text-caption text-bad">El navegador las tiene bloqueadas. Permítelas en los ajustes del sitio.</p>
+    </template>
+    <template x-if="estado === 'no'">
+      <p class="text-caption text-ink-3">Este navegador no admite notificaciones. En iPhone, instala la web en la pantalla de inicio.</p>
+    </template>
+  </div>
+</section>

@@ -1,22 +1,25 @@
 {% extends "base.html" %}
 {% load static l10n %}
 
-{% block title %}Personaje{% endblock %}
-{% block encabezado %}Hoja de personaje{% endblock %}
-{% block subtitulo %}Quince atributos. Cada uno sube con hechos, no con intenciones.{% endblock %}
+{% block title %}Estado{% endblock %}
+{% block encabezado %}Estado{% endblock %}
+{% block subtitulo %}Tu ventana de jugador: rango, títulos, habilidades y estadísticas.{% endblock %}
 
 {% block content %}
-<div x-data="{ grupo: '{{ grupos.0.clave }}', cabecera: true }"
-     class="grid grid-cols-1 gap-6 lg:grid-cols-[21rem_1fr]">
+<div x-data="{ grupo: '{{ grupos.0.clave }}', cabecera: true, ver: null, total: {{ galeria|length }} }"
+     @keydown.escape.window="ver = null"
+     class="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[21rem_minmax(0,1fr)]">
 
   {# ================= Escritorio: la columna del personaje ================= #}
   <div class="hidden space-y-4 lg:block">
 
-    <section class="retrato relative overflow-hidden rounded-md border border-line">
+    <section class="ventana retrato relative cursor-zoom-in overflow-hidden"
+             style="--filo: {{ marco.color }}; --rango: {{ rango.cazador.color }}"
+             @click="ver = {{ indice_actual }}" title="Ver el retrato completo">
       {# El retrato manda. El texto se apoya en el pie, que es donde el velo lo sostiene: arriba está la cara. #}
       <picture>
-        <source media="(min-width: 768px)" srcset="{% static 'img/personaje.webp' %}">
-        <img src="{% static 'img/personaje-mini.webp' %}" alt="Tu personaje: rango Operador"
+        <source media="(min-width: 768px)" srcset="{% static retrato %}">
+        <img src="{% static retrato_mini %}" alt="Tu personaje: rango {{ rango.cazador.letra }}"
              width="900" height="1350" loading="eager" decoding="async"
              class="block h-full w-full object-cover object-top">
       </picture>
@@ -25,50 +28,36 @@
 
       <div class="absolute inset-x-0 bottom-0 p-5">
         <div class="flex items-center gap-3">
-          <span class="pedestal">
-            {% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}
-          </span>
+          {% include "core/_emblema.html" with rango=rango clase="h-16 w-16" %}
           <div class="min-w-0">
-            <p class="label">Rango actual</p>
-            <h2 class="text-h2 font-bold uppercase tracking-tight text-xp
-                       [text-shadow:0_0_24px_var(--color-xp)]">
-              {{ rango.nombre|default:"Sin rango" }}
-            </h2>
-            <p class="text-h4 font-semibold text-ink">Nivel {{ perfil.nivel }}</p>
+            <p class="truncate text-caption uppercase tracking-[0.2em] text-ink-3">{{ cazador.alias|default:"Jugador" }}</p>
+            <h2 class="clase-cazador text-h2 leading-tight">{{ rango.cazador.clase|default:"Sin clase" }}</h2>
+            <p class="cifra-sistema text-h4">Rango {{ rango.cazador.letra }} · Nv. {{ perfil.nivel }}</p>
+            {% if cazador.titulo_equipado %}<p class="truncate text-caption italic text-warn">«{{ cazador.titulo_equipado }}»</p>{% endif %}
           </div>
         </div>
       </div>
     </section>
 
-    {# --- Siguiente rango, bajo llave --- #}
+    {# --- Siguiente rango, en silueta --- #}
     {% if siguiente_rango %}
-      <section class="card-acento acento-ink p-4">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <p class="label">Siguiente rango</p>
-            <h3 class="mt-1 text-h4 font-semibold text-ink">{{ siguiente_rango.nombre }}</h3>
-            <p class="text-caption tabular text-ink-3">
-              Niveles {{ siguiente_rango.nivel_min }}–{{ siguiente_rango.nivel_max }}
+      <section class="ventana ventana-sombra p-4">
+        <p class="ventana-titulo">Siguiente rango</p>
+        <div class="mt-3 flex items-center gap-4">
+          <img src="{% static retrato_siguiente %}" alt="" aria-hidden="true"
+               class="silueta h-28 w-20 shrink-0 object-cover object-top" loading="lazy">
+          <div class="min-w-0 flex-1">
+            <p class="clase-cazador text-body-sm" style="--rango: {{ siguiente_rango.cazador.color }}">
+              Rango {{ siguiente_rango.cazador.letra }} · {{ siguiente_rango.cazador.clase }}
             </p>
+            <p class="text-caption tabular text-ink-3">Etapa: {{ siguiente_rango.nombre }} · niveles {{ siguiente_rango.nivel_min }}–{{ siguiente_rango.nivel_max }}</p>
+            {% if siguiente_rango.objetivo %}<p class="mt-2 text-body-sm text-ink-2">{{ siguiente_rango.objetivo }}</p>{% endif %}
           </div>
-          <span class="relative shrink-0" title="Bloqueado">
-            {% include "core/_emblema.html" with rango=siguiente_rango clase="h-16 w-16" bloqueado=True %}
-            <span class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center
-                         rounded-full border border-line bg-surface-2 text-ink-3">
-              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="4.5" y="10.5" width="15" height="10" rx="2"/>
-                <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
-              </svg>
-            </span>
-          </span>
+          {% include "core/_emblema.html" with rango=siguiente_rango clase="h-12 w-12" bloqueado=True %}
         </div>
-        {% if siguiente_rango.objetivo %}
-          <p class="mt-3 text-body-sm text-ink-2">{{ siguiente_rango.objetivo }}</p>
-        {% endif %}
         <a href="{% url 'core:niveles' %}"
            class="mt-3 inline-flex items-center gap-1 text-caption text-xp underline underline-offset-4">
-          Ver todos los rangos
+          Ver la ascensión completa
           {% include "_icono.html" with icono="flecha" clase="h-3.5 w-3.5" %}
         </a>
       </section>
@@ -79,37 +68,32 @@
   <div class="entra space-y-4 lg:space-y-6">
 
     {% comment %}
-      Movil: el retrato manda, como en escritorio. El rango se apoya en el pie,
-      donde el velo lo sostiene, y el progreso va debajo en su propia fila para
-      que la cara no quede tapada por texto.
+      Movil: la imagen va limpia, sin texto encima (antes tapaba el pecho y
+      el parche del personaje). Al tocarla se abre entera. Debajo, la ficha
+      con el rango y luego el progreso.
     {% endcomment %}
-    <section class="card overflow-hidden lg:hidden">
-      <div x-show="cabecera" class="retrato relative overflow-hidden">
-        <picture>
-          <source media="(min-width: 768px)" srcset="{% static 'img/personaje.webp' %}">
-          <img src="{% static 'img/personaje-mini.webp' %}" alt="Tu personaje: rango {{ rango.nombre|default:'sin rango' }}"
-               width="900" height="1350" loading="eager" decoding="async"
-               class="block h-full w-full object-cover object-top">
-        </picture>
+    <section class="ventana overflow-hidden p-0 lg:hidden"
+             style="--filo: {{ marco.color }}; --rango: {{ rango.cazador.color }}">
+      <button type="button" x-show="cabecera" @click="ver = {{ indice_actual }}"
+              class="retrato-movil relative block w-full overflow-hidden" aria-label="Ver el retrato completo">
+        <img src="{% static retrato_mini %}" alt="Tu personaje: rango {{ rango.cazador.letra|default:'sin rango' }}"
+             width="600" height="900" loading="eager" decoding="async"
+             class="block h-full w-full object-cover object-top">
+        <span class="absolute bottom-2 right-2 rounded-sm border border-line bg-base/80 px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-wider text-ink-2 backdrop-blur">
+          Ver completo
+        </span>
+      </button>
 
-        <div class="velo-retrato pointer-events-none absolute inset-0"></div>
-
-        <div class="absolute inset-x-0 bottom-0 flex items-center gap-3 p-4">
-          <span class="pedestal">
-            {% include "core/_emblema.html" with rango=rango clase="h-14 w-14" %}
-          </span>
-          <div class="min-w-0">
-            <p class="label">Rango actual</p>
-            <h2 class="text-h3 font-bold uppercase tracking-tight text-xp
-                       [text-shadow:0_0_24px_var(--color-xp)]">
-              {{ rango.nombre|default:"Sin rango" }}
-            </h2>
-            <p class="text-body font-semibold text-ink">Nivel {{ perfil.nivel }}</p>
-          </div>
+      <div class="flex items-center gap-3 border-t border-line px-4 py-3" style="--rango: {{ rango.cazador.color }}">
+        {% include "core/_emblema.html" with rango=rango clase="h-12 w-12" %}
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-caption uppercase tracking-[0.2em] text-ink-3">{{ cazador.alias|default:"Jugador" }}</p>
+          <p class="clase-cazador text-h4 leading-tight">{{ rango.cazador.clase|default:"Sin clase" }}</p>
+          <p class="text-caption text-ink-2">Rango {{ rango.cazador.letra }} · Nv. {{ perfil.nivel }}{% if cazador.titulo_equipado %} · <span class="italic text-warn">«{{ cazador.titulo_equipado }}»</span>{% endif %}</p>
         </div>
       </div>
 
-      <div class="flex items-center gap-3 p-4">
+      <div class="flex items-center gap-3 border-t border-line p-4">
         <div class="min-w-0 flex-1">
           <p class="label">
             Progreso general
@@ -255,8 +239,9 @@
     </section>
 
     {# --- Pestañas de categoría --- #}
+    {% include "business/_mensajes.html" %}
     {% if grupos %}
-      <section>
+      <section id="atributos" class="scroll-mt-32">
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {% for g in grupos %}
             <button type="button" class="pestana" @click="grupo = '{{ g.clave }}'"
@@ -314,6 +299,10 @@
                     {% endlocalize %}
                   {% endif %}
 
+                  {% if fila.hito.listo %}
+                    <span class="pill-xp latido shrink-0 font-bold" title="Hito cumplido: reclámalo">+10</span>
+                  {% endif %}
+
                   <span class="hidden shrink-0 uppercase tracking-wider sm:inline-flex
                                {% if fila.estado.acento == 'ok' %}pill-ok{% elif fila.estado.acento == 'warn' %}pill-warn{% else %}pill-bad{% endif %}">
                     {{ fila.estado.etiqueta }}
@@ -355,6 +344,45 @@
                         {% endif %}
                       </div>
 
+                      {# --- El +10: escalon de la escalera y como se reclama --- #}
+                      {% with h=fila.hito %}
+                        {% if not h.completo %}
+                          <div class="mt-3 border-t border-line pt-3">
+                            <p class="text-caption uppercase tracking-[0.16em] text-ink-3">Hito {{ h.indice|add:1 }} de {{ h.total }}</p>
+                            {% if h.medible %}
+                              {% if h.listo %}
+                                <form method="post" action="{% url 'cazador:reclamar_hito' %}" class="mt-2 flex flex-wrap items-center gap-3">
+                                  {% csrf_token %}<input type="hidden" name="slug" value="{{ fila.atributo.slug }}">
+                                  <span class="text-body-sm text-ok">✔ El Sistema lo ha detectado ({{ h.actual }}/{{ h.objetivo }}).</span>
+                                  <button type="submit" class="btn-xp latido">Reclamar +{{ h.puntos }}</button>
+                                </form>
+                              {% else %}
+                                <div class="mt-2 flex items-center gap-3">
+                                  <div class="barra-xp flex-1"><span class="barra-xp-fill" style="width: {% widthratio h.actual h.objetivo 100 %}%"></span></div>
+                                  <span class="shrink-0 text-caption tabular text-ink-2">{{ h.actual }}/{{ h.objetivo }}</span>
+                                </div>
+                                <p class="mt-1 text-caption text-ink-3">Se detecta solo: cuando llegue, el Sistema te avisa y lo reclamas con un clic.</p>
+                              {% endif %}
+                            {% else %}
+                              <form method="post" action="{% url 'cazador:reclamar_hito' %}" class="mt-2 space-y-2" x-data="{ v: false }">
+                                {% csrf_token %}<input type="hidden" name="slug" value="{{ fila.atributo.slug }}">
+                                <p class="text-caption text-ink-3">Este hito no se puede medir con datos: se reclama con la prueba.</p>
+                                <button type="button" class="btn-sm" x-show="!v" @click="v = true">Lo he cumplido</button>
+                                <div x-show="v" x-cloak class="space-y-2">
+                                  <label class="sr-only" for="evidencia-{{ fila.atributo.slug }}">Evidencia</label>
+                                  <textarea id="evidencia-{{ fila.atributo.slug }}" name="evidencia" rows="2" minlength="10" required
+                                            placeholder="¿Cómo lo cumpliste? Fecha, cifra, prueba concreta."
+                                            class="w-full rounded-sm border border-line bg-surface-2 px-3 py-2 text-body-sm text-ink focus:border-xp focus:outline-none"></textarea>
+                                  <button type="submit" class="btn-xp">Reclamar +{{ h.puntos }} con evidencia</button>
+                                </div>
+                              </form>
+                            {% endif %}
+                          </div>
+                        {% else %}
+                          <p class="mt-3 border-t border-line pt-3 text-caption text-ok">Escalera completa ({{ h.total }}/{{ h.total }} hitos).</p>
+                        {% endif %}
+                      {% endwith %}
+
                       {% if fila.palancas %}
                         <div class="mt-3 flex flex-wrap gap-1.5" x-show="factores" x-cloak>
                           {% for palanca in fila.palancas %}
@@ -382,6 +410,155 @@
       <p class="card p-5 text-body-sm text-ink-3">
         No hay atributos cargados todavía.
       </p>
+    {% endif %}
+
+    {# ================= Titulos ================= #}
+    <section id="titulos" class="ventana ventana-oro p-4 md:p-5">
+      <p class="ventana-titulo">Títulos · {{ titulos_obtenidos }}/{{ titulos|length }}</p>
+      <p class="mt-3 text-body-sm text-ink-2">Equipa uno y aparecerá bajo tu nombre en todo el Sistema.</p>
+      <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+        {% for t in titulos %}
+          <li class="flex items-center gap-3 rounded-sm border px-3 py-2.5
+                     {% if t.desbloqueado %}border-warn/40 bg-warn/8{% else %}border-line bg-surface-1/60 opacity-60{% endif %}">
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-body-sm font-semibold {% if t.desbloqueado %}text-warn{% else %}text-ink-3{% endif %}">
+                {% if t.desbloqueado %}«{{ t.nombre }}»{% else %}???{% endif %}
+              </span>
+              <span class="block text-caption text-ink-3">{{ t.como }}</span>
+            </span>
+            {% if t.desbloqueado %}
+              {% if cazador.titulo_equipado == t.nombre %}
+                <span class="pill-warn shrink-0">Equipado</span>
+              {% else %}
+                <form method="post" action="{% url 'cazador:equipar_titulo' %}" class="shrink-0">
+                  {% csrf_token %}<input type="hidden" name="clave" value="{{ t.clave }}">
+                  <button type="submit" class="btn-sm">Equipar</button>
+                </form>
+              {% endif %}
+            {% else %}
+              <svg class="h-4 w-4 shrink-0 text-ink-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Bloqueado">
+                <rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+              </svg>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    {# ================= Habilidades ================= #}
+    <section class="ventana ventana-ok p-4 md:p-5">
+      <p class="ventana-titulo">Habilidades · {{ habilidades_obtenidas }}/{{ habilidades|length }}</p>
+      <p class="mt-3 text-body-sm text-ink-2">El árbol de tu sistema v2. Cada una se desbloquea con un hecho, no con horas de estudio.</p>
+      <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+        {% for h in habilidades %}
+          <li class="rounded-sm border px-3 py-2.5
+                     {% if h.desbloqueada %}border-ok/45 bg-ok/8 shadow-[0_0_14px_-8px_var(--color-ok)]{% else %}border-line bg-surface-1/60{% endif %}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-body-sm font-semibold {% if h.desbloqueada %}text-ok{% else %}text-ink-2{% endif %}">{{ h.nombre }}</span>
+              <span class="{% if h.nivel == 'esencial' %}pill-xp{% else %}pill-mut{% endif %} shrink-0">{% if h.nivel == 'esencial' %}Esencial{% else %}Después{% endif %}</span>
+            </div>
+            <p class="mt-1 text-caption text-ink-3">{{ h.nota }}</p>
+            <p class="mt-1 text-caption {% if h.desbloqueada %}text-ok{% else %}text-ink-2{% endif %}">
+              {% if h.desbloqueada %}✔ Desbloqueada el {{ h.fecha|date:"j/n/Y" }}{% else %}▸ {{ h.como }}{% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    {# ================= Ejercito de sombras ================= #}
+    {% include "cazador/_sombras.html" %}
+
+    {# ================= Personalizacion ================= #}
+    <div class="grid gap-4 md:grid-cols-2">
+      <section class="ventana p-4">
+        <p class="ventana-titulo">Identidad</p>
+        <form method="post" action="{% url 'cazador:alias' %}" class="mt-3 flex gap-2">
+          {% csrf_token %}
+          <label for="alias" class="sr-only">Alias de cazador</label>
+          <input id="alias" name="alias" value="{{ cazador.alias }}" maxlength="40" placeholder="Tu alias de cazador"
+                 class="min-w-0 flex-1 rounded-sm border border-line bg-surface-1 px-3 py-2 text-body-sm text-ink focus:border-xp focus:outline-none">
+          <button type="submit" class="btn">Guardar</button>
+        </form>
+        <p class="mt-4 text-caption uppercase tracking-[0.16em] text-ink-3">Marco de la ventana</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+          {% for m in marcos %}
+            {% if m.desbloqueado %}
+              <form method="post" action="{% url 'cazador:equipar_marco' %}">
+                {% csrf_token %}<input type="hidden" name="clave" value="{{ m.clave }}">
+                <button type="submit" title="{{ m.nombre }}"
+                        class="flex h-9 items-center gap-1.5 rounded-sm border px-2.5 text-caption
+                               {% if cazador.marco == m.clave %}text-ink{% else %}text-ink-3{% endif %}"
+                        style="border-color: {{ m.color }}; {% if cazador.marco == m.clave %}box-shadow: 0 0 12px -3px {{ m.color }};{% endif %}">
+                  <span class="h-3 w-3 rounded-full" style="background: {{ m.color }}"></span>{{ m.nombre }}
+                </button>
+              </form>
+            {% else %}
+              <span class="flex h-9 items-center gap-1.5 rounded-sm border border-dashed border-line px-2.5 text-caption text-ink-3/60" title="Se consigue en el cofre diario">
+                <span class="h-3 w-3 rounded-full bg-line"></span>???
+              </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <p class="mt-3 text-caption text-ink-3">
+          {{ cofres_abiertos }} cofre{{ cofres_abiertos|pluralize }} abierto{{ cofres_abiertos|pluralize }} · récord de racha {{ mejor_racha }} · {{ escudos }} escudo{{ escudos|pluralize }}
+        </p>
+      </section>
+
+      {% include "cazador/_push.html" %}
+    </div>
+  </div>
+
+  {# ================= Visor: el retrato entero y tu evolucion por rangos ================= #}
+  <div x-show="ver !== null" x-cloak x-transition.opacity
+       class="fixed inset-0 z-[95] flex flex-col bg-base/95 backdrop-blur-sm"
+       role="dialog" aria-modal="true" aria-label="Retratos del jugador">
+    <div class="flex items-center justify-between gap-3 px-4 pt-4 pb-2">
+      <p class="ventana-titulo flex-1">Evolución del jugador</p>
+      <button type="button" class="btn-icono h-10 w-10" @click="ver = null" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="relative min-h-0 flex-1" @click.self="ver = null">
+      {% for g in galeria %}
+        <figure x-show="ver === {{ forloop.counter0 }}" class="absolute inset-0 flex flex-col items-center justify-center px-4 pb-4"
+                @click.self="ver = null">
+          <div class="relative min-h-0 flex-1">
+            <img src="{% static g.ruta %}" alt="Retrato de rango {{ g.letra }} · {{ g.clase }}" loading="lazy"
+                 class="h-full max-h-full w-auto max-w-full rounded-md border object-contain {% if not g.desbloqueado %}retrato-bloqueado{% endif %}"
+                 style="border-color: {{ g.color }}; box-shadow: 0 0 40px -12px {{ g.color }}">
+            {% if not g.desbloqueado %}
+              <span class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <svg class="h-10 w-10 text-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+                </svg>
+                <span class="titular-sistema mt-2 text-h4">Bloqueado</span>
+                <span class="text-caption text-ink-2">Se desbloquea al llegar a rango {{ g.letra }}</span>
+              </span>
+            {% endif %}
+          </div>
+          <figcaption class="mt-3 text-center">
+            <span class="clase-cazador text-h4" style="--rango: {{ g.color }}">Rango {{ g.letra }} · {{ g.clase }}</span>
+            {% if g.actual %}<span class="pill-xp ml-2">Actual</span>{% endif %}
+          </figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+    {% if galeria|length > 1 %}
+      <div class="flex items-center justify-center gap-2 px-4 pb-6 pt-2">
+        <button type="button" class="btn-icono h-11 w-11" @click="ver = (ver - 1 + total) % total" aria-label="Anterior">
+          <span class="block rotate-180">{% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}</span>
+        </button>
+        {% for g in galeria %}
+          <button type="button" @click="ver = {{ forloop.counter0 }}"
+                  class="cifra-sistema h-9 w-9 rounded-sm border text-body"
+                  :class="ver === {{ forloop.counter0 }} ? 'text-ink' : 'text-ink-3 opacity-60'"
+                  style="border-color: {{ g.color }}" aria-label="Rango {{ g.letra }}">{{ g.letra }}</button>
+        {% endfor %}
+        <button type="button" class="btn-icono h-11 w-11" @click="ver = (ver + 1) % total" aria-label="Siguiente">
+          {% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}
+        </button>
+      </div>
     {% endif %}
   </div>
 </div>

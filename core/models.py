@@ -35,6 +35,13 @@ class Rank(models.Model):
 
         return services.emblema_de_rango(self.orden)
 
+    @property
+    def cazador(self) -> dict:
+        """Letra (E-S), clase de cazador y color del rango. Atado al orden."""
+        from cazador import services as cazador
+
+        return cazador.rango_cazador(self.orden)
+
 
 class Profile(models.Model):
     """Perfil del unico usuario del sistema. Singleton: usa Profile.get()."""

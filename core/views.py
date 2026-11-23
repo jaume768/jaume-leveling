@@ -9,8 +9,12 @@ from . import services
 
 def index(request):
     """Panel principal. La vista es fina: el contexto lo monta el servicio."""
+    from cazador import services as cazador
+
     minimo = request.GET.get("minimo") == "1"
-    return render(request, "core/panel.html", services.contexto_panel(minimo=minimo))
+    contexto = services.contexto_panel(minimo=minimo)
+    contexto.update(cazador.contexto_hoy(contexto["hoy"]))
+    return render(request, "core/panel.html", contexto)
 
 
 def niveles(request):
@@ -20,7 +24,20 @@ def niveles(request):
 
 def personaje(request):
     """Hoja de personaje: los quince atributos y lo que mueve el siguiente +10."""
-    return render(request, "core/personaje.html", services.hoja_de_personaje())
+    from cazador import services as cazador
+
+    contexto = services.hoja_de_personaje()
+    contexto.update(cazador.contexto_estado())
+    rango = contexto.get("rango")
+    siguiente = contexto.get("siguiente_rango")
+    orden = rango.orden if rango else None
+    contexto["retrato"] = cazador.retrato_de_rango(orden)
+    contexto["retrato_mini"] = cazador.retrato_mini_de_rango(orden)
+    contexto["retrato_siguiente"] = cazador.retrato_de_rango(siguiente.orden if siguiente else None)
+    galeria = cazador.galeria_de_retratos(orden)
+    contexto["galeria"] = galeria
+    contexto["indice_actual"] = next((i for i, g in enumerate(galeria) if g["actual"]), 0)
+    return render(request, "core/personaje.html", contexto)
 
 
 def calibracion(request):

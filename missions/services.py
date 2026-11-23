@@ -263,6 +263,11 @@ def completar_mision(
     if notas:
         registro.notas = notas
     registro.save(update_fields=["completada", "evidencia_texto", "xp_otorgado", "notas"])
+
+    # Si con esta quedan cerradas todas las diarias, el Sistema da el cofre.
+    from cazador import services as cazador
+
+    cazador.tras_mision(fecha)
     return registro
 
 
@@ -344,7 +349,7 @@ GRUPOS = (
     (Mission.Tipo.DIARIA, "Diarias", "Haz lo esencial. Avanza cada dia.", "warn"),
     (Mission.Tipo.SEMANAL, "Semanales", "Construye resultados a medio plazo.", "ok"),
     (Mission.Tipo.MENSUAL, "Mensuales", "El mes se gana con cifras, no con horas.", "xp"),
-    (Mission.Tipo.PRINCIPAL, "Principales", "Cierran tu rango. Se completan una vez.", "ink"),
+    (Mission.Tipo.PRINCIPAL, "De ascenso", "Abren la mazmorra de tu rango. Se completan una vez, cualquier día.", "ink"),
     (Mission.Tipo.ANUAL, "Anuales", "La direccion, no la semana.", "xp"),
 )
 

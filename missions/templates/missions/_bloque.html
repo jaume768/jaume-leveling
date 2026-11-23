@@ -5,7 +5,7 @@
   notas, y con altura para dos filas. Si no caben, aparece "Ir a misiones".
   Todo lo que cambia entre los dos se hace con el variante in-[.compacto]:.
 {% endcomment %}
-<section id="bloque-misiones" class="card p-5"
+<section id="bloque-misiones" class="card p-3.5 sm:p-5"
          x-data="{ desborda: false,
                    medir() { const l = this.$refs.lista; this.desborda = !!l && l.scrollHeight > l.clientHeight + 1 } }"
          x-init="$nextTick(() => medir())" @resize.window.debounce.150ms="medir()">
@@ -19,14 +19,14 @@
         {% if misiones.dia_protegido %}Día protegido
         {% elif misiones.reinicio %}Hoy · Reinicio
         {% elif misiones.modo_minimo %}Hoy · Día mínimo
-        {% else %}Hoy{% endif %}
+        {% else %}Objetivos de hoy{% endif %}
       </h2>
       {% if not misiones.dia_protegido and misiones.total %}
         <span class="pill-mut">{{ misiones.hechas }}/{{ misiones.total }}</span>
       {% endif %}
     </div>
     <p class="hidden text-caption font-medium uppercase tracking-[0.16em] text-ink-3 sm:block">
-      Disciplina genera libertad
+      [ Sistema ] Entrena, cobra, asciende
     </p>
   </div>
 
@@ -74,7 +74,7 @@
           </a>
         {% endif %}
 
-        <div class="mb-6 rounded-md border border-xp/35 bg-xp/6 p-4 in-[.compacto]:hidden">
+        <div class="mb-6 rounded-md border border-xp/35 bg-xp/6 p-3 sm:p-4 in-[.compacto]:hidden">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
             <h3 class="label-acento acento-xp">Elige una</h3>
             {% if pool.elegida %}
@@ -103,8 +103,9 @@
                       <span class="mt-0.5 block text-caption text-ink-3">
                         {{ opcion.mision.descripcion|default:opcion.mision.definicion_terminada }}
                       </span>
+                      <span class="pill-xp mt-2 sm:hidden">+{{ opcion.mision.xp }} XP</span>
                     </span>
-                    <span class="pill-xp shrink-0">{{ opcion.mision.xp }} XP</span>
+                    <span class="pill-xp hidden shrink-0 sm:inline-flex">{{ opcion.mision.xp }} XP</span>
                     <span class="shrink-0 text-ink-3">{% include "_icono.html" with icono="chevron" clase="h-5 w-5" %}</span>
                   </button>
                 </li>
@@ -167,7 +168,7 @@
                           hx-target="#modal"
                           hx-swap="innerHTML">
                     <span class="min-w-0 flex-1">
-                      <span class="block truncate text-body font-semibold
+                      <span class="block text-body font-semibold leading-snug sm:truncate
                                    {% if fila.completada %}text-ink-3 line-through{% else %}text-ink{% endif %}">
                         {{ fila.titulo }}
                       </span>
@@ -175,6 +176,7 @@
                         {% if fila.codigo %}{{ fila.codigo }} · {% endif %}{{ fila.mision.definicion_terminada }}
                       </span>
                       <span class="mt-2 flex flex-wrap items-center gap-2 in-[.compacto]:hidden">
+                        <span class="pill-xp sm:hidden">+{{ fila.mision.xp }} XP</span>
                         {% if fila.mision.tiempo_estimado_min %}
                           <span class="pill-mut">{{ fila.mision.tiempo_estimado_min }} min</span>
                         {% endif %}

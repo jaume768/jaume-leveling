@@ -9,6 +9,7 @@
 @source "../review";
 @source "../wisdom";
 @source "../notebook";
+@source "../cazador";
 
 /* El CLI de Tailwind se descarga aqui y lleva dentro el nombre de cada
    utilidad: si se escanea, las genera todas. */
@@ -47,7 +48,7 @@
     "Helvetica Neue", Arial, sans-serif;
   /* Titulares y cifras: geometrica, con aire de marcador. Si la fuente no
      carga (sin conexion), cae a la del sistema sin romper nada. */
-  --font-display: "Space Grotesk", var(--font-sans);
+  --font-display: "Rajdhani", "Space Grotesk", var(--font-sans);
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
 
   --text-display: 2rem;              /* 32 / 40 */
@@ -81,26 +82,30 @@
 :root,
 [data-tema="oscuro"] {
   color-scheme: dark;
-  /* Azul noche, no gris: las superficies tiran a marino, como el cielo
-     antes del amanecer, y los bordes son azul apagado en vez de gris. */
-  --color-base: #070c1c;
-  --color-surface-1: #0a1127;
-  --color-surface-2: #0d1531;
-  --color-surface-3: #16203f;
-  --color-line: #1f2c50;
-  --color-xp: #5a82ff;
-  --color-ok: #2ee68a;
-  --color-warn: #f5b536;
-  --color-bad: #fb5c72;
-  --color-ink: #f4f7fc;
-  --color-ink-2: #c5d0e3;
-  --color-ink-3: #8898b5;
-  --color-violeta: #8f6bff;
+  /* El Sistema: negro azulado y ventanas holograficas en cian. El violeta es
+     la sombra (rangos altos), el dorado lo raro y el rojo el peligro. */
+  --color-base: #04070d;
+  --color-surface-1: #070d18;
+  --color-surface-2: #0a1424;
+  --color-surface-3: #102037;
+  --color-line: #18304d;
+  --color-xp: #3fc5ff;
+  --color-ok: #2fe6a7;
+  --color-warn: #fbbf24;
+  --color-bad: #ff4d6d;
+  --color-ink: #eaf6ff;
+  --color-ink-2: #b6cbe0;
+  --color-ink-3: #7590ad;
+  --color-violeta: #8b5cf6;
+  /* Texto sobre el cian del Sistema. */
+  --color-sobre-xp: #031019;
 
-  /* Halo del fondo: el degradado que da profundidad a toda la aplicacion. */
-  --halo-1: rgb(90 130 255 / 0.10);
-  --halo-2: rgb(80 70 220 / 0.08);
-  --velo-tarjeta: rgb(90 150 255 / 0.05);
+  /* Halo del fondo y rejilla holografica. */
+  --halo-1: rgb(63 197 255 / 0.10);
+  --halo-2: rgb(139 92 246 / 0.08);
+  --rejilla: rgb(63 197 255 / 0.045);
+  --velo-tarjeta: rgb(63 197 255 / 0.05);
+  --brillo-ventana: rgb(63 197 255 / 0.35);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.30), 0 8px 24px -12px rgb(0 0 0 / 0.55);
   --shadow-alto: 0 2px 4px rgb(0 0 0 / 0.35), 0 18px 40px -16px rgb(0 0 0 / 0.65);
 }
@@ -120,10 +125,13 @@
   --color-ink-2: #44506a;
   --color-ink-3: #616f89;
   --color-violeta: #7c3aed;
+  --color-sobre-xp: #ffffff;
 
   --halo-1: rgb(37 99 235 / 0.07);
   --halo-2: rgb(139 92 246 / 0.05);
+  --rejilla: rgb(37 99 235 / 0.05);
   --velo-tarjeta: rgb(255 255 255 / 0);
+  --brillo-ventana: rgb(37 99 235 / 0.18);
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -14px rgb(15 23 42 / 0.18);
   --shadow-alto: 0 2px 6px rgb(15 23 42 / 0.07), 0 18px 40px -18px rgb(15 23 42 / 0.25);
 }
@@ -135,10 +143,15 @@
 
   body {
     font-family: var(--font-sans);
-    /* Dos halos fijos: el fondo deja de ser un color plano. */
+    /* Fondo del Sistema: dos halos fijos a la pantalla y una rejilla que se
+       repite sin fin. Nada depende del alto de la pagina, asi que una pagina
+       larga nunca enseña un corte. */
     background-image:
       radial-gradient(60rem 40rem at 12% -10%, var(--halo-1), transparent 60%),
-      radial-gradient(50rem 36rem at 92% 4%, var(--halo-2), transparent 62%);
+      radial-gradient(50rem 36rem at 92% 4%, var(--halo-2), transparent 62%),
+      linear-gradient(var(--rejilla) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rejilla) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
     background-attachment: fixed;
   }
 
@@ -155,11 +168,15 @@
    --------------------------------------------------------------------------- */
 
 /* --- Superficies --- */
+/* Toda tarjeta es una ventana del Sistema: cristal oscuro, filo cian y un
+   brillo interior. Las esquinas marcadas van aparte, en .ventana. */
 @utility card {
-  @apply rounded-md border border-line bg-surface-2;
-  /* Un velo claro arriba: la tarjeta recibe luz por el borde superior. */
+  @apply rounded-md border;
+  border-color: color-mix(in oklab, var(--color-xp) 22%, var(--color-line));
+  background-color: color-mix(in oklab, var(--color-surface-2) 88%, transparent);
   background-image: linear-gradient(170deg, var(--velo-tarjeta), transparent 55%);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-card), inset 0 0 24px -14px var(--brillo-ventana);
+  backdrop-filter: blur(6px);
 }
 
 @utility card-quiet {
@@ -391,9 +408,21 @@
   line-height: var(--text-caption--line-height);
 }
 
+/* Boton del Sistema: cian encendido con su halo. */
 @utility btn-xp {
-  @apply btn border-transparent bg-xp text-white hover:bg-xp/85 hover:text-white;
-  box-shadow: 0 6px 20px -10px var(--color-xp);
+  @apply btn font-semibold uppercase tracking-wider;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--color-sobre-xp);
+  border-color: var(--color-xp);
+  background-color: var(--color-xp);
+  box-shadow: 0 0 18px -4px var(--color-xp);
+
+  &:hover {
+    color: var(--color-sobre-xp);
+    background-color: color-mix(in oklab, var(--color-xp) 85%, #fff);
+    box-shadow: 0 0 26px -2px var(--color-xp);
+  }
 }
 
 @utility btn-icono {
@@ -417,11 +446,24 @@
 
 @utility nav-item-on {
   @apply nav-item text-ink hover:text-ink;
-  /* Caja azul encendida, con el filo y el halo: es lo que hace que "salte". */
-  border-color: color-mix(in oklab, var(--color-xp) 40%, transparent);
-  background-color: color-mix(in oklab, var(--color-xp) 16%, transparent);
+  /* Entrada activa: filo cian, halo y una barra de luz a la izquierda. */
+  position: relative;
+  border-color: color-mix(in oklab, var(--color-xp) 45%, transparent);
+  background-image: linear-gradient(90deg, color-mix(in oklab, var(--color-xp) 20%, transparent), transparent);
+  box-shadow: 0 0 16px -8px var(--color-xp);
 
-  & svg { color: var(--color-xp); }
+  &::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 20%;
+    bottom: 20%;
+    width: 2px;
+    background: var(--color-xp);
+    box-shadow: 0 0 8px var(--color-xp);
+  }
+
+  & svg { color: var(--color-xp); filter: drop-shadow(0 0 5px var(--color-xp)); }
 }
 [data-tema="claro"] .nav-item-on { color: var(--color-xp); }
 
@@ -559,19 +601,7 @@
   }
 }
 
-/* Emblemas de rango. Llevan su propio metal y su luz, asi que aqui solo se
-   les da presencia: un halo del color del sistema y el relieve al pasar. */
-@utility emblema {
-  @apply block shrink-0 object-contain;
-  filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.55))
-          drop-shadow(0 0 14px color-mix(in oklab, var(--color-xp) 35%, transparent));
-}
-
-/* Rango aun no alcanzado: apagado y sin color, como en cualquier juego. */
-@utility emblema-off {
-  filter: grayscale(1) brightness(0.55) drop-shadow(0 4px 12px rgb(0 0 0 / 0.5));
-  opacity: 0.75;
-}
+/* Emblemas de rango: definidos mas abajo, con las insignias del Sistema. */
 
 /* Pedestal del emblema en la tarjeta de nivel: un halo detras de la insignia. */
 @utility pedestal {
@@ -657,7 +687,8 @@
 /* Titulares y cifras grandes, con la fuente de marcador. */
 @utility display {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 @utility label-acento {
@@ -695,7 +726,7 @@
 
 /* Fila de "Hoy": caja propia, titulo grande y chevron al final. */
 @utility fila-hoy {
-  @apply flex items-center gap-4 rounded-md border border-line px-4 py-3.5
+  @apply flex items-center gap-3 rounded-md border border-line px-3 py-3 sm:gap-4 sm:px-4 sm:py-3.5
          transition-[background-color,border-color] duration-150;
   background-color: color-mix(in oklab, var(--color-surface-1) 70%, transparent);
 
@@ -736,7 +767,7 @@
     position: absolute;
     inset: 0;
     z-index: -1;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='104' viewBox='0 0 120 104'%3E%3Cpath d='M30 2 58 18v32L30 66 2 50V18zM90 38l28 16v32L90 102 62 86V54z' fill='none' stroke='%235a82ff' stroke-opacity='.16' stroke-width='1.2'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='104' viewBox='0 0 120 104'%3E%3Cpath d='M30 2 58 18v32L30 66 2 50V18zM90 38l28 16v32L90 102 62 86V54z' fill='none' stroke='%233fc5ff' stroke-opacity='.16' stroke-width='1.2'/%3E%3C/svg%3E");
     background-size: 180px auto;
     mask-image: linear-gradient(100deg, transparent 35%, #000 90%);
   }
@@ -778,27 +809,32 @@
   background-color: color-mix(in oklab, var(--acento) 12%, transparent);
 }
 
-/* Jefe: filo ambar y la cumbre con su bandera abajo a la derecha. */
+/* Mazmorra de ascenso: filo violeta y un portal girando abajo a la derecha. */
 @utility card-jefe {
   @apply relative overflow-hidden rounded-lg border;
   isolation: isolate;
-  border-color: color-mix(in oklab, var(--color-warn) 45%, transparent);
-  background-color: var(--color-surface-2);
+  border-color: color-mix(in oklab, var(--color-violeta) 50%, transparent);
+  background-color: color-mix(in oklab, var(--color-surface-2) 92%, transparent);
   background-image:
-    radial-gradient(70% 60% at 0% 0%, color-mix(in oklab, var(--color-warn) 9%, transparent), transparent 70%);
-  box-shadow: var(--shadow-card), 0 0 40px -24px var(--color-warn);
+    radial-gradient(70% 60% at 0% 0%, color-mix(in oklab, var(--color-violeta) 12%, transparent), transparent 70%);
+  box-shadow: var(--shadow-card), 0 0 44px -22px var(--color-violeta);
 
   &::after {
     content: "";
     position: absolute;
-    right: 0;
-    bottom: 0;
+    right: -12%;
+    bottom: -30%;
     z-index: -1;
-    width: 46%;
-    height: 78%;
-    background: url("../img/cumbre-dorada.svg") no-repeat right bottom / contain;
-    opacity: 0.55;
-    mask-image: linear-gradient(100deg, transparent, #000 45%);
+    width: 22rem;
+    height: 22rem;
+    border-radius: 9999px;
+    background:
+      radial-gradient(circle, rgb(0 0 0 / 0.85) 18%, transparent 19%),
+      repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--color-violeta) 55%, transparent) 0deg 8deg,
+        color-mix(in oklab, var(--color-xp) 25%, transparent) 8deg 14deg, transparent 14deg 22deg);
+    filter: blur(1px);
+    opacity: 0.32;
+    mask-image: radial-gradient(circle, #000 40%, transparent 70%);
   }
 }
 
@@ -851,8 +887,9 @@
 
 /* Boton central de la barra inferior de movil. */
 @utility fab-central {
-  @apply flex h-12 w-12 items-center justify-center rounded-[0.8rem] bg-xp text-white
+  @apply flex h-12 w-12 items-center justify-center rounded-[0.8rem] bg-xp
          transition-transform;
+  color: var(--color-sobre-xp);
   transform: rotate(45deg);
   box-shadow: 0 0 0 5px var(--color-base),
               0 0 0 6px color-mix(in oklab, var(--color-xp) 35%, transparent),
@@ -885,4 +922,280 @@
 /* El mapa de atributos se estira al ancho de la tarjeta sin deformarse. */
 @utility radar {
   @apply block h-auto w-full;
+}
+
+/* ===========================================================================
+   El Sistema. Ventanas holograficas, insignias de cazador, cadena de dias,
+   avisos, cofre y efectos. Todo el movimiento se apaga si el sistema operativo
+   pide menos animaciones.
+   =========================================================================== */
+
+/* --- Ventana del Sistema: la pieza con la que se construye todo ---------- */
+@utility ventana {
+  @apply card relative;
+  --filo: var(--color-xp);
+  border-color: color-mix(in oklab, var(--filo) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--filo) 10%, transparent),
+              0 0 28px -12px var(--filo),
+              inset 0 0 40px -22px var(--filo);
+  /* Las cuatro esquinas marcadas, dibujadas con degradados: escalan con la
+     ventana y no dependen de su alto. */
+  background-image:
+    linear-gradient(var(--filo), var(--filo)), linear-gradient(var(--filo), var(--filo)),
+    linear-gradient(var(--filo), var(--filo)), linear-gradient(var(--filo), var(--filo)),
+    linear-gradient(var(--filo), var(--filo)), linear-gradient(var(--filo), var(--filo)),
+    linear-gradient(var(--filo), var(--filo)), linear-gradient(var(--filo), var(--filo)),
+    linear-gradient(170deg, color-mix(in oklab, var(--filo) 9%, transparent), transparent 55%);
+  background-size: 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, auto;
+  background-position: -1px -1px, -1px -1px, calc(100% + 1px) -1px, calc(100% + 1px) -1px,
+    -1px calc(100% + 1px), -1px calc(100% + 1px), calc(100% + 1px) calc(100% + 1px),
+    calc(100% + 1px) calc(100% + 1px), 0 0;
+  background-repeat: no-repeat;
+}
+
+@utility ventana-peligro { --filo: var(--color-bad); }
+@utility ventana-sombra { --filo: var(--color-violeta); }
+@utility ventana-oro { --filo: var(--color-warn); }
+@utility ventana-ok { --filo: var(--color-ok); }
+
+/* Barra de titulo: [ MISION DIARIA ] con lineas a los lados. */
+@utility ventana-titulo {
+  @apply flex items-center gap-3 text-caption font-bold uppercase;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.28em;
+  color: var(--filo, var(--color-xp));
+  text-shadow: 0 0 12px color-mix(in oklab, var(--filo, var(--color-xp)) 70%, transparent);
+
+  &::before, &::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--filo, var(--color-xp)) 60%, transparent));
+  }
+  &::after { background: linear-gradient(90deg, color-mix(in oklab, var(--filo, var(--color-xp)) 60%, transparent), transparent); }
+}
+
+/* Titular grande del Sistema: mayusculas espaciadas y luz. */
+@utility titular-sistema {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink);
+  text-shadow: 0 0 18px color-mix(in oklab, var(--color-xp) 55%, transparent);
+}
+
+/* Cifra brillante: nivel, XP, cuenta atras. */
+@utility cifra-sistema {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+  text-shadow: 0 0 16px color-mix(in oklab, var(--color-xp) 60%, transparent);
+}
+
+/* --- Pestañas (Gremio, Misiones) --- */
+@utility pestanas-sistema {
+  @apply flex flex-wrap gap-1.5 border-b pb-2;
+  border-color: color-mix(in oklab, var(--color-xp) 20%, var(--color-line));
+}
+
+@utility pestana-sistema {
+  @apply rounded-sm border border-transparent px-3 py-1.5 text-body-sm font-semibold uppercase tracking-wider text-ink-3 transition-colors hover:text-ink;
+  font-family: var(--font-display);
+}
+
+@utility pestana-sistema-on {
+  @apply pestana-sistema text-ink;
+  border-color: color-mix(in oklab, var(--color-xp) 50%, transparent);
+  background-color: color-mix(in oklab, var(--color-xp) 14%, transparent);
+  box-shadow: 0 0 14px -6px var(--color-xp);
+}
+
+/* --- Insignia de rango (E a S) ---------------------------------------------- */
+.insignia .insignia-halo { fill: var(--rango); opacity: 0.18; }
+.insignia .insignia-cristal { fill: #050a14; stroke: var(--rango); stroke-width: 3; }
+.insignia .insignia-faceta { fill: var(--rango); opacity: 0.14; }
+.insignia .insignia-brillo { fill: none; stroke: #fff; stroke-opacity: 0.35; stroke-width: 1.2; }
+.insignia .insignia-letra {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 52px;
+  fill: var(--rango);
+}
+.insignia-s .insignia-cristal { fill: #0b0416; }
+.insignia-s .insignia-sombra { fill: var(--rango); opacity: 0.35; }
+
+@utility emblema {
+  @apply block shrink-0 object-contain;
+  overflow: visible;
+  filter: drop-shadow(0 0 10px color-mix(in oklab, var(--rango, var(--color-xp)) 60%, transparent));
+}
+
+@utility emblema-off {
+  filter: grayscale(1) brightness(0.55);
+  opacity: 0.6;
+}
+
+/* Etiqueta de clase junto a la letra del rango. */
+@utility clase-cazador {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--rango, var(--color-xp));
+  text-shadow: 0 0 12px color-mix(in oklab, var(--rango, var(--color-xp)) 55%, transparent);
+}
+
+/* --- Barra de XP de la cabecera ---------------------------------------------- */
+@utility barra-xp {
+  @apply relative block h-1.5 w-full overflow-hidden rounded-full;
+  background-color: color-mix(in oklab, var(--color-xp) 12%, var(--color-base));
+}
+
+@utility barra-xp-fill {
+  @apply absolute inset-y-0 left-0 block rounded-full;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--color-xp) 60%, transparent), var(--color-xp));
+  box-shadow: 0 0 10px var(--color-xp);
+  transform-origin: left center;
+}
+
+/* --- Cadena de dias -------------------------------------------------------------- */
+@utility dia {
+  @apply flex h-6 items-center justify-center rounded-[3px] border text-[0.6rem] font-bold;
+  border-color: color-mix(in oklab, var(--color-line) 80%, transparent);
+  background-color: color-mix(in oklab, var(--color-surface-1) 70%, transparent);
+  color: var(--color-ink-3);
+}
+.dia-hecho {
+  border-color: var(--color-xp);
+  background-color: color-mix(in oklab, var(--color-xp) 55%, transparent);
+  color: var(--color-sobre-xp);
+  box-shadow: 0 0 10px -3px var(--color-xp);
+}
+.dia-escudo {
+  border-color: var(--color-violeta);
+  background-color: color-mix(in oklab, var(--color-violeta) 35%, transparent);
+  color: #fff;
+}
+.dia-fallado {
+  border-color: color-mix(in oklab, var(--color-bad) 55%, transparent);
+  background-color: color-mix(in oklab, var(--color-bad) 14%, transparent);
+  color: var(--color-bad);
+}
+.dia-protegido { border-style: dashed; opacity: 0.55; }
+.dia-futuro { opacity: 0.25; }
+.dia-previo { opacity: 0.15; border-style: dotted; }
+.dia-hoy { border-color: var(--color-xp); border-style: dashed; color: var(--color-xp); }
+
+/* --- Avisos: toasts y ventanas ------------------------------------------------------ */
+@utility toast-sistema {
+  @apply ventana pointer-events-auto flex items-start gap-3 px-4 py-3 text-body-sm;
+  min-width: 16rem;
+  max-width: 22rem;
+  background-color: color-mix(in oklab, var(--color-surface-1) 94%, transparent);
+}
+
+@utility velo-sistema {
+  @apply fixed inset-0 z-[90] flex items-center justify-center p-4;
+  background:
+    radial-gradient(60% 50% at 50% 45%, color-mix(in oklab, var(--filo, var(--color-xp)) 18%, transparent), transparent 70%),
+    rgb(2 5 10 / 0.82);
+  backdrop-filter: blur(3px);
+}
+
+@utility ventana-modal {
+  @apply ventana w-full max-w-md p-6 text-center;
+  background-color: color-mix(in oklab, var(--color-surface-1) 96%, transparent);
+}
+
+/* --- Rareza (inventario, cofre) --- */
+@utility rareza-comun { --filo: #9aa6b8; }
+@utility rareza-raro { --filo: var(--color-xp); }
+@utility rareza-epico { --filo: var(--color-violeta); }
+@utility rareza-legendario { --filo: var(--color-warn); }
+
+/* --- Cofre -------------------------------------------------------------------------- */
+@utility cofre {
+  @apply relative inline-flex h-16 w-20 items-end justify-center;
+  filter: drop-shadow(0 0 14px color-mix(in oklab, var(--color-warn) 60%, transparent));
+}
+
+/* --- Retrato y silueta --- */
+/* Retrato del rango siguiente: se intuye pero no se ve. Los retratos traen su
+   propio fondo, asi que no vale una silueta negra: se oscurece y se difumina. */
+@utility silueta {
+  filter: grayscale(0.6) brightness(0.35) blur(1.5px);
+  opacity: 0.9;
+}
+
+@utility retrato-bloqueado {
+  filter: grayscale(0.7) brightness(0.3) blur(6px);
+}
+
+/* Movil: el retrato en apaisado, encuadrando cara y torso. */
+@utility retrato-movil {
+  aspect-ratio: 4 / 3.4;
+  background-color: var(--color-base);
+}
+
+/* --- Cuenta atras --- */
+@utility cuenta-atras {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+/* --- Animaciones --- */
+@keyframes holograma {
+  0%   { opacity: 0; transform: scaleY(0.04) scaleX(0.6); filter: brightness(2); }
+  45%  { opacity: 1; transform: scaleY(0.04) scaleX(1); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes entrar-toast {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes latido {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--filo, var(--color-xp)) 10%, transparent), 0 0 18px -10px var(--filo, var(--color-xp)); }
+  50%      { box-shadow: 0 0 0 1px color-mix(in oklab, var(--filo, var(--color-xp)) 30%, transparent), 0 0 34px -8px var(--filo, var(--color-xp)); }
+}
+
+@keyframes flotar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+@keyframes destello-sistema {
+  0%   { transform: scale(0.5); box-shadow: 0 0 0 0 var(--color-xp); }
+  60%  { transform: scale(1.15); box-shadow: 0 0 0 8px transparent; }
+  100% { transform: scale(1); }
+}
+
+@keyframes barrido-sistema {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(100%); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ventana-modal { animation: holograma 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .toast-sistema { animation: entrar-toast 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .latido { animation: latido 2.4s ease-in-out infinite; }
+  .cofre-disponible { animation: flotar 2s ease-in-out infinite; }
+  .check-done, .casilla-done { animation: destello-sistema 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .barra-xp-fill { animation: crecer-barra 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* Una linea de barrido recorre las ventanas modales, como un holograma. */
+  .ventana-modal::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 45%, color-mix(in oklab, var(--filo) 12%, transparent) 50%, transparent 55%);
+    animation: barrido-sistema 3.5s linear infinite;
+  }
 }

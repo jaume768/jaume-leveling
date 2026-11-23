@@ -375,7 +375,7 @@ class TestVistas:
         assert "Este campo es obligatorio".encode() not in respuesta.content
 
     def test_el_dashboard_muestra_la_tarifa_efectiva(self, client):
-        respuesta = client.get(reverse("core:index"))
+        respuesta = client.get(reverse("business:index"))
         assert "Tarifa efectiva".encode() in respuesta.content
         assert "Objetivo 40 €/h".encode() in respuesta.content
 

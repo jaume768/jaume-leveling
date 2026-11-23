@@ -313,5 +313,7 @@ def proyecto_form(request, pk=None):
 
 
 def index(request):
-    """La entrada de Negocio es el pipeline."""
-    return redirect("business:pipeline")
+    """Gremio: el resumen del negocio. Las cifras que mandan y el ejercito."""
+    from core import services as core_services
+
+    return render(request, "business/gremio.html", core_services.contexto_gremio())

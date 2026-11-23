@@ -14,7 +14,7 @@
       <article class="card p-5">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <p class="label">
-            {% if maxima.numero <= ultimo_libro %}{{ maxima.libro }}{% else %}Decálogo · regla {{ maxima.numero|add:"-10" }} · {{ maxima.libro }}{% endif %}
+            {% if maxima.numero <= ultimo_libro or maxima.numero > 22 %}{{ maxima.libro }}{% else %}Decálogo · regla {{ maxima.numero|add:"-10" }} · {{ maxima.libro }}{% endif %}
           </p>
           <p class="text-caption text-ink-3">{{ maxima.tags }}</p>
         </div>

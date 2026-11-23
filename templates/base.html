@@ -4,12 +4,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#070c1c">
+  <meta name="theme-color" content="#04070d">
   <style>[x-cloak]{display:none!important}</style>
   <script>
-    /* Unico JavaScript propio de la aplicacion. Va aqui, antes de pintar nada,
-       porque leer el tema despues provocaria un fogonazo del tema contrario.
-       Por defecto, oscuro: el claro solo aparece si se pide a mano. */
+    /* Va aqui, antes de pintar nada, porque leer el tema despues provocaria un
+       fogonazo del tema contrario. Por defecto, oscuro. */
     (function () {
       document.documentElement.dataset.tema =
         localStorage.getItem("tema") === "claro" ? "claro" : "oscuro";
@@ -17,9 +16,6 @@
   </script>
   <title>{% block title %}Sistema{% endblock %} · Sistema</title>
   {% include "_app_head.html" %}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.4/htmx.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.14.8/cdn.min.js" defer></script>
@@ -39,7 +35,6 @@
   <div x-cloak x-show="abierto" @click="abierto = false"
        class="fixed inset-0 z-40 bg-base/80 backdrop-blur-sm md:hidden"></div>
 
-  {# Sin Alpine queda -translate-x-full: bien en movil, anulado por md:translate-x-0. #}
   <aside class="fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 -translate-x-full flex-col
                 border-r border-line bg-surface-1 px-3 py-5 transition-transform duration-200
                 md:sticky md:top-0 md:z-auto md:h-screen md:w-56 md:translate-x-0"
@@ -48,8 +43,8 @@
     <a href="{% url 'core:index' %}" class="flex shrink-0 items-center gap-3 px-2">
       <span class="caja-icono acento-xp h-9 w-9">{% include "_icono.html" with icono="marca" clase="h-5 w-5" %}</span>
       <span>
-        <span class="display block text-body font-bold uppercase tracking-wide text-ink">Sistema</span>
-        <span class="block text-caption text-ink-3">Progreso con propósito</span>
+        <span class="titular-sistema block text-[1.25rem] leading-none tracking-[0.2em]">Sistema</span>
+        <span class="mt-1 block text-caption text-ink-3">Has sido elegido, Jugador.</span>
       </span>
     </a>
 
@@ -72,21 +67,19 @@
     </nav>
 
     {% if user.is_authenticated %}
-      <div class="mt-4 shrink-0 rounded-md border border-line bg-surface-2 p-3">
-        <div class="flex items-center gap-3">
-          <a href="{% url 'core:personaje' %}"
-             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-xp/50
-                    bg-xp/15 text-body-sm font-semibold uppercase text-xp">
-            {{ user.username|first }}
-          </a>
-          <div class="min-w-0 flex-1">
-            <p class="truncate text-body-sm font-semibold text-ink">{{ user.get_short_name|default:user.username|capfirst }}</p>
-            {% if ficha %}
-              <p class="truncate text-caption text-ink-3">{{ ficha.rango|default:"Sin rango" }} · Nv. {{ ficha.nivel }}</p>
-            {% endif %}
-          </div>
-        </div>
-        <p class="mt-3 font-serif text-body-sm italic text-ink-2">«Disciplina hoy, libertad mañana.»</p>
+      <div class="ventana mt-4 shrink-0 p-3" style="--rango: {{ ficha.cazador.color|default:'var(--color-xp)' }}">
+        <a href="{% url 'core:personaje' %}" class="flex items-center gap-3">
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border
+                       font-[family-name:var(--font-display)] text-h3 font-bold"
+                style="color: var(--rango); border-color: var(--rango); box-shadow: 0 0 12px -4px var(--rango)">
+            {{ ficha.cazador.letra|default:"?" }}
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-body-sm font-semibold text-ink">{{ ficha.alias|default:user.username|capfirst }}</span>
+            <span class="clase-cazador block truncate text-caption">{{ ficha.cazador.clase|default:"Sin clase" }} · Nv. {{ ficha.nivel }}</span>
+            {% if ficha.titulo %}<span class="block truncate text-caption italic text-ink-3">«{{ ficha.titulo }}»</span>{% endif %}
+          </span>
+        </a>
         <div class="mt-3 flex items-center gap-4 border-t border-line pt-2.5 text-ink-3">
           <button type="button" class="flex hover:text-ink md:hidden" @click="cambiarTema()"
                   :aria-label="tema === 'claro' ? 'Cambiar al tema oscuro' : 'Cambiar al tema claro'">
@@ -113,50 +106,51 @@
   {# ------------------------------------------------------------------ #}
   <div class="flex min-w-0 flex-1 flex-col">
 
-    <header class="sticky top-0 z-30 flex items-center gap-3 bg-base/85 px-4 pb-3 pt-4
-                   backdrop-blur md:px-8 md:pb-4 md:pt-6"
+    <header class="sticky top-0 z-30 bg-base/85 px-4 pb-3 pt-4 backdrop-blur md:px-8 md:pb-4 md:pt-6"
             @keydown.window.prevent.meta.k="$refs.buscador && $refs.buscador.focus()"
             @keydown.window.prevent.ctrl.k="$refs.buscador && $refs.buscador.focus()">
+      <div class="flex items-center gap-3">
+        <div class="min-w-0 flex-1">
+          {% block cabecera %}
+            <h1 class="titular-sistema truncate text-h2">{% block encabezado %}Sistema{% endblock %}</h1>
+            <p class="mt-1 truncate text-body-sm text-ink-3 empty:hidden">{% block subtitulo %}{% endblock %}</p>
+          {% endblock %}
+        </div>
 
-      <div class="min-w-0 flex-1">
-        {# Cada pagina pone aqui su titulo; el panel sobreescribe "cabecera" entera. #}
-        {% block cabecera %}
-          <h1 class="display truncate text-h2 font-bold text-ink">{% block encabezado %}Sistema{% endblock %}</h1>
-          <p class="mt-1 truncate text-body-sm text-ink-3 empty:hidden">{% block subtitulo %}{% endblock %}</p>
-        {% endblock %}
-      </div>
+        <form action="{% url 'notebook:index' %}" method="get"
+              class="hidden items-center gap-2 rounded-md border border-line bg-surface-2 px-3 py-2
+                     text-body-sm transition-colors focus-within:border-xp xl:flex">
+          <span class="text-ink-3">{% include "_icono.html" with icono="buscar" clase="h-4 w-4" %}</span>
+          <label for="buscador" class="sr-only">Buscar en el diario</label>
+          <input type="search" id="buscador" name="q" placeholder="Buscar en el diario…" x-ref="buscador"
+                 class="w-40 bg-transparent text-ink placeholder:text-ink-3 focus:outline-none">
+          <kbd class="kbd">⌘K</kbd>
+        </form>
 
-      {# El buscador va al cuaderno, que es lo unico que se busca de verdad. #}
-      <form action="{% url 'notebook:index' %}" method="get"
-            class="hidden items-center gap-2 rounded-md border border-line bg-surface-2 px-3 py-2
-                   text-body-sm transition-colors focus-within:border-xp lg:flex">
-        <span class="text-ink-3">{% include "_icono.html" with icono="buscar" clase="h-4 w-4" %}</span>
-        <label for="buscador" class="sr-only">Buscar en el cuaderno</label>
-        <input type="search" id="buscador" name="q" placeholder="Buscar en el cuaderno…" x-ref="buscador"
-               class="w-44 bg-transparent text-ink placeholder:text-ink-3 focus:outline-none xl:w-52">
-        <kbd class="kbd">⌘K</kbd>
-      </form>
-
-      <button type="button" class="btn-icono hidden h-10 w-10 md:inline-flex"
-              @click="cambiarTema()"
-              :aria-label="tema === 'claro' ? 'Cambiar al tema oscuro' : 'Cambiar al tema claro'"
-              :title="tema === 'claro' ? 'Tema oscuro' : 'Tema claro'">
-        <span x-show="tema === 'oscuro'">{% include "_icono.html" with icono="sol" clase="h-4 w-4" %}</span>
-        <span x-show="tema === 'claro'" x-cloak>{% include "_icono.html" with icono="luna" clase="h-4 w-4" %}</span>
-      </button>
-
-      {# Captura rapida: contacto, toque, nota o entreno sin cambiar de pantalla. #}
-      {% if user.is_authenticated %}
-        <button type="button" class="btn-xp btn-captura hidden h-10 px-4 md:inline-flex"
-                hx-get="{% url 'core:captura' %}" hx-target="#modal" hx-swap="innerHTML">
-          {% include "_icono.html" with icono="suma" clase="h-4 w-4" %}
-          Captura rápida
+        <button type="button" class="btn-icono hidden h-10 w-10 md:inline-flex"
+                @click="cambiarTema()"
+                :aria-label="tema === 'claro' ? 'Cambiar al tema oscuro' : 'Cambiar al tema claro'">
+          <span x-show="tema === 'oscuro'">{% include "_icono.html" with icono="sol" clase="h-4 w-4" %}</span>
+          <span x-show="tema === 'claro'" x-cloak>{% include "_icono.html" with icono="luna" clase="h-4 w-4" %}</span>
         </button>
 
-        <a href="{% url 'core:personaje' %}" title="{{ user.username }}"
-           class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-xp/50
-                  bg-xp/15 text-body-sm font-semibold uppercase text-xp md:hidden">
-          {{ user.username|first }}
+        {% if user.is_authenticated %}
+          <button type="button" class="btn-xp btn-captura hidden h-10 px-4 md:inline-flex"
+                  hx-get="{% url 'core:captura' %}" hx-target="#modal" hx-swap="innerHTML">
+            {% include "_icono.html" with icono="suma" clase="h-4 w-4" %}
+            Captura rápida
+          </button>
+        {% endif %}
+      </div>
+
+      {# Barra de XP fija: en cualquier pantalla se ve cuanto falta para el siguiente nivel. #}
+      {% if ficha %}
+        <a href="{% url 'core:niveles' %}" class="mt-3 flex items-center gap-3 text-caption"
+           style="--rango: {{ ficha.cazador.color|default:'var(--color-xp)' }}" title="Ver ascensión">
+          <span class="clase-cazador shrink-0">Rango {{ ficha.cazador.letra }}</span>
+          <span class="cifra-sistema shrink-0 text-body-sm">Nv. {{ ficha.nivel }}</span>
+          <span class="barra-xp flex-1"><span class="barra-xp-fill" style="width: {{ ficha.pct }}%"></span></span>
+          <span class="shrink-0 tabular text-ink-3"><span class="text-ink">{{ ficha.xp_en_nivel }}</span>/{{ ficha.xp_nivel }} XP</span>
         </a>
       {% endif %}
     </header>
@@ -167,10 +161,9 @@
   </div>
 
   {# ------------------------------------------------------------------ #}
-  {# Barra inferior de movil: dos entradas, la captura, una mas y "Mas",  #}
-  {# que abre el menu lateral con todo lo demas.                          #}
+  {# Barra inferior de movil: Hoy, Misiones, captura, Gremio, Estado, Mas #}
   {# ------------------------------------------------------------------ #}
-  <nav class="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 items-end border-t border-line
+  <nav class="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 items-end border-t border-line
               bg-surface-1/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
     {% for entrada in navegacion_movil %}
       {% if forloop.counter == 3 and user.is_authenticated %}
@@ -183,7 +176,7 @@
         </div>
       {% endif %}
       <a href="{{ entrada.url }}"
-         class="flex flex-col items-center gap-1 py-2.5 text-[0.6875rem] font-medium
+         class="flex min-w-0 flex-col items-center gap-1 py-2.5 text-[0.6rem] font-semibold uppercase tracking-normal
                 {% if entrada.activa %}text-xp{% else %}text-ink-3{% endif %}"
          {% if entrada.activa %}aria-current="page"{% endif %}>
         {% include "_icono.html" with icono=entrada.icono clase="h-5 w-5" %}
@@ -191,7 +184,7 @@
       </a>
     {% endfor %}
     <button type="button" @click="abierto = true"
-            class="flex flex-col items-center gap-1 py-2.5 text-[0.6875rem] font-medium text-ink-3">
+            class="flex min-w-0 flex-col items-center gap-1 py-2.5 text-[0.6rem] font-semibold uppercase tracking-normal text-ink-3">
       {% include "_icono.html" with icono="mas" clase="h-5 w-5" %}
       Más
     </button>
@@ -199,6 +192,12 @@
 
   {# Hueco unico de los modales de toda la aplicacion. #}
   <div id="modal"></div>
+
+  {# Avisos del Sistema: se piden al cargar y cada vez que una accion HTMX los genera. #}
+  {% if user.is_authenticated %}
+    <div id="avisos-sistema" hx-get="{% url 'cazador:avisos' %}" hx-trigger="load delay:300ms, avisos from:body"
+         hx-swap="innerHTML"></div>
+  {% endif %}
 
 </div>
 </body>
