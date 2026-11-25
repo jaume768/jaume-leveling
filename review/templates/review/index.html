@@ -3,24 +3,74 @@
 
 {% block title %}Revisión{% endblock %}
 {% block encabezado %}Informe semanal{% endblock %}
-{% block subtitulo %}Domingo 20:15 · 40 minutos · {{ objetivos.m4_contactos_nuevos }} contactos por semana{% endblock %}
+{% block subtitulo %}Domingo 20:15 · 10 minutos · el sistema rellena, tú decides{% endblock %}
 
 {% block content %}
 <div class="mx-auto max-w-5xl space-y-6">
   {% include "business/_mensajes.html" %}
 
-  <form method="post" class="space-y-6">
+  <form method="post" class="space-y-6"
+        x-data="{
+          cargando: false, error: '', resumen: '',
+          async preparar() {
+            this.cargando = true; this.error = '';
+            try {
+              const r = await fetch('{% url 'review:preparar' %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': this.$root.querySelector('[name=csrfmiddlewaretoken]').value },
+              });
+              const d = await r.json();
+              if (!d.ok) { this.error = d.error || 'No se pudo preparar.'; return; }
+              this.resumen = d.resumen;
+              const poner = (id, valor) => { const c = document.getElementById(id); if (c && valor && !c.value.trim()) c.value = valor; };
+              poner('{{ form.funciono.id_for_label }}', d.funciono);
+              poner('{{ form.no_funciono.id_for_label }}', d.no_funciono);
+              poner('{{ form.decision.id_for_label }}', d.decision);
+              poner('{{ form.objetivo_1.id_for_label }}', d.objetivos[0]);
+              poner('{{ form.objetivo_2.id_for_label }}', d.objetivos[1]);
+              poner('{{ form.objetivo_3.id_for_label }}', d.objetivos[2]);
+              this.$refs.detalles.open = true;
+            } catch (e) { this.error = 'No se pudo conectar. Vuelve a probar.'; }
+            finally { this.cargando = false; }
+          }
+        }">
     {% csrf_token %}
     {{ form.anio }}{{ form.semana_iso }}
 
     <section class="card p-5">
-      <h2 class="label">Calculado por el sistema</h2>
-      <p class="mt-1 text-caption text-ink-3">Estas ocho no se tocan a mano: salen del pipeline, las facturas y la XP.</p>
-      <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="label">Tu semana</h2>
+        <p class="text-caption text-ink-3">Calculado del pipeline, las facturas y la XP. No se toca a mano.</p>
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {% for campo in campos_calculados %}
-          {% include "review/_campo.html" with campo=campo semaforo=semaforos|dictkey:campo.name %}
+          {% with semaforo=semaforos|dictkey:campo.name %}
+            <div class="rounded-md border border-line bg-surface-2/40 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <p class="text-caption leading-tight text-ink-3">{{ campo.label }}</p>
+                <span class="mt-1 h-2 w-2 shrink-0 rounded-full {% if semaforo == 'verde' %}bg-ok{% elif semaforo == 'ambar' %}bg-warn{% elif semaforo == 'rojo' %}bg-bad{% else %}bg-surface-3{% endif %}"></span>
+              </div>
+              <p class="mt-1 text-h4 font-semibold tabular text-ink">{{ campo.value|default_if_none:0|floatformat:"-2" }}</p>
+              {{ campo.as_hidden }}
+            </div>
+          {% endwith %}
         {% endfor %}
       </div>
+    </section>
+
+    <section class="card p-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="label">Prepárala con IA</h2>
+          <p class="mt-1 text-caption text-ink-3">Lee tu semana y propone el balance, una decisión y tres objetivos. Rellena solo lo que esté vacío; tú lo corriges.</p>
+        </div>
+        <button type="button" class="btn" @click="preparar()" :disabled="cargando" :aria-busy="cargando">
+          <span x-show="!cargando">Preparar con IA</span>
+          <span x-show="cargando" x-cloak>Preparando…</span>
+        </button>
+      </div>
+      <p x-show="resumen" x-cloak x-text="resumen" class="mt-3 text-body-sm text-ink"></p>
+      <p x-show="error" x-cloak x-text="error" class="mt-3 text-caption text-bad"></p>
     </section>
 
     <section class="card p-5">
@@ -47,21 +97,34 @@
     <section class="card p-5">
       <h2 class="label">Balance</h2>
       <div class="mt-4 space-y-4">
-        {% include "review/_campo.html" with campo=form.funciono semaforo="" %}
-        {% include "review/_campo.html" with campo=form.no_funciono semaforo="" %}
         {% include "review/_campo.html" with campo=form.decision semaforo="" %}
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {% include "review/_campo.html" with campo=form.objetivo_1 semaforo="" %}
           {% include "review/_campo.html" with campo=form.objetivo_2 semaforo="" %}
           {% include "review/_campo.html" with campo=form.objetivo_3 semaforo="" %}
         </div>
+        <details x-ref="detalles" class="group" {% if form.funciono.value or form.no_funciono.value or form.funciono.errors or form.no_funciono.errors %}open{% endif %}>
+          <summary class="cursor-pointer text-body-sm text-ink-2 hover:text-ink">Qué funcionó y qué no (opcional)</summary>
+          <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {% include "review/_campo.html" with campo=form.funciono semaforo="" %}
+            {% include "review/_campo.html" with campo=form.no_funciono semaforo="" %}
+          </div>
+        </details>
       </div>
     </section>
 
-    <div class="flex justify-end">
-      <button type="submit" class="rounded-md bg-xp px-4 py-2 text-body-sm font-medium text-white hover:bg-xp/85">
-        Guardar revisión
-      </button>
+    <div class="flex flex-wrap items-center justify-end gap-3">
+      {% if cerrada %}
+        <p class="mr-auto text-caption text-ok">Revisión de esta semana cerrada.</p>
+        <button type="submit" name="accion" value="borrador" class="rounded-md bg-xp px-4 py-2 text-body-sm font-medium text-white hover:bg-xp/85">
+          Guardar cambios
+        </button>
+      {% else %}
+        <button type="submit" name="accion" value="borrador" class="btn">Guardar borrador</button>
+        <button type="submit" name="accion" value="cerrar" class="rounded-md bg-xp px-4 py-2 text-body-sm font-medium text-white hover:bg-xp/85">
+          Cerrar la revisión (+60 XP)
+        </button>
+      {% endif %}
     </div>
   </form>
 

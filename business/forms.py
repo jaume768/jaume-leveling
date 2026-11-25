@@ -56,7 +56,7 @@ class DealForm(forms.ModelForm):
     class Meta:
         model = Deal
         fields = [
-            "negocio", "contacto", "canal", "sector", "estado", "valor_potencial",
+            "negocio", "contacto", "telefono", "canal", "sector", "estado", "valor_potencial",
             "fecha_primer_contacto", "ultimo_toque", "proximo_paso",
             "fecha_proximo_paso", "motivo_perdida", "client",
         ]
@@ -82,7 +82,7 @@ class DealDatosForm(forms.ModelForm):
     class Meta:
         model = Deal
         fields = [
-            "negocio", "contacto", "canal", "sector", "valor_potencial",
+            "negocio", "contacto", "telefono", "canal", "sector", "valor_potencial",
             "fecha_primer_contacto", "ultimo_toque", "proximo_paso",
             "fecha_proximo_paso", "client",
         ]
@@ -129,7 +129,7 @@ class ClientForm(forms.ModelForm):
 class ProjectForm(forms.ModelForm):
     """Proyecto con suelo de precio.
 
-    Por debajo de 1.500 € el formulario no se bloquea, pero exige marcar la
+    Por debajo del suelo (350 € sin IVA) el formulario no se bloquea, pero exige marcar la
     excepción y escribir el motivo. Al guardarlo se registra la penalización
     de -250 XP que manda el documento.
     """

@@ -6,4 +6,5 @@ app_name = "review"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("preparar/", views.preparar, name="preparar"),
 ]

@@ -23,7 +23,7 @@ OBJETIVOS = {
     "m4_contactos_nuevos": 6,
     "m5_conversaciones": 1,
     "m5_propuestas": 1,
-    "m6_precio_medio": Decimal("1500"),
+    "m6_precio_medio": Decimal("350"),  # la oferta minima, sin IVA
     "m7_tarifa_efectiva": Decimal("40"),
     "m8_wip_abierto": 2,
     "m9_entrenos": 4,
@@ -278,3 +278,149 @@ def aviso_revision_pendiente(fecha: dt.date | None = None) -> dict | None:
             "Ocho revisiones seguidas es lo que mueve organización."
         ),
     }
+
+
+# --- Revision asistida por IA -------------------------------------------------
+
+PROMPT_REVISION = """Eres el Sistema de Jaume, un desarrollador freelance en Mallorca que vende webs
+(oferta minima: 350 EUR sin IVA por web estatica y 35 EUR/mes de mantenimiento basico).
+Preparas su revision semanal del domingo para que la cierre en 10 minutos.
+
+Reglas:
+- Usa SOLO los datos del contexto. No inventes cifras, clientes ni hechos.
+- Tono directo, en segunda persona, sin moralina ni frases motivacionales.
+- La metrica que manda es el dinero: cobrado, recurrente, propuestas y su seguimiento.
+- Una sola decision, concreta y comprobable el domingo siguiente.
+- Tres objetivos para la semana que viene, cada uno con un numero o un nombre propio.
+
+Responde UNICAMENTE con un objeto JSON valido, sin texto antes ni despues, con estas claves:
+{"resumen": "2-3 frases sobre la semana",
+ "funciono": "1-2 frases",
+ "no_funciono": "1-2 frases",
+ "decision": "una frase",
+ "objetivos": ["...", "...", "..."]}"""
+
+
+def _a_json(valor):
+    """Decimal y fechas a tipos que entiende json."""
+    if isinstance(valor, Decimal):
+        return float(valor)
+    if isinstance(valor, (dt.date, dt.datetime)):
+        return valor.isoformat()
+    return valor
+
+
+def contexto_revision(fecha: dt.date | None = None) -> dict:
+    """Todo lo que la IA necesita para preparar la revision. Solo lectura."""
+    from business import services as business
+    from business.models import Deal
+    from progression.models import XPEvent
+
+    fecha = fecha or timezone.localdate()
+    lunes, domingo = progression.rango_de_la_semana(fecha)
+    anio, semana = progression.semana_iso(fecha)
+
+    metricas = {k: _a_json(v) for k, v in metricas_calculadas(fecha).items()}
+    eventos = [
+        {"fecha": e.fecha.isoformat(), "accion": e.descripcion or e.accion_slug, "xp": e.xp_neto}
+        for e in XPEvent.objects.filter(fecha__range=(lunes, domingo)).order_by("fecha", "id")
+    ]
+    movidas = [
+        {
+            "negocio": d.negocio,
+            "estado": d.get_estado_display(),
+            "valor": _a_json(d.valor_potencial),
+            "proximo_paso": d.proximo_paso,
+        }
+        for d in Deal.objects.filter(ultimo_toque__range=(lunes, domingo)).order_by("estado")
+    ]
+    abiertas = Deal.objects.filter(estado__in=Deal.ESTADOS_ABIERTOS)
+    anterior = (
+        WeeklyReview.objects.filter(m8_revision_hecha=True)
+        .exclude(anio=anio, semana_iso=semana)
+        .order_by("-anio", "-semana_iso")
+        .first()
+    )
+    return {
+        "semana": f"{semana}/{anio}",
+        "metricas": metricas,
+        "objetivos_del_panel": {k: _a_json(v) for k, v in OBJETIVOS.items()},
+        "xp_de_la_semana": eventos,
+        "oportunidades_movidas": movidas,
+        "pipeline_abierto": {
+            "total": abiertas.count(),
+            "por_estado": {
+                etiqueta: abiertas.filter(estado=valor).count()
+                for valor, etiqueta in Deal.Estado.choices
+                if valor in Deal.ESTADOS_ABIERTOS
+            },
+        },
+        "seguimientos_pendientes": [
+            {"negocio": p["deal"].negocio, "motivo": p["motivo"]}
+            for p in business.seguimientos_pendientes(fecha)
+        ],
+        "revision_anterior": (
+            {
+                "decision": anterior.decision,
+                "objetivos": [anterior.objetivo_1, anterior.objetivo_2, anterior.objetivo_3],
+            }
+            if anterior
+            else None
+        ),
+    }
+
+
+def _extraer_json(texto: str) -> dict:
+    import json
+
+    inicio, fin = texto.find("{"), texto.rfind("}")
+    if inicio == -1 or fin <= inicio:
+        raise ValueError("La respuesta no trae JSON.")
+    datos = json.loads(texto[inicio : fin + 1])
+    objetivos = [str(o).strip() for o in (datos.get("objetivos") or []) if str(o).strip()][:3]
+    return {
+        "resumen": str(datos.get("resumen", "")).strip(),
+        "funciono": str(datos.get("funciono", "")).strip(),
+        "no_funciono": str(datos.get("no_funciono", "")).strip(),
+        "decision": str(datos.get("decision", "")).strip(),
+        "objetivos": objetivos + [""] * (3 - len(objetivos)),
+    }
+
+
+def preparar_con_ia(fecha: dt.date | None = None) -> tuple[dict | None, str]:
+    """Borrador de la revision escrito por la IA. Devuelve (propuesta, error).
+
+    La IA no guarda nada: devuelve texto y tu decides que se queda. La consulta
+    se anota en el historial de consejos para que su coste cuente en el gasto.
+    """
+    import json
+
+    from wisdom import ai
+    from wisdom.models import AdviceSession
+
+    fecha = fecha or timezone.localdate()
+    contexto = contexto_revision(fecha)
+    mensaje = (
+        "CONTEXTO DE LA SEMANA (solo lectura, generado automaticamente):\n"
+        f"{json.dumps(contexto, ensure_ascii=False, indent=1)}"
+    )
+    try:
+        respuesta = ai.ClienteIA().preguntar(PROMPT_REVISION, mensaje)
+    except ai.IAError as exc:
+        return None, str(exc)
+    try:
+        propuesta = _extraer_json(respuesta.texto)
+    except ValueError:
+        return None, "La IA no ha devuelto un borrador legible. Vuelve a probar."
+
+    AdviceSession.objects.create(
+        fecha=timezone.now(),
+        pregunta=f"Revisión semanal {contexto['semana']}: preparación automática",
+        contexto_json=contexto,
+        respuesta=respuesta.texto,
+        modelo=respuesta.modelo,
+        tokens_in=respuesta.tokens_in,
+        tokens_out=respuesta.tokens_out,
+        coste_estimado=respuesta.coste,
+    )
+    return propuesta, ""

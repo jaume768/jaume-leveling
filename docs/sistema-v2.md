@@ -488,6 +488,27 @@ Una decisión para la semana que viene:
 
 ---
 
+## 13. CAMBIOS DE REGLAS (25-11-2026)
+
+Decisiones de Jaume posteriores a esta versión. Mandan sobre las cifras anteriores.
+
+- **Oferta mínima:** web estática por **350 € sin IVA**, pago único, más
+  **mantenimiento básico de 35 €/mes sin IVA** (copias de seguridad y cambios de
+  textos, fotos y detalles siempre que el cliente quiera). Es el suelo de precio:
+  sustituye a los 1.500 € de §7.4 y ya no sube solo al llegar a Especialista.
+  Cerrar un proyecto a la oferta mínima o más puntúa los 250 XP de "proyecto
+  cerrado"; aceptar por debajo sigue costando −250 XP y la excepción por escrito.
+- **Techo semanal de XP:** los 1.000 XP frenan misiones y soporte. Los hechos
+  comerciales reales y las misiones principales quedan fuera del techo y no le
+  quitan hueco al resto; cada acción mantiene su tope semanal propio.
+- **Seguimientos:** el sistema avisa (panel y notificación de las 08:00) cuando
+  toca escribir: 3 días sin respuesta a un contacto, 4 en conversación o con
+  propuesta enviada. Cada aviso abre WhatsApp con el mensaje ya escrito.
+- **Revisión semanal:** 10 minutos. El sistema rellena las métricas, la IA
+  propone balance, decisión y tres objetivos, y tú decides con un botón.
+
+---
+
 ## CIERRE
 
 ### 1. Tus tres misiones de hoy

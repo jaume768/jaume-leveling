@@ -204,6 +204,10 @@ def _categoria_de(mission: Mission) -> str:
     return Categoria.RESULTADO
 
 
+# Misiones de una sola vez que no ocupan el techo semanal de XP.
+TIPOS_FUERA_DE_TECHO = (Mission.Tipo.PRINCIPAL, Mission.Tipo.ANUAL)
+
+
 @transaction.atomic
 def completar_mision(
     mission: Mission,
@@ -255,6 +259,9 @@ def completar_mision(
         fecha=fecha,
         fuente=XPEvent.Fuente.MISION,
         objeto_relacionado=f"mission:{mission.pk}",
+        # Las principales se hacen una vez: no deben llenar el techo semanal y
+        # dejar a cero los hechos comerciales de esa semana.
+        fuera_de_techo=mission.tipo in TIPOS_FUERA_DE_TECHO,
     )
 
     registro.completada = True

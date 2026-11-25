@@ -57,6 +57,12 @@ class Deal(models.Model):
 
     negocio = models.CharField("negocio", max_length=160)
     contacto = models.CharField("contacto", max_length=160, blank=True)
+    telefono = models.CharField(
+        "teléfono / WhatsApp",
+        max_length=30,
+        blank=True,
+        help_text="Con o sin prefijo. Sin él, el botón de WhatsApp abre el mensaje para elegir el chat.",
+    )
     canal = models.CharField(
         "canal", max_length=120, blank=True, help_text="Referido, gimnasio, frio, entrante..."
     )

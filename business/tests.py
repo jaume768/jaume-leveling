@@ -247,19 +247,19 @@ class TestSueloDePrecio:
         assert form.hay_excepcion is False
 
     def test_por_debajo_del_suelo_exige_marcar_la_excepcion(self, cliente):
-        form = ProjectForm(self._datos(cliente, "800"))
+        form = ProjectForm(self._datos(cliente, "200"))
         assert not form.is_valid()
         assert "excepcion_justificada" in form.errors
 
     def test_la_excepcion_sin_motivo_no_vale(self, cliente):
-        form = ProjectForm(self._datos(cliente, "800", excepcion_justificada="on"))
+        form = ProjectForm(self._datos(cliente, "200", excepcion_justificada="on"))
         assert not form.is_valid()
         assert "motivo_excepcion" in form.errors
 
     def test_con_excepcion_y_motivo_se_guarda(self, cliente):
         form = ProjectForm(
             self._datos(
-                cliente, "800", excepcion_justificada="on",
+                cliente, "200", excepcion_justificada="on",
                 motivo_excepcion="Cliente que trae tres referidos firmados",
             )
         )
@@ -366,7 +366,7 @@ class TestVistas:
     def test_el_formulario_avisa_del_suelo_al_cambiar_el_precio(self, client, cliente):
         respuesta = client.post(
             reverse("business:proyecto_nuevo"),
-            {"client": cliente.pk, "nombre": "Web", "precio": "800"},
+            {"client": cliente.pk, "nombre": "Web", "precio": "200"},
             headers={"HX-Request": "true"},
         )
         assert respuesta.status_code == 200
@@ -420,7 +420,7 @@ class TestXPComercial:
     def test_ganar_por_debajo_del_suelo_no_da_xp_de_cierre(self):
         deal = Deal.objects.create(
             negocio="Barato", estado=Deal.Estado.GANADO,
-            valor_potencial=Decimal("900"),
+            valor_potencial=Decimal("200"),
         )
         services.puntuar_deal(deal, Deal.Estado.PROPUESTA, fecha=LUNES)
 
@@ -478,7 +478,7 @@ class TestXPComercial:
 
 @pytest.mark.django_db
 class TestUmbralesPorRango:
-    """El documento sube el suelo y el recurrente al llegar a Especialista."""
+    """Oferta minima de 350 EUR: el suelo ya no sube solo con el rango."""
 
     def _en_rango(self, orden: int):
         from core.models import Rank
@@ -490,35 +490,31 @@ class TestUmbralesPorRango:
         perfil.save()
         return rango
 
-    def test_en_operador_el_suelo_son_1500(self):
+    def test_en_operador_el_suelo_es_la_oferta_minima(self):
         self._en_rango(2)
-        assert services.suelo_precio() == Decimal("1500")
+        assert services.suelo_precio() == Decimal("350")
         assert services.objetivo_recurrente() == Decimal("450")
 
-    def test_en_especialista_sube_a_1800_y_800(self):
+    def test_en_especialista_el_suelo_no_sube_solo_y_el_recurrente_si(self):
         self._en_rango(3)
-        assert services.suelo_precio() == Decimal("1800")
+        assert services.suelo_precio() == Decimal("350")
         assert services.objetivo_recurrente() == Decimal("800")
 
-    def test_no_vuelve_a_bajar_en_rangos_superiores(self):
-        self._en_rango(5)
-        assert services.suelo_precio() == Decimal("1800")
-        assert services.objetivo_recurrente() == Decimal("800")
+    def test_el_mantenimiento_basico_son_35(self):
+        assert services.MANTENIMIENTO_BASICO == Decimal("35")
 
-    def test_el_umbral_de_proyecto_cerrado_no_escala(self):
-        """La tabla de XP fija el cierre en 1.500 EUR y no lo sube por rango."""
+    def test_el_proyecto_cerrado_puntua_desde_la_oferta_minima(self):
         self._en_rango(4)
-        assert services.VALOR_PROYECTO_CERRADO == Decimal("1500")
+        assert services.VALOR_PROYECTO_CERRADO == Decimal("350")
 
-    def test_el_formulario_avisa_con_el_suelo_del_rango(self):
+    def test_el_formulario_avisa_con_el_suelo_vigente(self):
         self._en_rango(3)
         cliente = Client.objects.create(nombre="X", slug="x")
         form = ProjectForm(
-            {"client": cliente.pk, "nombre": "Web", "precio": "1600", "guardar": "1"}
+            {"client": cliente.pk, "nombre": "Web", "precio": "300", "guardar": "1"}
         )
         assert not form.is_valid()
-        # 1.600 EUR pasaba en Operador y ya no pasa en Especialista.
-        assert "1800" in str(form.errors) or "1.800" in str(form.errors)
+        assert "350" in str(form.errors)
 
 
 @pytest.mark.django_db

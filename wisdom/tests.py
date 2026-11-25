@@ -70,11 +70,11 @@ class TestMaximaContextual:
 
     def test_un_proyecto_por_debajo_del_suelo_trae_el_libro_iii(self, cliente):
         Project.objects.create(
-            client=cliente, nombre="Web barata", precio=Decimal("800"), estado="ACTIVO"
+            client=cliente, nombre="Web barata", precio=Decimal("200"), estado="ACTIVO"
         )
         consejo = services.maxima_contextual()
         assert consejo["maxima"].libro == "Libro III"
-        assert "800" in consejo["motivo"]
+        assert "200" in consejo["motivo"]
 
     def test_un_cliente_por_encima_del_35_trae_el_libro_ii(self, cliente):
         otro = Client.objects.create(nombre="Artà", slug="arta")

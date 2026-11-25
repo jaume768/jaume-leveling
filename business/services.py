@@ -40,6 +40,111 @@ def deals_sin_tocar(fecha: dt.date | None = None):
     ).order_by("ultimo_toque", "fecha_primer_contacto")
 
 
+# --- Seguimientos y WhatsApp -------------------------------------------------
+
+# Dias sin toque a partir de los que toca escribir otra vez, por estado. Llegan
+# antes de los 7 dias que penalizan una propuesta sin seguimiento: el aviso
+# tiene que darte tiempo, no llegar con el castigo.
+DIAS_PARA_SEGUIR = {
+    Deal.Estado.CONTACTADO: 3,
+    Deal.Estado.CONVERSANDO: 4,
+    Deal.Estado.PROPUESTA: 4,
+}
+
+# Texto del seguimiento segun el estado. {saludo} lleva el nombre si lo hay.
+MENSAJES_SEGUIMIENTO = {
+    Deal.Estado.CONTACTADO: (
+        "Hola{saludo}, soy Jaume. Te escribí hace unos días por la web de {negocio}. "
+        "¿Pudiste echarle un vistazo? Si te encaja, te enseño una propuesta de diseño sin compromiso."
+    ),
+    Deal.Estado.CONVERSANDO: (
+        "Hola{saludo}, soy Jaume. ¿Cómo lo veis lo de la web de {negocio}? "
+        "Si os va bien, os paso el presupuesto con la propuesta de diseño."
+    ),
+    Deal.Estado.PROPUESTA: (
+        "Hola{saludo}, soy Jaume. ¿Habéis podido mirar el presupuesto de la web de {negocio}? "
+        "Si tenéis cualquier duda o queréis cambiar algo, lo hablamos."
+    ),
+}
+
+
+def dias_sin_toque(deal: Deal, fecha: dt.date | None = None) -> int | None:
+    """Dias desde el ultimo toque a una fecha dada. None si esta cerrada."""
+    if not deal.esta_abierto:
+        return None
+    fecha = fecha or timezone.localdate()
+    referencia = deal.ultimo_toque or deal.fecha_primer_contacto
+    if referencia is None:
+        return None
+    return max(0, (fecha - referencia).days)
+
+
+def motivo_seguimiento(deal: Deal, fecha: dt.date | None = None) -> str:
+    """Por que toca escribir hoy a esta oportunidad. Vacio si no toca."""
+    fecha = fecha or timezone.localdate()
+    if not deal.esta_abierto:
+        return ""
+    if deal.fecha_proximo_paso and deal.fecha_proximo_paso <= fecha:
+        return "próximo paso para hoy" if deal.fecha_proximo_paso == fecha else "próximo paso vencido"
+    dias = dias_sin_toque(deal, fecha)
+    umbral = DIAS_PARA_SEGUIR.get(deal.estado)
+    if dias is None or umbral is None or dias < umbral:
+        return ""
+    if deal.estado == Deal.Estado.PROPUESTA:
+        margen = DIAS_SIN_SEGUIMIENTO - dias
+        if margen > 0:
+            return f"{dias} días sin respuesta al presupuesto (penaliza en {margen})"
+        return f"{dias} días sin respuesta al presupuesto"
+    return f"{dias} días sin respuesta"
+
+
+def seguimientos_pendientes(fecha: dt.date | None = None) -> list[dict]:
+    """Oportunidades a las que toca escribir hoy, las propuestas primero."""
+    fecha = fecha or timezone.localdate()
+    orden = {Deal.Estado.PROPUESTA: 0, Deal.Estado.CONVERSANDO: 1, Deal.Estado.CONTACTADO: 2}
+    pendientes = []
+    for deal in Deal.objects.filter(estado__in=Deal.ESTADOS_ABIERTOS):
+        motivo = motivo_seguimiento(deal, fecha)
+        if motivo:
+            pendientes.append(
+                {
+                    "deal": deal,
+                    "motivo": motivo,
+                    "dias": dias_sin_toque(deal, fecha),
+                    "whatsapp": enlace_whatsapp(deal),
+                }
+            )
+    pendientes.sort(key=lambda p: (orden.get(p["deal"].estado, 9), -(p["dias"] or 0)))
+    return pendientes
+
+
+def telefono_whatsapp(telefono: str) -> str:
+    """Solo digitos y con prefijo de pais. Un movil espanol de 9 cifras lleva 34."""
+    digitos = "".join(c for c in (telefono or "") if c.isdigit())
+    if digitos.startswith("00"):
+        digitos = digitos[2:]
+    if len(digitos) == 9 and digitos[0] in "6789":
+        digitos = "34" + digitos
+    return digitos
+
+
+def mensaje_seguimiento(deal: Deal) -> str:
+    plantilla = MENSAJES_SEGUIMIENTO.get(deal.estado, MENSAJES_SEGUIMIENTO[Deal.Estado.CONTACTADO])
+    nombre = (deal.contacto or "").strip().split(" ")[0]
+    return plantilla.format(saludo=f" {nombre}" if nombre else "", negocio=deal.negocio)
+
+
+def enlace_whatsapp(deal: Deal) -> str:
+    """Abre WhatsApp con el seguimiento ya escrito.
+
+    Con telefono va directo al chat; sin el, WhatsApp deja elegir el contacto.
+    """
+    from urllib.parse import quote
+
+    numero = telefono_whatsapp(deal.telefono)
+    return f"https://wa.me/{numero}?text={quote(mensaje_seguimiento(deal))}"
+
+
 def proyectos_activos():
     return Project.objects.filter(estado=Project.Estado.ACTIVO).select_related("client")
 
@@ -81,7 +186,27 @@ def alertas(fecha: dt.date | None = None) -> list[dict]:
                 "titulo": f"{len(frios)} oportunidad(es) sin tocar en mas de {DIAS_SIN_SEGUIMIENTO} dias",
                 "detalle": "Propuesta sin seguimiento mas de 7 dias: -100 XP. Seguimiento primero.",
                 "items": [f"{d.negocio} · {d.dias_sin_toque} d" for d in frios],
-                "url": "/admin/business/deal/",
+                "url": "/negocio/pipeline/",
+            }
+        )
+
+    # Seguimientos que tocan hoy, antes de que pasen a rojo. Los que ya estan
+    # en rojo salen arriba; aqui solo los que aun llegan a tiempo.
+    ids_frios = {d.pk for d in frios}
+    a_tiempo = [p for p in seguimientos_pendientes(fecha) if p["deal"].pk not in ids_frios]
+    if a_tiempo:
+        avisos.append(
+            {
+                "clave": "seguimiento",
+                "acento": "warn",
+                "titulo": f"Seguimientos de hoy: {len(a_tiempo)}",
+                "detalle": "Un mensaje corto por cada una. Al enviarlo, marca el toque en el pipeline.",
+                "items": [],
+                "enlaces": [
+                    {"texto": p["deal"].negocio, "detalle": p["motivo"], "url": p["whatsapp"]}
+                    for p in a_tiempo
+                ],
+                "url": "/negocio/pipeline/",
             }
         )
 
@@ -136,16 +261,20 @@ def recurrente_activo() -> Decimal:
 
 # --- Suelo de precio y XP ---------------------------------------------------
 
-# Suelo de precio (docs/sistema-v2.md, §7.4). Aceptar por debajo cuesta -250 XP.
-SUELO_PRECIO = Decimal("1500")
+# Oferta minima vigente (decision de Jaume, 25-11-2026): web estatica por
+# 350 EUR sin IVA, pago unico, mas mantenimiento basico de 35 EUR/mes sin IVA.
+# Sustituye al suelo de 1.500 EUR de docs/sistema-v2.md §7.4. Aceptar por
+# debajo sigue costando -250 XP.
+SUELO_PRECIO = Decimal("350")
+MANTENIMIENTO_BASICO = Decimal("35")
 XP_POR_EURO_COBRADO = Decimal("10")  # 1 XP por cada 10 EUR.
 OBJETIVO_RECURRENTE = Decimal("450")  # EUR/mes a 90 dias.
 
-# Umbrales que suben al cambiar de rango (docs/sistema-v2.md, SS3). Solo estan
-# aqui los dos que el documento nombra con cifra: al llegar a Especialista el
-# suelo pasa a 1.800 EUR y el recurrente objetivo a 800 EUR/mes. Los 6
-# contactos/semana y los 40 EUR/h NO suben: el documento los mantiene fijos.
-SUELO_POR_RANGO = {3: Decimal("1800")}
+# Umbrales que suben al cambiar de rango (docs/sistema-v2.md, SS3). El suelo ya
+# no sube solo con el rango: con la oferta de 350 EUR, subirlo es una decision
+# tuya, no un salto automatico. El recurrente objetivo sigue pasando a 800
+# EUR/mes en Especialista. Los 6 contactos/semana y los 40 EUR/h no suben.
+SUELO_POR_RANGO: dict = {}
 RECURRENTE_POR_RANGO = {3: Decimal("800")}
 
 
@@ -172,7 +301,7 @@ def _por_rango(tabla: dict, base: Decimal, rango=None) -> Decimal:
 
 
 def suelo_precio(rango=None) -> Decimal:
-    """Suelo de precio vigente. 1.500 EUR, 1.800 EUR desde Especialista."""
+    """Suelo de precio vigente: la oferta minima, 350 EUR sin IVA."""
     return _por_rango(SUELO_POR_RANGO, SUELO_PRECIO, rango)
 
 
@@ -268,10 +397,9 @@ def marcar_cobrada(invoice: Invoice, fecha: dt.date | None = None) -> Invoice:
 # firmar un recurrente. Cada hecho puntua UNA sola vez: la idempotencia se
 # comprueba contra el objeto relacionado del evento de XP.
 
-# Un cierre puntua como "proyecto cerrado" a partir del suelo de precio.
-# La tabla de XP fija el cierre en 1.500 EUR y no lo sube por rango, a
-# diferencia del suelo de precio. Son dos cosas distintas.
-VALOR_PROYECTO_CERRADO = Decimal("1500")
+# Un cierre puntua como "proyecto cerrado" (250 XP) a partir de la oferta
+# minima: cerrar una web a 350 EUR o mas es el resultado que se persigue.
+VALOR_PROYECTO_CERRADO = SUELO_PRECIO
 
 
 def _ya_puntuado(accion_slug: str, objeto: str) -> bool:
@@ -449,7 +577,18 @@ def filas_pipeline(estado: str = "", fecha: dt.date | None = None) -> list[dict]
         deals = deals.filter(estado=estado)
     # Las que no tienen fecha de proximo paso van al final.
     deals = deals.order_by(F("fecha_proximo_paso").asc(nulls_last=True), "-fecha_primer_contacto")
-    return [{"deal": d, "dias": d.dias_sin_toque, "alerta": nivel_alerta(d.dias_sin_toque)} for d in deals]
+    suelo = suelo_precio()
+    return [
+        {
+            "deal": d,
+            "dias": d.dias_sin_toque,
+            "alerta": nivel_alerta(d.dias_sin_toque),
+            "seguimiento": motivo_seguimiento(d, fecha),
+            "whatsapp": enlace_whatsapp(d) if d.esta_abierto else "",
+            "bajo_suelo": d.esta_abierto and 0 < d.valor_potencial < suelo,
+        }
+        for d in deals
+    ]
 
 
 def resumen_pipeline(estado: str = "", fecha: dt.date | None = None) -> dict:

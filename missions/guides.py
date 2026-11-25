@@ -136,8 +136,8 @@ GUIAS = {
         "pasos": [
             "Formal significa escrita: alcance, precio y fecha de entrega.",
             "Tres opciones de precio. La de en medio es la que quieres que elijan.",
-            "Nunca por debajo del suelo: 1.500 € web corporativa, 3.000 € "
-            "ecommerce, 1.200 € automatización.",
+            "Nunca por debajo de la oferta mínima: 350 € sin IVA por web "
+            "estática, más 35 €/mes de mantenimiento básico.",
         ],
         "no_cuenta": "«Le pasé un precio por WhatsApp» no es una propuesta formal.",
     },
@@ -145,7 +145,8 @@ GUIAS = {
         "pasos": [
             "Un cierre nuevo o una renovación de mantenimiento, da igual cuál.",
             "50% por adelantado. Siempre, sin excepciones.",
-            "Si es recurrente, planes de 79 €, 139 € o 249 €/mes según el caso.",
+            "Si es recurrente, el mantenimiento básico son 35 €/mes sin IVA, "
+            "con copias de seguridad y cambios incluidos.",
         ],
         "nota": "Es el resultado, no la actividad. Las propuestas enviadas ya "
                 "puntuaron en M1.",
@@ -360,7 +361,7 @@ GUIAS = {
     },
     "El Suelo": {
         "pasos": [
-            "Dos proyectos cerrados a 1.500 € o más.",
+            "Dos proyectos cerrados a la oferta mínima (350 € sin IVA) o más.",
             "Y uno rechazado por debajo del suelo, con el mes vacío.",
             "Plazo: semanas 4-13.",
         ],

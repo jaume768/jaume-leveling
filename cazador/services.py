@@ -964,6 +964,26 @@ def pulso(ahora: dt.datetime | None = None) -> list[str]:
         if enviar_push(titulo, cuerpo, "/", clave=f"manana:{fecha.isoformat()}"):
             hechos.append("aviso de la mañana enviado")
 
+        # Seguimientos que tocan hoy, antes de que una propuesta llegue a los 7
+        # dias que penalizan. Miercoles y domingo no se avisa: no se trabaja.
+        if not _es_protegido(fecha):
+            from business import services as business
+
+            pendientes = business.seguimientos_pendientes(fecha)
+            if pendientes:
+                nombres = [p["deal"].negocio for p in pendientes]
+                cuerpo = ", ".join(nombres[:3])
+                if len(nombres) > 3:
+                    cuerpo += f" y {len(nombres) - 3} más"
+                cuerpo += ". El mensaje ya está escrito: un toque en WhatsApp."
+                if enviar_push(
+                    f"Seguimientos de hoy: {len(nombres)}",
+                    cuerpo,
+                    "/negocio/pipeline/",
+                    clave=f"seguimientos:{fecha.isoformat()}",
+                ):
+                    hechos.append("aviso de seguimientos enviado")
+
     # Portal en curso: aviso el jueves si va por debajo de la mitad y el
     # domingo, ultima llamada.
     if ahora.hour == 12 and fecha.weekday() in (3, 6):

@@ -30,13 +30,25 @@
       {% endif %}
 
       {% for alerta in alertas %}
-        <div class="franja acento-bad">
+        <div class="franja {% if alerta.acento == 'warn' %}acento-warn{% else %}acento-bad{% endif %}">
           <span class="caja-icono">{% include "_icono.html" with icono="aviso" clase="h-5 w-5" %}</span>
           <div class="min-w-0 flex-1 basis-48">
             <p class="text-body-sm font-semibold text-ink">{{ alerta.titulo }}</p>
             <p class="mt-0.5 text-caption text-ink-2">
               {{ alerta.detalle }}{% if alerta.items %} {{ alerta.items|join:" · " }}{% endif %}
             </p>
+            {% if alerta.enlaces %}
+              <ul class="mt-2 space-y-1.5">
+                {% for enlace in alerta.enlaces %}
+                  <li class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <a href="{{ enlace.url }}" target="_blank" rel="noopener"
+                       class="btn-sm border-ok/50 text-ok hover:bg-ok/10" title="Abre WhatsApp con el seguimiento ya escrito">WhatsApp</a>
+                    <span class="text-body-sm text-ink">{{ enlace.texto }}</span>
+                    <span class="text-caption text-ink-3">{{ enlace.detalle }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% endif %}
           </div>
           <div class="flex flex-wrap items-center gap-3">
             {% if alerta.clave == "factura" %}

@@ -17,6 +17,10 @@ from core.models import Profile
 from .models import Categoria, Penalty, ResetWeek, Reward, XPEvent, XPRule
 
 # Objetivo semanal del sistema (docs/sistema-v2.md, §6): 500-750 XP, techo 1.000.
+# El techo solo frena misiones y soporte. Los hechos comerciales (cobros,
+# propuestas, cierres, conversaciones...) y las misiones principales quedan
+# fuera: una propuesta enviada nunca debe valer 0 porque una mision de 600 XP
+# haya llenado la semana. Cada accion conserva su propio tope semanal.
 OBJETIVO_XP_SEMANAL = 750
 TECHO_XP_SEMANAL = 1_000
 
@@ -205,6 +209,30 @@ def xp_positiva_de_la_semana(fecha: dt.date | None = None) -> int:
     return total or 0
 
 
+def xp_dentro_del_techo(fecha: dt.date | None = None) -> int:
+    """XP ganada en la semana que ocupa el techo de 1.000.
+
+    No cuentan los eventos marcados `fuera_de_techo` (hechos comerciales y
+    misiones principales): ni los recorta el techo ni le quitan hueco al resto.
+    """
+    fecha = fecha or timezone.localdate()
+    lunes, domingo = rango_de_la_semana(fecha)
+    total = XPEvent.objects.filter(
+        fecha__range=(lunes, domingo), xp_neto__gt=0, fuera_de_techo=False
+    ).aggregate(total=Sum("xp_neto"))["total"]
+    return total or 0
+
+
+def va_fuera_de_techo(categoria: str, fuente: str) -> bool:
+    """Un hecho comercial real queda fuera del techo semanal.
+
+    Es RESULTADO y no viene de una mision: un cobro, una propuesta, un cierre,
+    una conversacion o un referido registrados como hechos. Las misiones
+    principales se marcan aparte, desde missions.
+    """
+    return categoria == Categoria.RESULTADO and fuente != XPEvent.Fuente.MISION
+
+
 def _xp_ya_concedida(accion_slug: str, fecha: dt.date) -> int:
     lunes, domingo = rango_de_la_semana(fecha)
     total = XPEvent.objects.filter(
@@ -223,11 +251,14 @@ def registrar_xp(
     fuente: str = XPEvent.Fuente.MANUAL,
     objeto_relacionado: str = "",
     aplicar_racha: bool = True,
+    fuera_de_techo: bool | None = None,
 ) -> XPEvent:
     """Concede XP y deja constancia del tope y la racha aplicados.
 
     Si existe una XPRule con ese slug, manda la regla salvo que se pasen
-    `xp` o `categoria` explicitos.
+    `xp` o `categoria` explicitos. Con `fuera_de_techo` sin indicar, se deduce:
+    los hechos comerciales quedan fuera del techo semanal (ver
+    `va_fuera_de_techo`).
     """
     fecha = fecha or timezone.localdate()
     regla = XPRule.objects.filter(accion_slug=accion_slug, activa=True).first()
@@ -238,6 +269,8 @@ def registrar_xp(
         xp = regla.xp
     if categoria is None:
         categoria = regla.categoria if regla else Categoria.RESULTADO
+    if fuera_de_techo is None:
+        fuera_de_techo = va_fuera_de_techo(categoria, fuente)
 
     xp_bruto = int(xp)
 
@@ -261,9 +294,10 @@ def registrar_xp(
 
     # Techo global de la semana (docs/sistema-v2.md, SS6): 1.000 XP. Va despues
     # del tope por accion, porque una semana puede llegar al techo repartiendo
-    # XP entre muchas acciones sin pasarse en ninguna.
-    if xp_neto > 0:
-        margen = max(0, TECHO_XP_SEMANAL - xp_positiva_de_la_semana(fecha))
+    # XP entre muchas acciones sin pasarse en ninguna. No frena los hechos
+    # comerciales ni las misiones principales, y esos tampoco ocupan su hueco.
+    if xp_neto > 0 and not fuera_de_techo:
+        margen = max(0, TECHO_XP_SEMANAL - xp_dentro_del_techo(fecha))
         if xp_neto > margen:
             xp_neto = margen
             tope_aplicado = True
@@ -279,6 +313,7 @@ def registrar_xp(
         multiplicador_racha=multiplicador,
         fuente=fuente,
         objeto_relacionado=objeto_relacionado,
+        fuera_de_techo=fuera_de_techo,
     )
     # El Sistema avisa de lo que acaba de pasar: XP, subida de nivel, ascenso
     # y logros. Se compara con el perfil de antes de sumar.

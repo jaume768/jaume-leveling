@@ -77,13 +77,18 @@ Si ambos documentos parecen chocar, **gana la v2 en cifras y la v3 en criterio**
 - Nivel de partida: **45 de 100**. Rango: **Operador**.
 - **Tramo 41-60: 2.000 XP por nivel.** Ritmo esperado: ~1 nivel cada 3 semanas.
 - Objetivo semanal realista: **500-750 XP**. Techo semanal: **1.000 XP**.
+- **El techo solo frena misiones y soporte.** Los hechos comerciales (categoría
+  RESULTADO registrados fuera de una misión: cobros, propuestas, cierres,
+  conversaciones, referidos…) y las misiones principales/anuales quedan fuera del
+  techo y no ocupan su hueco. Cada acción conserva su propio tope semanal. Campo
+  `XPEvent.fuera_de_techo` (cambio del 25-11-2026, ver docs/sistema-v2.md §13).
 
 ### XP por resultados (con topes semanales)
 
 | Acción | XP | Tope |
 |---|---|---|
 | Contrato recurrente firmado | 350 | — |
-| Proyecto cerrado ≥ 1.500 € | 250 | — |
+| Proyecto cerrado ≥ oferta mínima (350 €) | 250 | — |
 | Dinero cobrado | 1 XP / 10 € | 400/sem |
 | Entrega aceptada por el cliente | 200 | — |
 | Propuesta formal enviada | 80 | 240/sem |
@@ -121,7 +126,7 @@ herramientas: **0 XP**. Esta regla es deliberada; no la ablandes.
 |---|---|---|
 | Semana con 0 acciones comerciales | −150 | Bloqueo del trabajo técnico no facturable hasta 6 contactos |
 | Factura vencida > 15 días sin reclamar | −200 | Reclamación antes que cualquier otra tarea |
-| Aceptar proyecto por debajo de 1.500 € | −250 | Documentar por escrito la excepción |
+| Aceptar proyecto por debajo de la oferta mínima (350 €) | −250 | Documentar por escrito la excepción |
 | Propuesta sin seguimiento > 7 días | −100 | Seguimiento primero |
 | 3 proyectos abiertos a la vez (WIP > 2) | −100 | Cerrar o congelar uno |
 | Cancelar un bloque con Alexandra por trabajo | −150 | Recuperarlo esa misma semana |
@@ -162,10 +167,13 @@ El ascenso de rango **se verifica con números**, no con sensación de progreso.
 
 ### Umbrales comerciales que el sistema debe vigilar
 
-- **Suelo de precio**: web corporativa 1.500 € (1.800 € desde el mes 4), ecommerce
-  3.000 €, automatización/IA 1.200 €, hora suelta 65 €/h, auditoría 390 €.
+- **Oferta mínima (suelo de precio)**: **350 € sin IVA** por web estática, pago
+  único. No sube sola con el rango. Sustituye al suelo de 1.500 € (25-11-2026).
 - **50% por adelantado siempre**, sin excepciones.
-- **Planes de mantenimiento**: Básico 79 €/mes · Estándar 139 €/mes · Ecommerce 249 €/mes.
+- **Mantenimiento básico**: **35 €/mes sin IVA**, con copias de seguridad y cambios
+  de textos, fotos y detalles de la web siempre que el cliente quiera.
+- **Seguimientos**: aviso en el panel y push a las 08:00 a los 3 días sin respuesta
+  (contactado) y a los 4 (conversando o propuesta), antes de los 7 que penalizan.
 - **Pipeline: 6 contactos/semana**, se esté entregando o no.
 - **WIP máximo: 2 proyectos abiertos.**
 - **Ningún cliente por encima del 35%** de la facturación anual.

@@ -65,6 +65,14 @@ class XPEvent(models.Model):
         blank=True,
         help_text="Referencia libre, p. ej. 'invoice:12' o 'deal:4'.",
     )
+    fuera_de_techo = models.BooleanField(
+        "fuera del techo semanal",
+        default=False,
+        help_text=(
+            "Hechos comerciales y misiones principales: no los recorta el techo "
+            "de 1.000 XP ni ocupan su hueco. Su tope por accion sigue valiendo."
+        ),
+    )
 
     class Meta:
         verbose_name = "evento de XP"
