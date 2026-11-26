@@ -189,7 +189,7 @@ def construir_contexto(fecha: dt.date | None = None) -> dict:
             "dias_sin_toque": d.dias_sin_toque,
         }
         for d in Deal.objects.filter(estado__in=Deal.ESTADOS_ABIERTOS)
-        if (d.dias_sin_toque or 0) > business.DIAS_SIN_SEGUIMIENTO
+        if (d.dias_sin_toque or 0) > business.DIAS_SIN_SEGUIMIENTO and not business.esta_aplazado(d, fecha)
     ][:6]
 
     facturas = business.resumen_facturas(fecha)

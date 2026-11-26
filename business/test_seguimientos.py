@@ -96,3 +96,26 @@ class TestEnlaceWhatsapp:
         _deal(Deal.Estado.PROPUESTA, valor_potencial=Decimal("200"))
         contenido = client.get(reverse("business:pipeline")).content.decode()
         assert "Bajo la oferta mínima" in contenido
+
+
+@pytest.mark.django_db
+class TestAplazadas:
+    """El cliente pide retomarlo mas adelante: silencio hasta la fecha."""
+
+    def _aplazada(self, dias=20):
+        return _deal(Deal.Estado.CONVERSANDO, dias=dias, fecha_proximo_paso=HOY + dt.timedelta(days=30))
+
+    def test_no_pide_seguimiento_antes_de_la_fecha(self):
+        assert services.motivo_seguimiento(self._aplazada(), HOY) == ""
+
+    def test_no_sale_como_oportunidad_fria(self):
+        self._aplazada()
+        assert list(services.deals_sin_tocar(HOY)) == []
+
+    def test_la_fila_no_se_pone_en_rojo(self):
+        self._aplazada()
+        assert services.filas_pipeline(fecha=HOY)[0]["alerta"] == ""
+
+    def test_el_dia_de_la_fecha_vuelve_a_avisar(self):
+        deal = self._aplazada()
+        assert services.motivo_seguimiento(deal, HOY + dt.timedelta(days=30)) == "próximo paso para hoy"

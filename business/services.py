@@ -31,10 +31,16 @@ def facturas_vencidas(fecha: dt.date | None = None):
 
 
 def deals_sin_tocar(fecha: dt.date | None = None):
-    """Oportunidades abiertas con mas de 7 dias sin seguimiento."""
+    """Oportunidades abiertas con mas de 7 dias sin seguimiento.
+
+    Las aplazadas (proximo paso con fecha futura) no cuentan: ya sabes cuando
+    toca volver a escribir.
+    """
     fecha = fecha or timezone.localdate()
     limite = fecha - dt.timedelta(days=DIAS_SIN_SEGUIMIENTO)
-    abiertos = Deal.objects.filter(estado__in=Deal.ESTADOS_ABIERTOS)
+    abiertos = Deal.objects.filter(estado__in=Deal.ESTADOS_ABIERTOS).exclude(
+        fecha_proximo_paso__gt=fecha
+    )
     return abiertos.filter(ultimo_toque__lt=limite).union(
         abiertos.filter(ultimo_toque__isnull=True, fecha_primer_contacto__lt=limite)
     ).order_by("ultimo_toque", "fecha_primer_contacto")
@@ -68,6 +74,15 @@ MENSAJES_SEGUIMIENTO = {
 }
 
 
+def esta_aplazado(deal: Deal, fecha: dt.date | None = None) -> bool:
+    """El cliente pidio retomarlo mas adelante: proximo paso con fecha futura.
+
+    Hasta esa fecha no hay avisos de seguimiento ni fila en ambar o rojo.
+    """
+    fecha = fecha or timezone.localdate()
+    return bool(deal.fecha_proximo_paso and deal.fecha_proximo_paso > fecha)
+
+
 def dias_sin_toque(deal: Deal, fecha: dt.date | None = None) -> int | None:
     """Dias desde el ultimo toque a una fecha dada. None si esta cerrada."""
     if not deal.esta_abierto:
@@ -86,6 +101,8 @@ def motivo_seguimiento(deal: Deal, fecha: dt.date | None = None) -> str:
         return ""
     if deal.fecha_proximo_paso and deal.fecha_proximo_paso <= fecha:
         return "próximo paso para hoy" if deal.fecha_proximo_paso == fecha else "próximo paso vencido"
+    if esta_aplazado(deal, fecha):
+        return ""
     dias = dias_sin_toque(deal, fecha)
     umbral = DIAS_PARA_SEGUIR.get(deal.estado)
     if dias is None or umbral is None or dias < umbral:
@@ -582,7 +599,7 @@ def filas_pipeline(estado: str = "", fecha: dt.date | None = None) -> list[dict]
         {
             "deal": d,
             "dias": d.dias_sin_toque,
-            "alerta": nivel_alerta(d.dias_sin_toque),
+            "alerta": "" if esta_aplazado(d, fecha) else nivel_alerta(d.dias_sin_toque),
             "seguimiento": motivo_seguimiento(d, fecha),
             "whatsapp": enlace_whatsapp(d) if d.esta_abierto else "",
             "bajo_suelo": d.esta_abierto and 0 < d.valor_potencial < suelo,
