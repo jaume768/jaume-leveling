@@ -174,6 +174,10 @@ El ascenso de rango **se verifica con números**, no con sensación de progreso.
   de textos, fotos y detalles de la web siempre que el cliente quiera.
 - **Seguimientos**: aviso en el panel y push a las 08:00 a los 3 días sin respuesta
   (contactado) y a los 4 (conversando o propuesta), antes de los 7 que penalizan.
+  A quien no ha contestado (contactado) se le **llama**, con guion; el WhatsApp
+  queda para quien ya habla contigo (conversando o propuesta). Insistir por
+  WhatsApp en frío restringe la cuenta (27-11-2026). Un próximo paso con fecha
+  futura aplaza la oportunidad: sin avisos hasta ese día.
 - **Pipeline: 6 contactos/semana**, se esté entregando o no.
 - **WIP máximo: 2 proyectos abiertos.**
 - **Ningún cliente por encima del 35%** de la facturación anual.

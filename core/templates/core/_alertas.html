@@ -41,8 +41,14 @@
               <ul class="mt-2 space-y-1.5">
                 {% for enlace in alerta.enlaces %}
                   <li class="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <a href="{{ enlace.url }}" target="_blank" rel="noopener"
-                       class="btn-sm border-ok/50 text-ok hover:bg-ok/10" title="Abre WhatsApp con el seguimiento ya escrito">WhatsApp</a>
+                    {% if enlace.medio == "whatsapp" %}
+                      <a href="{{ enlace.url }}" target="_blank" rel="noopener"
+                         class="btn-sm border-ok/50 text-ok hover:bg-ok/10" title="Abre WhatsApp con el seguimiento ya escrito">WhatsApp</a>
+                    {% elif enlace.url %}
+                      <a href="{{ enlace.url }}" class="btn-sm border-ok/50 text-ok hover:bg-ok/10" title="{{ enlace.guion }}">Llamar</a>
+                    {% elif enlace.datos %}
+                      <a href="{{ enlace.datos }}" class="btn-sm text-ink-3" title="Sin teléfono no se puede llamar desde aquí">+ Teléfono</a>
+                    {% endif %}
                     <span class="text-body-sm text-ink">{{ enlace.texto }}</span>
                     <span class="text-caption text-ink-3">{{ enlace.detalle }}</span>
                   </li>

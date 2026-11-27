@@ -5,7 +5,23 @@ El formulario de proyecto no bloquea un precio por debajo del suelo: lo encarece
 from django import forms
 
 from .models import Client, Deal, Invoice, Project
-from .services import suelo_precio
+from django.utils.html import format_html, format_html_join
+
+from .services import CANALES, suelo_precio
+
+
+class TextoConSugerencias(forms.TextInput):
+    """Texto libre con una lista de sugerencias (datalist) debajo."""
+
+    def __init__(self, opciones, attrs=None):
+        super().__init__(attrs)
+        self.opciones = list(opciones)
+
+    def render(self, name, value, attrs=None, renderer=None):
+        lista = f"{(attrs or {}).get('id') or name}-opciones"
+        html = super().render(name, value, {**(attrs or {}), "list": lista}, renderer)
+        opciones = format_html_join("", '<option value="{}">', ((o,) for o in self.opciones))
+        return format_html('{}<datalist id="{}">{}</datalist>', html, lista, opciones)
 
 CLASES_INPUT = (
     "w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm "
@@ -65,6 +81,7 @@ class DealForm(forms.ModelForm):
             "ultimo_toque": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "fecha_proximo_paso": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "motivo_perdida": forms.Textarea(attrs={"rows": 2}),
+            "canal": TextoConSugerencias(CANALES),
         }
 
     def __init__(self, *args, **kwargs):
@@ -90,6 +107,7 @@ class DealDatosForm(forms.ModelForm):
             "fecha_primer_contacto": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "ultimo_toque": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
             "fecha_proximo_paso": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+            "canal": TextoConSugerencias(CANALES),
         }
 
     def __init__(self, *args, **kwargs):

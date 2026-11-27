@@ -83,6 +83,47 @@ def esta_aplazado(deal: Deal, fecha: dt.date | None = None) -> bool:
     return bool(deal.fecha_proximo_paso and deal.fecha_proximo_paso > fecha)
 
 
+# Canales de entrada. El campo es texto libre; estos son los que sugiere el
+# formulario, para poder comparar resultados entre ellos.
+CANAL_FRIO_WHATSAPP = "Frio (WhatsApp)"
+CANAL_FRIO_LLAMADA = "Frio (llamada)"
+CANAL_FRIO_VISITA = "Frio (visita)"
+CANALES = [CANAL_FRIO_LLAMADA, CANAL_FRIO_VISITA, CANAL_FRIO_WHATSAPP, "Referido", "Entrante"]
+
+# Por donde se hace el seguimiento. A quien no ha contestado se le llama:
+# insistir por WhatsApp a quien no te conoce es lo que restringe la cuenta
+# (27-11-2026). WhatsApp queda para quien ya esta hablando contigo.
+SEGUIR_POR_WHATSAPP = (Deal.Estado.CONVERSANDO, Deal.Estado.PROPUESTA)
+
+GUION_LLAMADA = (
+    "Hola, soy Jaume, de Manacor. {antes}sobre la web de {negocio}. "
+    "¿Lo hablas tú o con quién lo puedo hablar? … "
+    "¿Te enseño en dos minutos cómo la vería yo? Te mando el enlace ahora por WhatsApp."
+)
+
+
+def medio_seguimiento(deal: Deal) -> str:
+    """'whatsapp' si ya hay conversacion; 'llamada' si no ha contestado."""
+    return "whatsapp" if deal.estado in SEGUIR_POR_WHATSAPP else "llamada"
+
+
+def enlace_llamada(deal: Deal) -> str:
+    """tel: con prefijo de pais. Vacio si no hay telefono."""
+    numero = telefono_whatsapp(deal.telefono)
+    return f"tel:+{numero}" if numero else ""
+
+
+def guion_llamada(deal: Deal) -> str:
+    canal = (deal.canal or "").lower()
+    if "whatsapp" in canal:
+        antes = "Os escribí por WhatsApp "
+    elif deal.ultimo_toque and deal.ultimo_toque != deal.fecha_primer_contacto:
+        antes = "Ya hablamos hace unos días "
+    else:
+        antes = "Te llamo "
+    return GUION_LLAMADA.format(antes=antes, negocio=deal.negocio)
+
+
 def dias_sin_toque(deal: Deal, fecha: dt.date | None = None) -> int | None:
     """Dias desde el ultimo toque a una fecha dada. None si esta cerrada."""
     if not deal.esta_abierto:
@@ -128,7 +169,10 @@ def seguimientos_pendientes(fecha: dt.date | None = None) -> list[dict]:
                     "deal": deal,
                     "motivo": motivo,
                     "dias": dias_sin_toque(deal, fecha),
+                    "medio": medio_seguimiento(deal),
                     "whatsapp": enlace_whatsapp(deal),
+                    "llamada": enlace_llamada(deal),
+                    "guion": guion_llamada(deal),
                 }
             )
     pendientes.sort(key=lambda p: (orden.get(p["deal"].estado, 9), -(p["dias"] or 0)))
@@ -217,10 +261,17 @@ def alertas(fecha: dt.date | None = None) -> list[dict]:
                 "clave": "seguimiento",
                 "acento": "warn",
                 "titulo": f"Seguimientos de hoy: {len(a_tiempo)}",
-                "detalle": "Un mensaje corto por cada una. Al enviarlo, marca el toque en el pipeline.",
+                "detalle": "A quien no ha contestado, una llamada; a quien ya habla contigo, un WhatsApp. Después, marca el toque en el pipeline.",
                 "items": [],
                 "enlaces": [
-                    {"texto": p["deal"].negocio, "detalle": p["motivo"], "url": p["whatsapp"]}
+                    {
+                        "texto": p["deal"].negocio,
+                        "detalle": p["motivo"],
+                        "medio": p["medio"],
+                        "url": p["whatsapp"] if p["medio"] == "whatsapp" else p["llamada"],
+                        "guion": p["guion"],
+                        "datos": f"/negocio/pipeline/{p['deal'].pk}/datos/",
+                    }
                     for p in a_tiempo
                 ],
                 "url": "/negocio/pipeline/",
@@ -601,7 +652,10 @@ def filas_pipeline(estado: str = "", fecha: dt.date | None = None) -> list[dict]
             "dias": d.dias_sin_toque,
             "alerta": "" if esta_aplazado(d, fecha) else nivel_alerta(d.dias_sin_toque),
             "seguimiento": motivo_seguimiento(d, fecha),
-            "whatsapp": enlace_whatsapp(d) if d.esta_abierto else "",
+            "medio": medio_seguimiento(d),
+            "whatsapp": enlace_whatsapp(d) if d.esta_abierto and medio_seguimiento(d) == "whatsapp" else "",
+            "llamada": enlace_llamada(d) if d.esta_abierto and medio_seguimiento(d) == "llamada" else "",
+            "guion": guion_llamada(d) if d.esta_abierto and medio_seguimiento(d) == "llamada" else "",
             "bajo_suelo": d.esta_abierto and 0 < d.valor_potencial < suelo,
         }
         for d in deals

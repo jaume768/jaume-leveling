@@ -6,7 +6,13 @@
     <p class="text-ink">{{ fila.deal.negocio }}</p>
     {% if fila.deal.contacto %}<p class="text-caption text-ink-3">{{ fila.deal.contacto }}</p>{% endif %}
     {% if fila.deal.canal %}<p class="text-caption text-ink-3">{{ fila.deal.canal }}</p>{% endif %}
-    {% if fila.seguimiento and not editando %}<p class="mt-1 text-caption font-medium text-warn">Toca seguimiento: {{ fila.seguimiento }}</p>{% endif %}
+    {% if fila.seguimiento and not editando %}<p class="mt-1 text-caption font-medium text-warn">Toca {% if fila.medio == 'llamada' %}llamar{% else %}seguimiento{% endif %}: {{ fila.seguimiento }}</p>{% endif %}
+    {% if fila.guion and fila.seguimiento and not editando %}
+      <details class="mt-1 max-w-xs">
+        <summary class="cursor-pointer text-caption text-ink-3 hover:text-ink">Guion de la llamada</summary>
+        <p class="mt-1 text-caption text-ink-2">{{ fila.guion }}</p>
+      </details>
+    {% endif %}
   </td>
 
   {% if editando %}
@@ -65,6 +71,12 @@
       {% if fila.whatsapp %}
         <a class="btn-sm border-ok/50 text-ok hover:bg-ok/10" href="{{ fila.whatsapp }}" target="_blank" rel="noopener"
            title="Abre WhatsApp con el seguimiento ya escrito{% if not fila.deal.telefono %}; sin teléfono, eliges tú el chat{% endif %}">WhatsApp</a>
+      {% elif fila.llamada %}
+        <a class="btn-sm border-ok/50 text-ok hover:bg-ok/10" href="{{ fila.llamada }}"
+           title="Llama: no ha contestado, mejor que otro WhatsApp">Llamar</a>
+      {% elif fila.medio == 'llamada' and fila.dias is not None %}
+        <a class="btn-sm text-ink-3" href="{% url 'business:deal_datos' fila.deal.pk %}"
+           title="Sin teléfono no se puede llamar desde aquí">+ Teléfono</a>
       {% endif %}
       <button type="button" class="btn-sm"
               hx-post="{% url 'business:deal_toque' fila.deal.pk %}"

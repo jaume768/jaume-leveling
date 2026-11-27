@@ -975,7 +975,14 @@ def pulso(ahora: dt.datetime | None = None) -> list[str]:
                 cuerpo = ", ".join(nombres[:3])
                 if len(nombres) > 3:
                     cuerpo += f" y {len(nombres) - 3} más"
-                cuerpo += ". El mensaje ya está escrito: un toque en WhatsApp."
+                llamadas = sum(1 for p in pendientes if p["medio"] == "llamada")
+                mensajes = len(pendientes) - llamadas
+                partes = []
+                if llamadas:
+                    partes.append(f"{llamadas} llamada{'s' if llamadas != 1 else ''}")
+                if mensajes:
+                    partes.append(f"{mensajes} WhatsApp")
+                cuerpo += ". " + " y ".join(partes) + ": el guion y el mensaje ya están escritos."
                 if enviar_push(
                     f"Seguimientos de hoy: {len(nombres)}",
                     cuerpo,

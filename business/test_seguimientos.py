@@ -51,7 +51,15 @@ class TestCuandoTocaSeguimiento:
         _deal(Deal.Estado.PROPUESTA, dias=4, negocio="Paesma", telefono="615 076 100")
         aviso = next(a for a in services.alertas(HOY) if a["clave"] == "seguimiento")
         assert aviso["enlaces"][0]["texto"] == "Paesma"
+        assert aviso["enlaces"][0]["medio"] == "whatsapp"
         assert aviso["enlaces"][0]["url"].startswith("https://wa.me/34615076100?text=")
+
+    def test_a_quien_no_ha_contestado_el_panel_le_propone_llamar(self):
+        _deal(dias=3, negocio="Fachadas", telefono="615 076 100", canal=services.CANAL_FRIO_WHATSAPP)
+        enlace = next(a for a in services.alertas(HOY) if a["clave"] == "seguimiento")["enlaces"][0]
+        assert enlace["medio"] == "llamada"
+        assert enlace["url"] == "tel:+34615076100"
+        assert "Os escribí por WhatsApp" in enlace["guion"]
 
     def test_lo_que_ya_esta_en_rojo_no_se_repite_en_seguimientos(self):
         _deal(Deal.Estado.PROPUESTA, dias=9, negocio="Olvidada")
@@ -88,7 +96,7 @@ class TestEnlaceWhatsapp:
         assert services.enlace_whatsapp(_deal()).startswith("https://wa.me/?text=")
 
     def test_el_pipeline_enseña_el_boton(self, client):
-        _deal(telefono="637725611")
+        _deal(Deal.Estado.CONVERSANDO, telefono="637725611")
         contenido = client.get(reverse("business:pipeline")).content.decode()
         assert "https://wa.me/34637725611" in contenido
 
@@ -119,3 +127,35 @@ class TestAplazadas:
     def test_el_dia_de_la_fecha_vuelve_a_avisar(self):
         deal = self._aplazada()
         assert services.motivo_seguimiento(deal, HOY + dt.timedelta(days=30)) == "próximo paso para hoy"
+
+
+@pytest.mark.django_db
+class TestLlamarAQuienNoContesta:
+    """Insistir por WhatsApp en frio restringe la cuenta: se llama."""
+
+    def test_contactado_se_llama_y_conversando_va_por_whatsapp(self):
+        assert services.medio_seguimiento(_deal()) == "llamada"
+        assert services.medio_seguimiento(_deal(Deal.Estado.CONVERSANDO)) == "whatsapp"
+        assert services.medio_seguimiento(_deal(Deal.Estado.PROPUESTA)) == "whatsapp"
+
+    def test_el_enlace_de_llamada_lleva_prefijo(self):
+        assert services.enlace_llamada(_deal(telefono="637 72 56 11")) == "tel:+34637725611"
+        assert services.enlace_llamada(_deal()) == ""
+
+    def test_el_pipeline_enseña_llamar_y_no_whatsapp_a_un_contactado(self, client):
+        _deal(telefono="637725611")
+        contenido = client.get(reverse("business:pipeline")).content.decode()
+        assert 'href="tel:+34637725611"' in contenido
+        assert "https://wa.me/34637725611" not in contenido
+
+    def test_sin_telefono_pide_añadirlo(self, client):
+        _deal()
+        contenido = client.get(reverse("business:pipeline")).content.decode()
+        assert "+ Teléfono" in contenido
+
+    def test_el_formulario_sugiere_los_canales(self, client):
+        from business.forms import DealDatosForm
+
+        html = str(DealDatosForm()["canal"])
+        assert "<datalist" in html
+        assert services.CANAL_FRIO_LLAMADA in html

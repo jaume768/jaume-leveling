@@ -503,7 +503,14 @@ Decisiones de Jaume posteriores a esta versión. Mandan sobre las cifras anterio
   quitan hueco al resto; cada acción mantiene su tope semanal propio.
 - **Seguimientos:** el sistema avisa (panel y notificación de las 08:00) cuando
   toca escribir: 3 días sin respuesta a un contacto, 4 en conversación o con
-  propuesta enviada. Cada aviso abre WhatsApp con el mensaje ya escrito.
+  propuesta enviada.
+- **Llamar a quien no contesta (27-11-2026):** a un contacto sin respuesta se le
+  llama, con guion; el WhatsApp con el mensaje escrito queda para quien ya habla
+  contigo (conversación o propuesta). Mandar seguimientos en frío por WhatsApp
+  restringe la cuenta. Canales sugeridos: Frío (llamada), Frío (visita), Frío
+  (WhatsApp), Referido, Entrante, para comparar resultados.
+- **Aplazadas:** un próximo paso con fecha futura silencia los avisos de esa
+  oportunidad hasta ese día ("háblame en enero").
 - **Revisión semanal:** 10 minutos. El sistema rellena las métricas, la IA
   propone balance, decisión y tres objetivos, y tú decides con un botón.
 
